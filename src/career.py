@@ -32,7 +32,10 @@ class DraftResult:
     scouted_talent: int
 
     def as_dict(self) -> dict[str, object]:
-        return {"team": self.team, "round": self.round, "pick": self.pick, "status": self.status, "scouting_score": round(self.scouting_score, 3), "scouted_talent": self.scouted_talent}
+        return {
+            "team": self.team, "round": self.round, "pick": self.pick, "status": self.status,
+            "scouting_score": round(self.scouting_score, 3), "scouted_talent": self.scouted_talent,
+        }
 
 
 @dataclass
@@ -47,11 +50,17 @@ class ProSeasonSession:
         return self.games_completed >= config.KBO_FIRST_TEAM_GAMES
 
     def as_dict(self) -> dict[str, object]:
-        return {"year": self.year, "record": self.record.as_dict(), "games_completed": self.games_completed, "current_level": self.current_level}
+        return {
+            "year": self.year, "record": self.record.as_dict(), "games_completed": self.games_completed,
+            "current_level": self.current_level,
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, object]) -> "ProSeasonSession":
-        return cls(int(data["year"]), SeasonRecord.from_dict(dict(data["record"])), int(data.get("games_completed", 0)), str(data.get("current_level", "FARM")))
+        return cls(
+            year=int(data["year"]), record=SeasonRecord.from_dict(dict(data["record"])),
+            games_completed=int(data.get("games_completed", 0)), current_level=str(data.get("current_level", "FARM")),
+        )
 
 
 @dataclass
@@ -86,7 +95,9 @@ class CareerEngine:
         if mvp:
             self.player.awards.append({"year": self.year, "award": f"{name} MVP", "level": "HIGH_SCHOOL"})
         result = TournamentResult(name, games, line, champion, mvp)
-        self.tournament_results.append({"name": name, "games": games, "line": line.as_dict(), "champion": champion, "mvp": mvp})
+        self.tournament_results.append({
+            "name": name, "games": games, "line": line.as_dict(), "champion": champion, "mvp": mvp,
+        })
         self.tournament_index += 1
         return result
 
@@ -98,16 +109,21 @@ class CareerEngine:
         if self.phase != "HIGH_SCHOOL":
             if self.player.draft_info:
                 info = self.player.draft_info
-                return DraftResult(str(info["team"]), int(info["round"]) if info.get("round") else None, int(info["pick"]) if info.get("pick") else None, str(info["status"]), float(info["scouting_score"]), int(info["scouted_talent"]))
+                return DraftResult(str(info["team"]), info.get("round") and int(info["round"]), info.get("pick") and int(info["pick"]), str(info["status"]), float(info["scouting_score"]), int(info["scouted_talent"]))
             raise RuntimeError("draft can only run after high school")
         self.finish_high_school()
         scouted_talent = max(0, int(round(self.rng.gauss(self.player.stats.talent, 24.0))))
         ability = self.player.stats.current_ability()
-        perf = 72.0 + (self.player.high_school_stats.OPS - 0.75) * 55.0 + min(12.0, self.player.high_school_stats.HR * 1.4)
+        perf = 72.0 + (self.player.high_school_stats.OPS - 0.75) * 55.0
+        perf += min(12.0, self.player.high_school_stats.HR * 1.4)
         health = self.player.stats.durability
         position = 75.0 + config.POSITION_DRAFT_VALUE.get(self.player.position, 0)
         w = config.DRAFT_WEIGHTS
-        score = ability * w["current_ability"] + scouted_talent * w["scouted_talent"] + perf * w["performance"] + position * w["position"] + health * w["health"] + self.rng.gauss(0.0, 7.0)
+        score = (
+            ability * w["current_ability"] + scouted_talent * w["scouted_talent"]
+            + perf * w["performance"] + position * w["position"] + health * w["health"]
+            + self.rng.gauss(0.0, 7.0)
+        )
         if score >= 103:
             round_no = 1
         elif score >= 94:
@@ -118,9 +134,14 @@ class CareerEngine:
             round_no = self.rng.randint(8, 11)
         else:
             round_no = None
-        team = str(self.rng.choice(config.KBO_TEAMS)["name"])
-        status = "지명" if round_no is not None else "미지명 육성선수 계약"
-        pick = (round_no - 1) * 10 + self.rng.randint(1, 10) if round_no is not None else None
+        team_info = self.rng.choice(config.KBO_TEAMS)
+        team = str(team_info["name"])
+        if round_no is None:
+            status = "미지명 육성선수 계약"
+            pick = None
+        else:
+            status = "지명"
+            pick = (round_no - 1) * 10 + self.rng.randint(1, 10)
         draft = DraftResult(team, round_no, pick, status, score, scouted_talent)
         self.player.draft_info = draft.as_dict()
         self.player.team = team
@@ -134,6 +155,19 @@ class CareerEngine:
             raise RuntimeError("player has no KBO team")
         return next(dict(team) for team in config.KBO_TEAMS if team["name"] == self.player.team)
 
+    def start_pro_season(self) -> ProSeasonSession:
+        if self.phase == "HIGH_SCHOOL":
+            self.evaluate_draft()
+        if self.phase != "PRO":
+            raise RuntimeError("career is not in professional phase")
+        if self.current_session:
+            return self.current_session
+        current_level = "FIRST" if self._initial_first_team_chance() else "FARM"
+        self.player.roster_level = current_level
+        record = SeasonRecord(self.year, self.player.age, self.player.team or "", BattingLine(), BattingLine())
+        self.current_session = ProSeasonSession(self.year, record, 0, current_level)
+        return self.current_session
+
     def _initial_first_team_chance(self) -> bool:
         team = self._team_config()
         competition = float(team["depth"]) + config.POSITION_COMPETITION.get(self.player.position, 0) - 10.0
@@ -141,18 +175,6 @@ class CareerEngine:
         if self.player.draft_info and self.player.draft_info.get("round") == 1:
             chance += 0.08
         return self.rng.random() < min(0.82, chance)
-
-    def start_pro_season(self) -> ProSeasonSession:
-        if self.phase == "HIGH_SCHOOL":
-            self.evaluate_draft()
-        if self.phase != "PRO":
-            raise RuntimeError("career is not in professional phase")
-        if self.current_session and not self.current_session.finished:
-            return self.current_session
-        current_level = "FIRST" if self._initial_first_team_chance() else "FARM"
-        self.player.roster_level = current_level
-        self.current_session = ProSeasonSession(self.year, SeasonRecord(self.year, self.player.age, self.player.team or ""), 0, current_level)
-        return self.current_session
 
     def _update_form(self) -> None:
         if self.player.form_games_remaining > 0:
@@ -212,10 +234,13 @@ class CareerEngine:
 
     def _play_probability(self, level: str) -> float:
         ability = self.player.stats.current_ability()
-        return logistic_range(ability - (92.0 if level == "FIRST" else 68.0), 0.38 if level == "FIRST" else 0.55, 0.90 if level == "FIRST" else 0.94, 16.0)
+        if level == "FIRST":
+            return logistic_range(ability - 92.0, 0.38, 0.90, 16.0)
+        return logistic_range(ability - 68.0, 0.55, 0.94, 16.0)
 
     def _fatigue_after_game(self) -> None:
-        increment = config.FATIGUE_PER_GAME_BASE * (100.0 / (max(1, self.player.stats.stamina) + 45.0))
+        stamina = max(1, self.player.stats.stamina)
+        increment = config.FATIGUE_PER_GAME_BASE * (100.0 / (stamina + 45.0))
         self.player.fatigue = min(100.0, self.player.fatigue + increment)
 
     def _reconsider_roster(self, session: ProSeasonSession) -> None:
@@ -239,19 +264,29 @@ class CareerEngine:
         if count <= 0:
             raise ValueError("count must be positive")
         session = self.start_pro_season()
+        remaining = min(count, config.KBO_FIRST_TEAM_GAMES - session.games_completed)
         team = self._team_config()
-        for _ in range(min(count, config.KBO_FIRST_TEAM_GAMES - session.games_completed)):
+        for _ in range(remaining):
             session.games_completed += 1
             if self.player.injury:
-                self._recover_day(); self._update_form(); self._reconsider_roster(session); continue
+                self._recover_day()
+                self._update_form()
+                self._reconsider_roster(session)
+                continue
             if self.rng.random() >= self._play_probability(session.current_level):
-                self._recover_day(); self._update_form(); self._reconsider_roster(session); continue
+                self._recover_day()
+                self._update_form()
+                self._reconsider_roster(session)
+                continue
             target = session.record.first_team if session.current_level == "FIRST" else session.record.farm
             opponent_level = float(team["first_team_level"] if session.current_level == "FIRST" else team["farm_level"])
             simulate_player_game(self.player, opponent_level, self.rng, target)
             if session.current_level == "FIRST" and self.player.debut_year is None:
                 self.player.debut_year = self.year
-            self._fatigue_after_game(); self._maybe_injure(); self._update_form(); self._reconsider_roster(session)
+            self._fatigue_after_game()
+            self._maybe_injure()
+            self._update_form()
+            self._reconsider_roster(session)
         return session
 
     def _determine_awards(self, record: SeasonRecord) -> list[str]:
@@ -261,72 +296,112 @@ class CareerEngine:
         rivals: list[dict[str, float]] = []
         for _ in range(9):
             avg = max(0.210, min(0.360, self.rng.gauss(0.275, 0.027)))
-            hr = max(1.0, self.rng.gauss(22.0, 10.0)); rbi = max(20.0, self.rng.gauss(78.0, 20.0)); sb = max(0.0, self.rng.gauss(14.0, 11.0))
-            ops = max(0.600, min(1.080, self.rng.gauss(0.790, 0.085))); defense = self.rng.gauss(100.0, 13.0)
-            rivals.append({"AVG": avg, "HR": hr, "RBI": rbi, "SB": sb, "DEF": defense, "MVP": ops * 100 + hr * 0.55 + rbi * 0.10 + sb * 0.05})
+            hr = max(1.0, self.rng.gauss(22.0, 10.0))
+            rbi = max(20.0, self.rng.gauss(78.0, 20.0))
+            sb = max(0.0, self.rng.gauss(14.0, 11.0))
+            ops = max(0.600, min(1.080, self.rng.gauss(0.790, 0.085)))
+            defense = self.rng.gauss(100.0, 13.0)
+            mvp = ops * 100 + hr * 0.55 + rbi * 0.10 + sb * 0.05
+            rivals.append({"AVG": avg, "HR": hr, "RBI": rbi, "SB": sb, "OPS": ops, "DEF": defense, "MVP": mvp})
         awards: list[str] = []
-        if line.AVG > max(r["AVG"] for r in rivals): awards.append("타격왕")
-        if line.HR > max(r["HR"] for r in rivals): awards.append("홈런왕")
-        if line.RBI > max(r["RBI"] for r in rivals): awards.append("타점왕")
-        if line.SB > max(r["SB"] for r in rivals): awards.append("도루왕")
+        if line.AVG > max(r["AVG"] for r in rivals):
+            awards.append("타격왕")
+        if line.HR > max(r["HR"] for r in rivals):
+            awards.append("홈런왕")
+        if line.RBI > max(r["RBI"] for r in rivals):
+            awards.append("타점왕")
+        if line.SB > max(r["SB"] for r in rivals):
+            awards.append("도루왕")
         defense_score = self.player.stats.defense + (8 if has_trait(self.player.traits, "defense_sense") else 0) + self.rng.gauss(0, 7)
-        if line.G >= 80 and defense_score > max(r["DEF"] for r in rivals): awards.append("골든글러브")
+        if line.G >= 80 and defense_score > max(r["DEF"] for r in rivals):
+            awards.append("골든글러브")
         mvp_score = line.OPS * 100 + line.HR * 0.55 + line.RBI * 0.10 + line.SB * 0.05
-        if mvp_score > max(r["MVP"] for r in rivals): awards.append("MVP")
+        if mvp_score > max(r["MVP"] for r in rivals):
+            awards.append("MVP")
         return awards
 
     def _maybe_change_trait(self) -> None:
+        # Low-frequency acquisition/removal. This is intentionally not a fixed canon rule.
         if self.player.traits and self.rng.random() < 0.018:
-            removed = self.rng.choice(self.player.traits); self.player.traits.remove(removed)
+            removed = self.rng.choice(self.player.traits)
+            self.player.traits.remove(removed)
             self.player.trait_history.append({"year": self.year, "action": "lost", "trait": removed.key})
         if len(self.player.traits) >= 7 or self.rng.random() >= 0.045:
             return
-        candidates: list[Trait] = [trait for trait in TRAIT_CATALOG if trait not in self.player.traits and not any(traits_conflict(trait, existing) for existing in self.player.traits)]
+        candidates: list[Trait] = [
+            trait for trait in TRAIT_CATALOG
+            if trait not in self.player.traits and not any(traits_conflict(trait, existing) for existing in self.player.traits)
+        ]
         if candidates:
-            gained = self.rng.choice(candidates); self.player.traits.append(gained)
+            gained = self.rng.choice(candidates)
+            self.player.traits.append(gained)
             self.player.trait_history.append({"year": self.year, "action": "gained", "trait": gained.key})
 
     def finish_pro_season(self) -> tuple[SeasonRecord, GrowthResult]:
         session = self.start_pro_season()
         if not session.finished:
             self.advance_pro_games(config.KBO_FIRST_TEAM_GAMES - session.games_completed)
-        awards = self._determine_awards(session.record); session.record.awards.extend(awards)
+        awards = self._determine_awards(session.record)
+        session.record.awards.extend(awards)
         for award in awards:
             self.player.awards.append({"year": self.year, "award": award, "level": "KBO"})
         self.player.seasons.append(session.record)
         growth = apply_season_growth(self.player, self.rng)
         self._maybe_change_trait()
-        self.year += 1; self.current_session = None; self.player.form = "normal"; self.player.form_games_remaining = 0; self.player.fatigue = max(0.0, self.player.fatigue * 0.25)
+        self.year += 1
+        self.current_session = None
+        self.player.form = "normal"
+        self.player.form_games_remaining = 0
+        self.player.fatigue = max(0.0, self.player.fatigue * 0.25)
         return session.record, growth
 
     def should_retire(self) -> bool:
         if self.player.age >= config.RETIREMENT_HARD_AGE:
             return True
-        recent_first_pa = sum(s.first_team.PA for s in self.player.seasons[-2:])
+        recent = self.player.seasons[-2:]
+        recent_first_pa = sum(s.first_team.PA for s in recent)
+        ability = self.player.stats.current_ability()
         chance = 0.0
-        if self.player.age >= 35: chance += 0.05 + (self.player.age - 35) * 0.055
-        if self.player.age >= 30 and recent_first_pa < 80: chance += 0.08
-        if self.player.stats.current_ability() < 72: chance += 0.08
-        if self.player.injury and self.player.injury.severity == "중상": chance += 0.07
-        if self.player.age < 27: chance *= 0.05
+        if self.player.age >= 35:
+            chance += 0.05 + (self.player.age - 35) * 0.055
+        if self.player.age >= 30 and recent_first_pa < 80:
+            chance += 0.08
+        if ability < 72:
+            chance += 0.08
+        if self.player.injury and self.player.injury.severity == "중상":
+            chance += 0.07
+        if self.player.age < 27:
+            chance *= 0.05
         return self.rng.random() < min(0.92, chance)
 
     def retire(self) -> None:
-        self.phase = "RETIRED"; self.player.roster_level = "RETIRED"; self.player.retirement_age = self.player.age
+        self.phase = "RETIRED"
+        self.player.roster_level = "RETIRED"
+        self.player.retirement_age = self.player.age
 
     def run_to_retirement(self, max_seasons: int = 30) -> Player:
-        if self.phase == "HIGH_SCHOOL": self.evaluate_draft()
+        if self.phase == "HIGH_SCHOOL":
+            self.evaluate_draft()
         seasons = 0
         while self.phase == "PRO" and seasons < max_seasons:
-            self.finish_pro_season(); seasons += 1
-            if self.should_retire(): self.retire()
-        if self.phase == "PRO": self.retire()
+            self.finish_pro_season()
+            seasons += 1
+            if self.should_retire():
+                self.retire()
+        if self.phase == "PRO":
+            self.retire()
         return self.player
 
     def as_dict(self) -> dict[str, object]:
-        return {"year": self.year, "tournament_index": self.tournament_index, "phase": self.phase, "tournament_results": self.tournament_results, "current_session": self.current_session.as_dict() if self.current_session else None}
+        return {
+            "year": self.year, "tournament_index": self.tournament_index, "phase": self.phase,
+            "tournament_results": self.tournament_results,
+            "current_session": self.current_session.as_dict() if self.current_session else None,
+        }
 
     def restore_state(self, data: dict[str, Any]) -> None:
-        self.year = int(data.get("year", self.year)); self.tournament_index = int(data.get("tournament_index", 0)); self.phase = str(data.get("phase", "HIGH_SCHOOL"))
+        self.year = int(data.get("year", self.year))
+        self.tournament_index = int(data.get("tournament_index", 0))
+        self.phase = str(data.get("phase", "HIGH_SCHOOL"))
         self.tournament_results = [dict(v) for v in data.get("tournament_results", [])]
         self.current_session = ProSeasonSession.from_dict(dict(data["current_session"])) if data.get("current_session") else None
