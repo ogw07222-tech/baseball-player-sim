@@ -1,5 +1,4 @@
-"""Trait definitions and random assignment for Phase 1."""
-
+"""Trait definitions, conflicts, and random assignment."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,7 +11,6 @@ from .rng import RNG
 class TraitPolarity(str, Enum):
     POSITIVE = "positive"
     NEGATIVE = "negative"
-    NEUTRAL = "neutral"
 
 
 @dataclass(frozen=True)
@@ -21,6 +19,9 @@ class Trait:
     name: str
     polarity: TraitPolarity
     tags: frozenset[str]
+
+    def as_dict(self) -> dict[str, object]:
+        return {"key": self.key, "name": self.name, "polarity": self.polarity.value, "tags": sorted(self.tags)}
 
 
 TRAIT_CATALOG: tuple[Trait, ...] = (
@@ -32,8 +33,8 @@ TRAIT_CATALOG: tuple[Trait, ...] = (
     Trait("high_velocity_weakness", "고속구 취약", TraitPolarity.NEGATIVE, frozenset({"batting", "velocity"})),
     Trait("low_pitch_strength", "낮은 공 강점", TraitPolarity.POSITIVE, frozenset({"batting", "zone"})),
     Trait("low_pitch_weakness", "낮은 공 취약", TraitPolarity.NEGATIVE, frozenset({"batting", "zone"})),
-    Trait("inside_pitch_strength", "몸쪽 강점", TraitPolarity.POSITIVE, frozenset({"batting", "zone"})),
-    Trait("inside_pitch_weakness", "몸쪽 취약", TraitPolarity.NEGATIVE, frozenset({"batting", "zone"})),
+    Trait("inside_pitch_strength", "몸쪽 공 강점", TraitPolarity.POSITIVE, frozenset({"batting", "zone"})),
+    Trait("inside_pitch_weakness", "몸쪽 공 취약", TraitPolarity.NEGATIVE, frozenset({"batting", "zone"})),
     Trait("vs_lhp_strength", "좌완 강점", TraitPolarity.POSITIVE, frozenset({"batting", "platoon"})),
     Trait("vs_lhp_weakness", "좌완 취약", TraitPolarity.NEGATIVE, frozenset({"batting", "platoon"})),
     Trait("vs_rhp_strength", "우완 강점", TraitPolarity.POSITIVE, frozenset({"batting", "platoon"})),
@@ -50,17 +51,14 @@ TRAIT_CATALOG: tuple[Trait, ...] = (
     Trait("injury_risk", "부상 위험", TraitPolarity.NEGATIVE, frozenset({"injury"})),
     Trait("quick_recovery", "회복이 빠름", TraitPolarity.POSITIVE, frozenset({"injury"})),
 )
-
+TRAIT_BY_KEY = {trait.key: trait for trait in TRAIT_CATALOG}
 CONFLICTS = {
-    frozenset(("fastball_specialist", "fastball_weakness")),
-    frozenset(("breaking_ball_response", "breaking_ball_weakness")),
-    frozenset(("high_velocity_strength", "high_velocity_weakness")),
-    frozenset(("low_pitch_strength", "low_pitch_weakness")),
-    frozenset(("inside_pitch_strength", "inside_pitch_weakness")),
-    frozenset(("vs_lhp_strength", "vs_lhp_weakness")),
-    frozenset(("vs_rhp_strength", "vs_rhp_weakness")),
-    frozenset(("fast_growth", "slow_growth")),
-    frozenset(("volatile", "consistent")),
+    frozenset(pair) for pair in (
+        ("fastball_specialist", "fastball_weakness"), ("breaking_ball_response", "breaking_ball_weakness"),
+        ("high_velocity_strength", "high_velocity_weakness"), ("low_pitch_strength", "low_pitch_weakness"),
+        ("inside_pitch_strength", "inside_pitch_weakness"), ("vs_lhp_strength", "vs_lhp_weakness"),
+        ("vs_rhp_strength", "vs_rhp_weakness"), ("fast_growth", "slow_growth"), ("volatile", "consistent"),
+    )
 }
 
 
@@ -68,18 +66,39 @@ def traits_conflict(a: Trait, b: Trait) -> bool:
     return frozenset((a.key, b.key)) in CONFLICTS
 
 
-def generate_random_traits(rng: RNG) -> list[Trait]:
-    target_count = rng.weighted_choice(config.INITIAL_TRAIT_COUNT_WEIGHTS)
+def _weighted_trait(rng: RNG, candidates: list[Trait]) -> Trait:
+    positive = [t for t in candidates if t.polarity == TraitPolarity.POSITIVE]
+    negative = [t for t in candidates if t.polarity == TraitPolarity.NEGATIVE]
+    desired = positive if rng.random() < config.TRAIT_POSITIVE_SHARE else negative
+    pool = desired or candidates
+    return rng.weighted_choice([(t, config.TRAIT_WEIGHTS.get(t.key, config.TRAIT_DEFAULT_WEIGHT)) for t in pool])
+
+
+def generate_random_traits(rng: RNG, count: int | None = None) -> list[Trait]:
+    if count is None:
+        count = rng.randint(0, 3)
+    if count not in (0, 1, 2, 3):
+        raise ValueError("trait count must be 0..3")
     candidates = list(TRAIT_CATALOG)
     selected: list[Trait] = []
-    while candidates and len(selected) < target_count:
-        trait = rng.choice(candidates)
+    while candidates and len(selected) < count:
+        trait = _weighted_trait(rng, candidates)
         candidates.remove(trait)
         if any(traits_conflict(trait, existing) for existing in selected):
             continue
         selected.append(trait)
+        candidates = [c for c in candidates if not traits_conflict(c, trait)]
+    if len(selected) != count:
+        raise RuntimeError("trait catalog cannot satisfy requested count")
     return selected
 
 
 def has_trait(traits: list[Trait], key: str) -> bool:
     return any(trait.key == key for trait in traits)
+
+
+def trait_from_key(key: str) -> Trait:
+    try:
+        return TRAIT_BY_KEY[key]
+    except KeyError as exc:
+        raise ValueError(f"unknown trait key: {key}") from exc

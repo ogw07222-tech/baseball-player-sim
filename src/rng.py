@@ -1,5 +1,4 @@
 """Central random-number interface for reproducible simulations."""
-
 from __future__ import annotations
 
 import random
@@ -9,13 +8,6 @@ T = TypeVar("T")
 
 
 class RNG:
-    """Small wrapper around random.Random.
-
-    Every simulation system should receive an RNG instance instead of using
-    the module-level random functions. A seed therefore reproduces a run as
-    long as call order and algorithms stay unchanged.
-    """
-
     def __init__(self, seed: int | str | bytes | None = None) -> None:
         self.seed = seed
         self._random = random.Random(seed)
@@ -38,6 +30,9 @@ class RNG:
     def sample(self, values: Sequence[T], k: int) -> list[T]:
         return self._random.sample(values, k)
 
+    def shuffle(self, values: list[T]) -> None:
+        self._random.shuffle(values)
+
     def weighted_choice(self, items: Sequence[tuple[T, float]]) -> T:
         if not items:
             raise ValueError("items must not be empty")
@@ -51,3 +46,9 @@ class RNG:
             if target <= upto:
                 return item
         return items[-1][0]
+
+    def get_state(self) -> tuple[object, ...]:
+        return self._random.getstate()
+
+    def set_state(self, state: tuple[object, ...]) -> None:
+        self._random.setstate(state)
