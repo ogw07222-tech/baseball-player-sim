@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "scope": "2026 KBO real-player background roster",
+  "events_enabled": false,
+  "coach_growth_enabled": false,
+  "development_profile_enabled": false,
+  "growth_model": "legacy_v0.2_strong_auto_growth",
+  "reason": "Real background players do not receive protagonist career events, so they retain the stronger pre-v0.3 automatic growth model to avoid systematic underdevelopment.",
+  "legacy_growth": {
+    "GROWTH_BASE_STDDEV": 3.3,
+    "GROWTH_TALENT_REFERENCE": 100.0,
+    "GROWTH_TALENT_SCALE": 0.020,
+    "GROWTH_CURRENT_STAT_DAMPING": 0.0025,
+    "GROWTH_EXPLOSION_BASE_CHANCE": 0.012,
+    "GROWTH_EXPLOSION_TALENT_SCALE": 0.00007,
+    "GROWTH_EXPLOSION_MIN_BONUS": 4,
+    "GROWTH_EXPLOSION_MAX_BONUS": 14,
+    "AGE_GROWTH_BIAS": {
+      "0-22": 4.6,
+      "23-27": 2.7,
+      "28-31": 0.1,
+      "32-35": -1.35,
+      "36-200": -2.8
+    }
+  },
+  "rating_calibration": {
+    "events_enabled": false,
+    "coach_effects_enabled": false,
+    "form_effects_enabled": false,
+    "injury_effects_enabled": false,
+    "opponent_level": 100,
+    "final_verification": "1000 equivalent seasons x 600 PA per hitter",
+    "fit_targets": ["AVG", "OBP", "SLG", "HR/PA", "BB/PA", "SO/PA", "SB/PA", "3B/PA"],
+    "monte_carlo_calibrated_stats": ["contact", "power", "discipline", "speed"],
+    "provisional_stats": ["defense", "throwing", "stamina", "durability", "mentality", "talent"]
+  },
+  "source": {
+    "provider": "KBO official records",
+    "season": 2026,
+    "note": "First batch uses 30 high-PA first-team hitters from the consistent KBO official record snapshot available at calibration time. Refresh ratings as season data updates."
+  }
+}
