@@ -1,5 +1,4 @@
-"""Player base-stat model and generation helpers."""
-
+"""Player base-stat model and random generation helpers."""
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
@@ -8,8 +7,18 @@ from . import config
 from .rng import RNG
 
 
-def _non_negative_int(value: float) -> int:
-    return max(config.STAT_MIN, int(round(value)))
+def _truncated_gauss_int(rng: RNG, mean: float, stddev: float, minimum: int = 0) -> int:
+    for _ in range(64):
+        value = int(round(rng.gauss(mean, stddev)))
+        if value >= minimum:
+            return value
+    return max(minimum, int(round(mean)))
+
+
+def _generate_talent(rng: RNG) -> int:
+    component = rng.weighted_choice([(entry, entry[0]) for entry in config.TALENT_MIXTURE])
+    _, mean, stddev, minimum = component
+    return _truncated_gauss_int(rng, mean, stddev, minimum)
 
 
 @dataclass
@@ -36,6 +45,10 @@ class PlayerStats:
     def as_dict(self) -> dict[str, int]:
         return {field.name: getattr(self, field.name) for field in fields(self)}
 
+    @classmethod
+    def from_dict(cls, data: dict[str, int]) -> "PlayerStats":
+        return cls(**{name: int(data[name]) for name in config.STAT_NAMES})
+
     def apply_delta(self, stat_name: str, delta: int) -> int:
         if stat_name not in config.STAT_NAMES:
             raise KeyError(f"unknown stat: {stat_name}")
@@ -43,14 +56,22 @@ class PlayerStats:
         setattr(self, stat_name, new_value)
         return new_value
 
+    def current_ability(self) -> float:
+        weights = {
+            "contact": 1.2, "power": 1.1, "discipline": 1.0, "speed": 0.55,
+            "defense": 0.75, "throwing": 0.35, "stamina": 0.30,
+            "durability": 0.30, "mentality": 0.45,
+        }
+        return sum(getattr(self, name) * weight for name, weight in weights.items()) / sum(weights.values())
 
-def generate_random_stats(rng: RNG) -> PlayerStats:
-    values = {
-        name: _non_negative_int(rng.gauss(config.INITIAL_STAT_MEAN, config.INITIAL_STAT_STDDEV))
-        for name in config.STAT_NAMES
-        if name != "talent"
-    }
-    values["talent"] = _non_negative_int(
-        rng.gauss(config.INITIAL_TALENT_MEAN, config.INITIAL_TALENT_STDDEV)
-    )
+
+def generate_random_stats(rng: RNG, position: str = "SS") -> PlayerStats:
+    if position not in config.POSITIONS:
+        raise ValueError(f"unsupported position: {position}")
+    adjustments = config.POSITION_ADJUSTMENTS.get(position, {})
+    values: dict[str, int] = {}
+    for name, (mean, stddev) in config.INITIAL_STAT_DISTRIBUTIONS.items():
+        base = _truncated_gauss_int(rng, mean, stddev, config.STAT_MIN)
+        values[name] = max(config.STAT_MIN, base + adjustments.get(name, 0))
+    values["talent"] = _generate_talent(rng)
     return PlayerStats(**values)
