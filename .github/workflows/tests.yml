@@ -23,3 +23,5 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Auto career smoke
         run: python -m src.main --seed 20260903 --auto --name "CI Smoke" --position SS --bats-throws R/R --traits 3
+      - name: Balance smoke
+        run: python -m src.balance --samples 100 --careers 20 --coach-samples 20 --event-samples 100 --seed 20260903
