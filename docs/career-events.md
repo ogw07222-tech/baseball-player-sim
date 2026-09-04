@@ -1,134 +1,161 @@
-# Career Event System
+# Career Event System — v0.4
 
-## 목적
+## 철학
 
-커리어 이벤트는 플레이어에게 미래를 통제할 버튼을 주는 시스템이 아니다.
+> 선택은 결과를 정하는 버튼이 아니라 앞으로 굴릴 주사위의 모양을 바꾸는 행동이다.
 
-핵심 원칙은 다음과 같다.
+이벤트는 실제 커리어 시간축 안에서 발생한다. 시즌 종료 후 결과를 한꺼번에 붙이지 않는다.
 
-> 선택은 결과를 결정하지 않고 앞으로 굴릴 주사위의 모양을 바꾼다.
+## 시즌 진행 흐름
 
-같은 선택을 해도 seed, 재능, 멘탈, Trait, 현재 상태에 따라 다른 결과가 나와야 한다.
+프로 시즌은 내부적으로 다음 순서를 반복한다.
 
-## 데이터 구조
+1. 경기 진행
+2. 부상/폼/로스터 상태 갱신
+3. 해당 시점의 이벤트 발생 여부 판정
+4. 조건을 만족하는 이벤트 후보 생성
+5. Interactive면 pending event로 멈춤 / Auto면 자동 선택
+6. 결과 추첨
+7. 영구 스탯·Trait·부상·폼·temporary modifier 즉시 적용
+8. 다음 경기 진행
 
-이벤트는 `src/events.py`의 데이터 중심 카탈로그로 관리한다.
+미래 이벤트의 결과는 미리 결정하지 않는다.
 
-주요 구조:
+## 이벤트 데이터
 
-- `CareerEvent`
-  - id
-  - name
-  - description
-  - rarity
-  - condition
-  - choices
-- `EventChoice`
-  - id
-  - name
-  - risk (`stable`, `medium`, `risky`)
-  - outcomes
-- `Outcome`
-  - weight
-  - quality
-  - 즉시 stat range
-  - 시즌 growth mean modifier
-  - growth variance modifier
-  - growth explosion modifier
-  - injury result
-  - fatigue change
-  - Trait add/remove
+`CareerEvent`:
 
-## 현재 이벤트
+- id / name / description
+- rarity
+- category
+- condition
+- phases
+- weight
+- once_per_season
+- cooldown_games
+- career_once
+- coach_tags
 
-- 햄스트링 이상 징후
-- 타격폼 변경
-- 벌크업
-- 2군 장기체류
-- 겨울 훈련
-- 코치와의 의견 충돌
-- 슬럼프 대응
-- 부상 복귀 시점
+`Outcome`:
 
-조건에 맞는 이벤트만 후보가 된다.
+- weight / quality
+- 영구 stat range
+- temporary stat range
+- 시즌 종료 growth mean modifier
+- growth variance / explosion modifier
+- injury / fatigue / Trait / form effect
 
-예를 들어 2군 장기체류 이벤트는 FARM PA가 충분히 많고 1군 PA가 적을 때 발생 후보가 된다.
+## 시즌 구간
 
-## 발생 빈도와 희귀도
+- `preseason`: 시즌 시작 전
+- `early`: Game 1~45
+- `mid`: Game 46~100
+- `late`: Game 101~144
 
-시즌당 주요 이벤트 목표는 1~3회다.
+이벤트별로 가능한 구간과 조건을 제한한다. 예를 들어 겨울 훈련은 preseason, 2군 훈련 방향은 FARM PA가 쌓인 mid/late, 슬럼프 대응은 실제 slump 상태에서만 후보가 된다.
 
-현재 기본 가중치:
+## 이벤트 카테고리
 
-- 1회: 35%
-- 2회: 50%
-- 3회: 15%
+현재 카탈로그는 크게 다음으로 구성된다.
 
-이벤트 자체는 common / uncommon / rare / career_defining 희귀도를 지원한다. 현재 카탈로그는 주로 common~rare이며 career_defining 확장을 위한 구조를 준비해 둔다.
+- training: 겨울훈련, 타격폼, 수비훈련, 영상분석, 벌크업, 2군 훈련, 코치 조언
+- performance: 경기 접근법, 슬럼프 대응, 흐름 점검
+- injury: 햄스트링 경고, 부상 복귀 시점
+- breakthrough: major / legendary
 
-250개 완전 커리어 Monte Carlo에서는 시즌당 평균 약 1.786회의 주요 이벤트가 기록됐다.
+300커리어 결과:
 
-## 결과 확률 보정
+- training 62.77%
+- performance 22.21%
+- injury 5.01%
+- breakthrough 10.00%
+- 시즌당 전체 이벤트 2.565회
 
-기본 outcome weight에 다음이 제한적으로 개입할 수 있다.
+## Interactive / Auto
 
-- talent: 좋은 결과 확률을 조금 이동
-- mentality: risky 선택에서 일부 영향
-- 빠른 성장 / 느린 성장
-- 부상 위험 / 빠른 회복
-- 기복이 심함 / 꾸준함
+Interactive에서 `시즌 종료까지`를 선택해도 중요 이벤트가 발생하면 해당 경기에서 정지한다. 사용자가 선택하면 즉시 결과를 적용하고 같은 시즌을 이어간다.
 
-어떤 값도 성공을 확정하지 않는다.
+Auto와 Monte Carlo에서는 `auto_choose()`가 stable/medium/risky 가중치를 이용해 선택하고 시즌을 계속 진행한다.
 
-## Auto decision
+## Temporary modifier
 
-자동 진행과 Monte Carlo에서는 이벤트를 자동 선택한다.
+일부 이벤트는 영구 성장 대신 잔여 시즌 modifier를 준다.
 
-기본 위험도 가중치:
+예:
 
-- stable: 40%
-- medium: 35%
-- risky: 25%
+- Game 60: 새 타격폼 적응 성공 → `contact_eff +4`
+- Game 61~144: 실제 타석 엔진에서 +4 적용
+- 시즌 종료: temporary modifier 제거
 
-mentality가 높은 선수는 risky 선택 확률이 조금 높아질 수 있지만 특정 선택지만 반복하도록 만들지 않는다.
+Player의 `season_modifiers`에 저장되며 중간 save/load도 지원한다.
 
-## 햄스트링 이벤트의 trade-off
+## Major breakthrough
 
-동일 조건에서 1,000회씩 반복한 v0.3 샘플:
+현재 예:
 
-### 참고 계속 출전
+- 타격 메커니즘 완성
+- 피지컬 완성
+- 코치와 완벽한 궁합
+- 완벽한 타격폼 발견
+- 늦깎이 폭발
+- 부상 후 각성
 
-- 대실패/중상: 12.3%
-- 시즌 성장까지 포함한 ability 변화 평균: +2.041
-- ability 변화 표준편차: 1.471
-- 하위 10%: +0.220
-- 이벤트 후 평균 결장: 18.92경기
+목표는 약 4시즌에 1회다. 300커리어에서는 **0.238회/시즌**, 평균 **4.627회/커리어**였다.
 
-### 재활 치료
+대박 이벤트가 발생해도 대박 결과가 확정되지는 않는다. 예를 들어 타격 메커니즘 완성의 적극적 선택은 안정 선택보다 평균 상승과 상방이 높지만 분산도 크다.
 
-- 대실패/중상: 0%
-- 시즌 성장까지 포함한 ability 변화 평균: +1.866
-- ability 변화 표준편차: 0.928
-- 하위 10%: +0.742
-- 이벤트 후 평균 결장: 19.82경기
+3,000회 비교:
 
-따라서 참고 출전은 기대 성장량이 조금 더 높지만 하방 위험과 분산이 크고, 재활은 더 안정적이지만 큰 성공 가능성을 줄인다.
+| 선택 | ability 변화 평균 | 표준편차 | P10 | P90 |
+|---|---:|---:|---:|---:|
+| 안정적 refine | +1.691 | 0.870 | +0.400 | +2.633 |
+| 적극적 commit | +2.824 | 1.760 | +0.767 | +5.283 |
 
-## 기록과 세이브
+## Major 횟수 분산
 
-`Player.event_history`에는 최소 다음을 저장한다.
+모든 선수가 동일하게 4~5회 받지 않도록 hidden `breakthrough_affinity`와 반복 감쇠를 사용한다.
 
-- year
-- age
-- event id/name
-- chosen option id/name
-- choice risk
-- result id/name
-- outcome quality
-- stat changes
-- trait changes
-- injury changes
+최종 300커리어 원시 분포는 0~11회까지 퍼졌다. 일부 major 이벤트는 반복 가능하지만 같은 이벤트가 다시 등장할수록 weight가 급감한다.
 
-코칭스태프 교체도 플레이어 소속팀에서 발생하면 event history에 기록된다.
+## Legendary breakthrough
 
-save version 2에서 이 필드를 저장하며 save version 1은 기본값을 주어 계속 읽을 수 있다.
+예:
+
+- 세대급 재능 개화
+- 예상 밖의 완성
+
+300커리어:
+
+- 0회: 63.67%
+- 1회: 35.67%
+- 2회 이상: 0.67%
+- 평균 0.370회/커리어
+
+낮은 talent 선수도 조건을 만족하면 `예상 밖의 완성` 후보가 될 수 있다.
+
+## 부상 선택 trade-off
+
+햄스트링 이벤트 3,000회씩 비교:
+
+- 참고 출전: 직접 ability 평균 +0.182, quality 표준편차 1.521, 중상 11.73%
+- 재활: 직접 ability 평균 +0.061, quality 표준편차 0.719, 중상 0%
+
+안전 선택은 하방을 줄이고 위험 선택은 분산을 키운다. 이벤트 자체의 부상 비중은 낮게 유지하며 독립적인 경기 부상 엔진은 별도로 존재한다.
+
+## Event History
+
+각 이벤트는 최소 다음을 저장한다.
+
+- year / age
+- game_number / season_phase
+- event_id / event_name
+- rarity / category / breakthrough_tier
+- choice / risk
+- outcome / quality
+- stat_changes
+- temporary_effects
+- trait_changes
+- injury_changes
+- ability_before / ability_after
+
+따라서 향후 UI에서 시즌별 사건 타임라인을 직접 구성할 수 있다.

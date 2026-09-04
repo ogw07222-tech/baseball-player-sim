@@ -21,7 +21,10 @@ class GrowthModifiers:
     def add_mean(self,stat_name:str,value:float)->None:self.mean_by_stat[stat_name]=self.mean_by_stat.get(stat_name,0.0)+value
     def merge(self,other:'GrowthModifiers')->None:
         for n,v in other.mean_by_stat.items():self.add_mean(n,v)
-        self.variance_multiplier*=other.variance_multiplier; self.explosion_multiplier*=other.explosion_multiplier
+        self.variance_multiplier*=other.variance_multiplier;self.explosion_multiplier*=other.explosion_multiplier
+    def as_dict(self)->dict[str,object]:return {'mean_by_stat':dict(self.mean_by_stat),'variance_multiplier':self.variance_multiplier,'explosion_multiplier':self.explosion_multiplier}
+    @classmethod
+    def from_dict(cls,data:dict[str,object])->'GrowthModifiers':return cls({str(k):float(v) for k,v in dict(data.get('mean_by_stat',{})).items()},float(data.get('variance_multiplier',1.0)),float(data.get('explosion_multiplier',1.0)))
 
 @dataclass(frozen=True)
 class GrowthResult:
@@ -62,7 +65,7 @@ def growth_distribution(player:Player,stat_name:str,coach:CoachingStaff|None=Non
     if coach is not None:mean+=coach_growth_mean(coach,stat_name)
     variance=config.GROWTH_BASE_STDDEV*(coach_variance_multiplier(coach) if coach else 1.0)
     if modifiers:
-        mean+=modifiers.mean_by_stat.get(stat_name,0.0); variance*=modifiers.variance_multiplier
+        mean+=modifiers.mean_by_stat.get(stat_name,0.0);variance*=modifiers.variance_multiplier
     if player.age>=32 and mean<0:mean*=config.AGING_MULTIPLIER.get(stat_name,1.0)
     return mean,max(.75,variance)
 
@@ -74,15 +77,15 @@ def _explosion_chance(player:Player,modifiers:GrowthModifiers|None=None)->float:
     return max(.001,min(.12,chance))
 
 def apply_season_growth(player:Player,rng:RNG,coach:CoachingStaff|None=None,experience:GrowthExperience|None=None,modifiers:GrowthModifiers|None=None)->GrowthResult:
-    age_before=player.age; ability_before=player.stats.current_ability(); deltas={}
+    age_before=player.age;ability_before=player.stats.current_ability();deltas={}
     for stat_name in GROWABLE_STATS:
         mean,std=growth_distribution(player,stat_name,coach,experience,modifiers)
-        delta=int(round(rng.gauss(mean,std))); before=getattr(player.stats,stat_name); after=player.stats.apply_delta(stat_name,delta); deltas[stat_name]=after-before
+        delta=int(round(rng.gauss(mean,std)));before=getattr(player.stats,stat_name);after=player.stats.apply_delta(stat_name,delta);deltas[stat_name]=after-before
     explosion=rng.random()<_explosion_chance(player,modifiers)
     if explosion:
         count=rng.randint(1,min(3,len(GROWABLE_STATS)))
         for stat_name in rng.sample(GROWABLE_STATS,count):
-            bonus=rng.randint(config.GROWTH_EXPLOSION_MIN_BONUS,config.GROWTH_EXPLOSION_MAX_BONUS); before=getattr(player.stats,stat_name); after=player.stats.apply_delta(stat_name,bonus); deltas[stat_name]+=after-before
-    player.advance_age(1); ability_after=player.stats.current_ability(); result=GrowthResult(age_before,player.age,deltas,explosion,ability_before,ability_after)
+            bonus=rng.randint(config.GROWTH_EXPLOSION_MIN_BONUS,config.GROWTH_EXPLOSION_MAX_BONUS);before=getattr(player.stats,stat_name);after=player.stats.apply_delta(stat_name,bonus);deltas[stat_name]+=after-before
+    player.advance_age(1);ability_after=player.stats.current_ability();result=GrowthResult(age_before,player.age,deltas,explosion,ability_before,ability_after)
     player.growth_history.append({'age_before':age_before,'age_after':player.age,'deltas':dict(deltas),'explosion':explosion,'ability_before':round(ability_before,4),'ability_after':round(ability_after,4),'development_profile':player.development_profile})
     return result
