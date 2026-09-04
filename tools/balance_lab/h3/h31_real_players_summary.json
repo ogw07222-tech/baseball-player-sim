@@ -1,0 +1,38 @@
+{
+  "model": "H3.1 experimental validation; v3 ratings unchanged",
+  "players": 30,
+  "pa_per_player": 600000,
+  "total_pa": 18000000,
+  "mae": {
+    "err_avg": 0.019438650010981398,
+    "err_obp": 0.01973966666666667,
+    "err_slg": 0.04358039197601211,
+    "err_ops": 0.05033221323319288,
+    "err_hr_rate": 0.012310999999999999,
+    "err_bb_rate": 0.007606511111111112,
+    "err_k_rate": 0.04545118888888889
+  },
+  "median_abs_error": {
+    "err_avg": 0.016551339384655306,
+    "err_obp": 0.017045833333333288,
+    "err_slg": 0.02867667061966858,
+    "err_ops": 0.03642148440355547,
+    "err_hr_rate": 0.010263833333333333,
+    "err_bb_rate": 0.006899500000000003,
+    "err_k_rate": 0.049000666666666665
+  },
+  "fit_status_counts": {"good": 9, "usable": 17, "poor": 4},
+  "largest_ops_errors": [
+    {"name":"나성범","target_ops":0.932,"h31_ops":0.7459189756773511,"err_ops":0.18608102432264895,"validation_fit_status":"poor"},
+    {"name":"힐리어드","target_ops":0.924,"h31_ops":0.7381396790672922,"err_ops":0.18586032093270788,"validation_fit_status":"poor"},
+    {"name":"오스틴","target_ops":1.090,"h31_ops":0.9161869270258167,"err_ops":0.17381307297418336,"validation_fit_status":"usable"},
+    {"name":"정수빈","target_ops":0.701,"h31_ops":0.8035249335912825,"err_ops":0.10252493359128256,"validation_fit_status":"usable"},
+    {"name":"김도영","target_ops":1.038,"h31_ops":0.9390288334488761,"err_ops":0.09897116655112392,"validation_fit_status":"usable"}
+  ],
+  "notes": [
+    "No player ratings were refit.",
+    "Balanced approach and R-handedness are assumed because v3 CSV has no approach/handedness columns.",
+    "Opponent defense is fixed at 100.",
+    "These numbers validate transfer of v3 ratings into H3.1; they are not H3.1-calibrated ratings."
+  ]
+}

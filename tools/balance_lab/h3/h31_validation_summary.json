@@ -1,0 +1,20 @@
+{
+  "model": "H3.1 balance-lab-only defensive & speed rework",
+  "main_sha": "b9fda177973c00a220d83242a3bfc8de42143b0d",
+  "branch": "experiment/h3-batted-ball-validation",
+  "seed": 20260905,
+  "sample_sizes": {"baseline_pa":500000,"marginal_pa_per_profile":100000,"speed_pa_per_level":100000,"defense_pa_per_level":100000,"cpd_build_pa_each":40000,"cpds_build_pa_each":40000,"starting_profile_pa_each":60000,"approach_pa_each":100000},
+  "baseline": {"AVG":0.2611247560766023,"OBP":0.320718,"SLG":0.39740859262997824,"OPS":0.7181265926299782,"BABIP":0.3131114652777573,"HR%":0.027492,"BB%":0.080654,"K%":0.212952,"offensive_value":0.32341622000000003,"runtime_s":13.35007077299997,"pa_per_second":37452.98496928059},
+  "plus10_marginal_offensive_value": {"contact":0.01870840000000007,"power":0.018930000000000113,"discipline":0.015555299999999994,"speed":0.01231340000000003,"defense":-0.008427600000000035},
+  "cpd_marginal_ratio": 1.2169485641549902,
+  "speed_low_gains": {"50->60":0.0011784000000000239,"60->70":0.0007403999999999744,"70->80":0.0013755999999999768,"80->90":0.0019939000000000484,"90->100":0.0038379999999999526},
+  "speed_high_gains": {"100->110":0.01231340000000003,"120->130":0.0013253000000000292,"140->150":0.0008679000000000325,"160->170":0.0005258000000000207},
+  "cpd_best": {"dC":5,"dP":25,"dD":0,"offensive_value":0.38468275},
+  "cpd_balanced_rank": 13,
+  "cpd_best_vs_balanced_pct": 1.14054420364684,
+  "cpds_first_speed_allocation_rank": 14,
+  "test_count": 14,
+  "statuses": {"A_H3_Baseline_Preservation":"PASS","B_Contact_Identity":"PASS","C_Power_Identity":"PASS","D_Discipline_Identity":"PASS","E_Speed_Identity":"PASS","F_Low_Speed_Dead_Zone":"PASS","G_Defense_Catch_Curve":"PASS","H_Defense_Damage_Suppression":"PASS","I_Routine_Easy_Reliability":"PASS","J_Error_Logic":"PASS","K_Quality_vs_Defense":"PASS","L_Triple_Speed_Separation":"PASS","M_CPD_Marginal_Balance":"PASS","N_Build_Diversity":"WARN","O_Numerical_Stability":"PASS","P_Runtime":"PASS"},
+  "remaining_issues": ["Speed allocation first appears at rank 14/35 in CPDS20 build search.","Speed +15 remains the lowest raw-offense investment in starting profiles E (S60) and F (S140)."],
+  "promotion_gate": "NOT_READY"
+}
