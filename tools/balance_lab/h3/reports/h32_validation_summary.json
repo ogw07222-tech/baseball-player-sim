@@ -1,0 +1,15 @@
+{
+  "model": "H3.2 Balance-Lab only",
+  "branch": "test/h31-balance-lab-integration",
+  "production_changes": false,
+  "run_values": {"SB": 0.2, "CS": -0.42},
+  "h31_baseline": {"AVG": 0.2611247560766023, "OBP": 0.320718, "SLG": 0.39740859262997824, "OPS": 0.7181265926299782, "batting_value": 0.32341622, "runtime_s": 13.350070773, "pa_per_second": 37452.984969},
+  "h32_baseline": {"seed": "20260905", "runtime_s": "14.062109678000525", "pa_per_second": "35556.54247116457", "PA": "500000", "AVG": "0.2611247560766023", "OBP": "0.320718", "SLG": "0.39740859262997824", "OPS": "0.7181265926299782", "BABIP": "0.3131114652777573", "HR%": "0.027492", "BB%": "0.080654", "K%": "0.212952", "SB": "9247", "CS": "3213", "SB_attempts": "12460", "SB_success%": "0.7421348314606742", "SB_per_600": "11.0964", "CS_per_600": "3.8556000000000004", "SB_attempts_per_600": "14.952", "steal_opportunities_per_600": "151.362", "batting_value": "0.32341622000000003", "baserunning_value": "0.00099988", "total_offensive_value": "0.32441610000000004"},
+  "speed_plus10": {"h31_batting_delta": 0.0123134, "h32_batting_delta": 0.01231340000000003, "h32_baserunning_delta": 0.0012647999999999995, "h32_total_delta": 0.013578199999999985},
+  "build_search": {
+    "CPDS20": {"first_speed_rank_before": 14, "first_speed_rank_after": 11, "top10_speed_builds": 0, "pure_speed_rank": 35, "best": {"dC": 5, "dP": 15, "dD": 0, "dS": 0, "total_value": 0.3630212}},
+    "CPDS30": {"first_speed_rank": 5, "top10_speed_builds": 4, "pure_speed_rank": 84, "best": {"dC": 0, "dP": 10, "dD": 20, "dS": 0, "total_value": 0.386576}}
+  },
+  "statuses": {"Baseline Preservation": "PASS", "Steal Curve": "PASS", "League Plausibility": "PASS", "CS Penalty": "PASS", "Speed Marginal Value": "PASS", "Build Diversity": "WARN", "Interaction Behavior": "PASS", "Numerical Stability": "PASS", "Runtime": "PASS"},
+  "promotion_gate": "NOT_READY"
+}
