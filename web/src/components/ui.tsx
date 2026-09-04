@@ -1,6 +1,7 @@
+import type { ReactNode } from 'react'
 import type { AbilityViewModel, LeaderboardEntry } from '../types/viewModels'
 
-export function Panel({ title, action, className='', children }: { title:string; action?:React.ReactNode; className?:string; children:React.ReactNode }) {
+export function Panel({ title, action, className='', children }: { title:string; action?:ReactNode; className?:string; children:ReactNode }) {
   return <section className={`panel ${className}`}><header className="panel-header"><h2>{title}</h2>{action}</header>{children}</section>
 }
 
