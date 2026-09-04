@@ -1,0 +1,10 @@
+{
+  "name": "example-only",
+  "description": "Template for experimental Balance Lab coefficients. Never auto-apply to production.",
+  "seed": 20260904,
+  "parameters": {
+    "CONTACT_EFFECT_SCALE": 1.0,
+    "POWER_EFFECT_SCALE": 1.0,
+    "DISCIPLINE_EFFECT_SCALE": 1.0
+  }
+}
