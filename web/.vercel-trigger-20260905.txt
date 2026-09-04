@@ -1,1 +1,2 @@
 Trigger Vercel deployment from the web root.
+Trigger after disabling production overrides.
