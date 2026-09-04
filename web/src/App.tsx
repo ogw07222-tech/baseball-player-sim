@@ -39,7 +39,7 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><strong>KBO CAREER</strong><small>BASEBALL PLAYER SIMULATOR</small></div>
-      <nav>{navItems.map(item=><button key={item.key} className={screen===item.key?'active':''} aria-current={screen===item.key?'page':undefined} onClick={()=>setScreen(item.key)}><span>{item.icon}</span>{item.label}</button>)}</nav>
+      <nav aria-label="메인 메뉴">{navItems.map(item=><button key={item.key} aria-label={item.label} className={screen===item.key?'active':''} aria-current={screen===item.key?'page':undefined} onClick={()=>setScreen(item.key)}><span aria-hidden="true">{item.icon}</span>{item.label}</button>)}</nav>
       <div className="sidebar-quote">“좋은 선수는 기록을 남기지만,<br/>위대한 선수는 이야기를 남긴다.”</div>
       <div className="sidebar-foot"><b>BASEBALL CAREER</b><span>ONE PLAYER<br/>A BIGGER STORY</span></div>
     </aside>
