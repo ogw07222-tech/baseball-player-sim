@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PlayerDashboard } from './screens/PlayerDashboard'
 import { SeasonScreen } from './screens/SeasonScreen'
 import { NewCareerPage } from './screens/NewCareerPage'
+import { DraftDayPage } from './screens/DraftDayPage'
 import type { DashboardViewModel, SeasonViewModel } from './types/viewModels'
 import type { NewCareerRequest } from './types/newCareer'
 import type { AdvanceCommand, GameDataProvider } from './services/GameDataProvider'
 import { MockGameDataProvider } from './mock/mockGameDataProvider'
+import { draftDayForPlayer, draftDayMock } from './mocks/draftDay'
 import { ErrorState, LoadingState } from './components/ui'
 
 type Screen = 'player' | 'season' | 'career' | 'team' | 'league' | 'records' | 'news'
@@ -17,6 +19,7 @@ const navItems: { key:Screen; label:string; icon:string }[] = [
 export function App({ provider: injectedProvider }: { provider?:GameDataProvider }) {
   const provider = useMemo(()=>injectedProvider ?? new MockGameDataProvider(),[injectedProvider])
   const [screen,setScreen] = useState<Screen>('player')
+  const [eventRoute,setEventRoute] = useState(()=>window.location.hash)
   const [careerReady,setCareerReady] = useState<boolean|null>(null)
   const [dashboard,setDashboard] = useState<DashboardViewModel|null>(null)
   const [season,setSeason] = useState<SeasonViewModel|null>(null)
@@ -38,6 +41,7 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
   },[provider])
 
   useEffect(()=>{ void load() },[load])
+  useEffect(()=>{ const sync=()=>setEventRoute(window.location.hash); window.addEventListener('hashchange',sync); return()=>window.removeEventListener('hashchange',sync) },[])
 
   const startCareer = async(request:NewCareerRequest) => {
     const created = await provider.createCareer(request)
@@ -53,6 +57,13 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
   if(loading) return <LoadingState/>
   if(error && careerReady===null) return <ErrorState onRetry={()=>void load()}/>
   if(careerReady===false) return <NewCareerPage onStart={startCareer}/>
+
+  if(eventRoute==='#draft') {
+    const draftData = dashboard?.player.rosterLevel==='고교'
+      ? draftDayForPlayer({name:dashboard.player.name,position:dashboard.player.position,batsThrows:dashboard.player.batsThrows.replace('/',' / '),age:dashboard.player.age})
+      : draftDayMock
+    return <DraftDayPage data={draftData} onStartProCareer={()=>{window.location.hash=''; setEventRoute(''); setScreen('player')}}/>
+  }
 
   const seasonMeta = dashboard?.season ?? season?.season
   return <div className="app-shell">
