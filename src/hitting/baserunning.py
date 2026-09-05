@@ -1,4 +1,10 @@
-"""Validated H3.2.1 production baserunning formulas and game-state adapters."""
+"""Validated H3.2.1 production baserunning formulas and game-state adapters.
+
+Probability functions are frozen from Balance-Lab commit
+b7b8aafde0a50e687310dbe03b872087a569e08c. The state-mutating helpers below
+only connect those probabilities to a real inning/base state; they do not
+retune the validated curves.
+"""
 from __future__ import annotations
 from dataclasses import dataclass
 import math
@@ -23,6 +29,18 @@ class GameState:
 
     def steal_eligible(self) -> bool:
         return self.outs < 3 and self.first_occupied and not self.second_occupied
+
+@dataclass(frozen=True)
+class StealResult:
+    attempted: bool
+    success: bool
+
+@dataclass(frozen=True)
+class StateTransition:
+    attempted: bool
+    success: bool
+    outs_added: int = 0
+    runs_scored: int = 0
 
 def situational_attempt_modifier(state: GameState) -> float:
     modifier = 0.0
@@ -86,11 +104,6 @@ def dp_completion_probability(speed: float) -> float:
         P.DP_COMPLETION_MAX - P.DP_COMPLETION_MIN
     ) * (1.0 - sigmoid((speed - P.DP_COMPLETION_CENTER) / P.DP_COMPLETION_SCALE))
 
-@dataclass(frozen=True)
-class StealResult:
-    attempted: bool
-    success: bool
-
 def resolve_steal(
     speed: float, state: GameState, rng, running_defense: float = 100.0
 ) -> StealResult:
@@ -109,3 +122,71 @@ def resolve_second_to_home(speed: float, recovery: float, rng) -> bool:
 def resolve_double_play(speed: float, rng) -> bool:
     """True means the defense completes the double play."""
     return rng.random() < dp_completion_probability(speed)
+
+# ---- Production state adapters -------------------------------------------------
+# These helpers are intentionally thin. They mutate only base/out state and use
+# the frozen probability functions above.
+
+def apply_steal_to_state(
+    speed: float,
+    state: GameState,
+    rng,
+    running_defense: float = 100.0,
+) -> StateTransition:
+    result = resolve_steal(speed, state, rng, running_defense)
+    if not result.attempted:
+        return StateTransition(False, False)
+    if result.success:
+        state.first_occupied = False
+        state.second_occupied = True
+        return StateTransition(True, True)
+    state.first_occupied = False
+    state.outs = min(3, state.outs + 1)
+    return StateTransition(True, False, outs_added=1)
+
+def apply_first_to_third_to_state(
+    speed: float,
+    state: GameState,
+    rng,
+    recovery: float = 100.0,
+) -> StateTransition:
+    if state.outs >= 3 or not state.first_occupied or state.third_occupied:
+        return StateTransition(False, False)
+    success = resolve_first_to_third(speed, recovery, rng)
+    if success:
+        state.first_occupied = False
+        state.third_occupied = True
+    return StateTransition(True, success)
+
+def apply_second_to_home_to_state(
+    speed: float,
+    state: GameState,
+    rng,
+    recovery: float = 100.0,
+) -> StateTransition:
+    if state.outs >= 3 or not state.second_occupied:
+        return StateTransition(False, False)
+    success = resolve_second_to_home(speed, recovery, rng)
+    if success:
+        state.second_occupied = False
+        return StateTransition(True, True, runs_scored=1)
+    return StateTransition(True, False)
+
+def apply_double_play_to_state(
+    batter_speed: float,
+    state: GameState,
+    rng,
+) -> StateTransition:
+    if state.outs >= 2 or not state.first_occupied:
+        return StateTransition(False, False)
+    completed = resolve_double_play(batter_speed, rng)
+    if completed:
+        state.first_occupied = False
+        state.outs = min(3, state.outs + 2)
+        return StateTransition(True, True, outs_added=2)
+    # DP avoided: one out is recorded and the batter-runner occupies first after
+    # the lead runner is retired. Detailed runner identity belongs to the future
+    # team inning engine, not this probability layer.
+    state.first_occupied = True
+    state.outs = min(3, state.outs + 1)
+    return StateTransition(True, False, outs_added=1)
