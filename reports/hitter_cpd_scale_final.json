@@ -1,0 +1,28 @@
+{
+  "gate": "HITTER_CPD_RAW_SCALE_READY",
+  "n": 30000,
+  "seed": 91901,
+  "prime_26_28_30_mean": {
+    "contact": 109.26405555555556,
+    "power": 109.10451111111111,
+    "discipline": 108.80516666666666,
+    "speed": 98.10803333333332
+  },
+  "entry_unchanged": true,
+  "tail_sane": true,
+  "bonus_contract": {
+    "contact": {
+      "18_25": 1.7,
+      "26_27": 1.0
+    },
+    "power": {
+      "18_25": 1.85,
+      "26_27": 1.1
+    },
+    "discipline": {
+      "18_25": 2.45,
+      "26_27": 1.5
+    },
+    "speed": "exempt"
+  }
+}
