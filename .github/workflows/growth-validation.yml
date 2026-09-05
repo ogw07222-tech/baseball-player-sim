@@ -24,6 +24,8 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run Monte Carlo validation
+        env:
+          PYTHONPATH: .
         run: |
           python tools/growth_validation.py \
             --pure 20000 \
