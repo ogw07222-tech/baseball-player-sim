@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PlayerDashboard } from './screens/PlayerDashboard'
 import { SeasonScreen } from './screens/SeasonScreen'
 import { NewCareerPage } from './screens/NewCareerPage'
+import { HighSchoolCareerPage } from './screens/HighSchoolCareerPage'
+import { highSchoolCareerForPlayer } from './mocks/highSchoolCareer'
 import type { DashboardViewModel, SeasonViewModel } from './types/viewModels'
 import type { NewCareerRequest } from './types/newCareer'
 import type { AdvanceCommand, GameDataProvider } from './services/GameDataProvider'
@@ -53,6 +55,11 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
   if(loading) return <LoadingState/>
   if(error && careerReady===null) return <ErrorState onRetry={()=>void load()}/>
   if(careerReady===false) return <NewCareerPage onStart={startCareer}/>
+
+  if(dashboard?.player.rosterLevel==='고교') {
+    const hsData = highSchoolCareerForPlayer(dashboard.player.name,dashboard.player.position,dashboard.player.batsThrows.replace('/',' / '))
+    return <HighSchoolCareerPage data={hsData}/>
+  }
 
   const seasonMeta = dashboard?.season ?? season?.season
   return <div className="app-shell">
