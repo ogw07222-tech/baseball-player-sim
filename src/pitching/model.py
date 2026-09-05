@@ -84,7 +84,10 @@ def _talent(rng:RNG)->int:
 
 def generate_pitcher_stats(rng:RNG,player:bool=True)->tuple[PitcherStats,str]:
     archetype=rng.weighted_choice(P.ARCHETYPE_WEIGHTS); bonus=P.PLAYER_BONUS if player else 0.; shared=rng.gauss(0,P.PLAYER_SHARED_SD if player else P.NPC_SHARED_SD); adj=P.ARCHETYPE_ADJUSTMENTS[archetype]
-    vals={n:max(config.STAT_MIN,int(round(rng.gauss(P.BASE_MEANS[n]+bonus+shared+adj.get(n,0),P.BASE_SDS[n])))) for n in P.PITCHER_STATS}
+    vals={}
+    for n in P.PITCHER_STATS:
+        shared_component=shared*P.VELOCITY_SHARED_OFFSET_SCALE if n=="velocity" else shared
+        vals[n]=max(config.STAT_MIN,int(round(rng.gauss(P.BASE_MEANS[n]+bonus+shared_component+adj.get(n,0),P.BASE_SDS[n]))))
     return PitcherStats(**vals,talent=_talent(rng)),archetype
 
 def generate_pitcher(name:str,rng:RNG,player:bool=True,role:str="starter",age:int=config.START_AGE)->Pitcher:
