@@ -172,6 +172,7 @@ export class MockGameDataProvider implements GameDataProvider {
     next.season.game = Math.min(next.season.totalGames, next.season.game + games)
     next.season.progress = Math.round((next.season.game / next.season.totalGames) * 100)
     this.dashboardState = clone(next)
+    this.seasonState.season = clone(next.season)
     return next
   }
 }

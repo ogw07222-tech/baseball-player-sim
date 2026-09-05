@@ -74,7 +74,7 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
   const content = !dashboard || !season ? <LoadingState/> : screen==='player'
     ? <PlayerDashboard data={dashboard} onAdvance={advance}/>
     : screen==='season'
-      ? <SeasonScreen data={season} onSave={()=>void provider.saveGame()}/>
+      ? <SeasonScreen data={season} dashboard={dashboard} onSave={()=>void provider.saveGame()}/>
       : screen==='career'
         ? <CareerScreen data={dashboard}/>
         : screen==='team'
