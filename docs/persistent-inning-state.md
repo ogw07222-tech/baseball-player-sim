@@ -5,6 +5,7 @@
 - Repository: `ogw07222-tech/baseball-player-sim`
 - Base main SHA: `44b4bbb9113e351ceb35aac75f02a8ee6eab3723`
 - Branch: `feature/persistent-inning-state`
+- Validated code HEAD: `046efb3826d2db5de4c54ee8e648c8a3448d0ca2`
 - Probability layer: production H3.2.1 in `src/hitting/`
 
 ## Scope
@@ -90,10 +91,41 @@ The current pitcher is a stable `PitcherProfile` reference supplied to the game 
 
 All random decisions consume the caller-provided `RNG`. The orchestration layer does not instantiate `random.Random()` internally.
 
+The integration suite verifies that two games with identical seed, lineups, player state, pitcher snapshots, and environment produce the same final score, inning/event count, and per-player batting lines.
+
+## Tests
+
+The persistent-inning suite covers:
+
+- walk forced advancement
+- single / double / triple / home-run base updates
+- strikeout and three-out transition
+- batting-order persistence across innings
+- validated first-to-third / second-to-home / double-play API delegation
+- persistent-state steal mutation
+- deterministic same-seed game replay
+- frozen H3.2.1 parameter snapshots
+- full-game invariant smoke
+
+Full repository CI for code HEAD `046efb3826d2db5de4c54ee8e648c8a3448d0ca2` passed:
+
+- Python compile: PASS
+- Full unit tests: PASS
+- Auto-career smoke: PASS
+- Balance smoke: PASS
+- High-school / draft calibration gate: PASS
+- Draft calibration artifact upload: PASS
+- Web build: PASS
+- Web tests: PASS
+
 ## Conflict risk
 
 The branch adds `src/inning.py`, tests, and this document only. It does not touch `src/hitting/*`, `src/pitching/*`, `src/growth.py`, `src/stats.py`, `src/config.py`, or `src/player.py`, minimizing conflict with pitcher calibration work.
 
+The pitcher foundation is already merged. Historical pitcher calibration branches remain separate; no pitcher-calibration commit or parameter was imported into this branch.
+
 ## Gate
 
-`PERSISTENT_INNING_ENGINE_READY` is granted only after the full repository CI passes and the formula-file diff remains empty.
+**PERSISTENT_INNING_ENGINE_READY**
+
+The complete PA -> state -> next PA loop is implemented; base occupancy and runner identity persist; each team's batting order persists; scoring, outs, half-inning transitions, extra innings, and walk-off termination work; H3.2.1 probability APIs are reused unchanged; deterministic/full-game tests pass; and full repository CI is green.
