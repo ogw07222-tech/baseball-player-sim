@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "featured_prospects.schema.json",
+  "title": "Featured High School Prospects Dataset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "dataset_year",
+    "version",
+    "data_version",
+    "last_updated",
+    "description",
+    "prospects"
+  ],
+  "properties": {
+    "dataset_year": {"type": "integer", "const": 2026},
+    "version": {"type": "integer", "minimum": 1},
+    "data_version": {"type": "string", "pattern": "^2026\\.[1-9][0-9]*$"},
+    "last_updated": {"type": "string", "format": "date"},
+    "description": {"type": "string", "minLength": 1},
+    "prospects": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "display_name",
+          "school_name",
+          "grade",
+          "position",
+          "throws",
+          "bats",
+          "is_featured",
+          "sources"
+        ],
+        "properties": {
+          "id": {"type": "string", "pattern": "^featured_hs_2026_[0-9]{3}$"},
+          "display_name": {"type": "string", "minLength": 1},
+          "school_name": {"type": "string", "minLength": 1},
+          "grade": {"type": "integer", "enum": [1, 2, 3]},
+          "position": {"type": "string", "enum": ["P", "C", "1B", "2B", "3B", "SS", "LF", "CF", "RF", "IF", "OF"]},
+          "raw_position": {"type": ["string", "null"]},
+          "throws": {"type": ["string", "null"], "enum": ["R", "L", null]},
+          "bats": {"type": ["string", "null"], "enum": ["R", "L", "S", null]},
+          "height_cm": {"type": ["integer", "null"], "minimum": 130, "maximum": 220},
+          "weight_kg": {"type": ["integer", "null"], "minimum": 35, "maximum": 160},
+          "is_featured": {"type": "boolean", "const": true},
+          "public_stats": {"type": ["object", "null"]},
+          "public_achievements": {"type": "array", "items": {"type": "string"}},
+          "notes": {"type": ["string", "null"]},
+          "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "publisher", "title", "date", "url"],
+              "properties": {
+                "type": {"type": "string", "minLength": 1},
+                "publisher": {"type": "string", "minLength": 1},
+                "title": {"type": "string", "minLength": 1},
+                "date": {"type": ["string", "null"], "format": "date"},
+                "url": {"type": "string", "pattern": "^https?://"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
