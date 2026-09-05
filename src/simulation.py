@@ -1,20 +1,20 @@
 """Production H3.2.1 gameplay integration.
 
 Public simulation APIs are preserved. Neutral hitting math comes from validated
-H3.1; H3.2.1 steal/advancement/DP formulas are used by the game adapter.
+H3.1. H3.2.1 baserunning formulas live in ``src.hitting.baserunning``.
+
+The current career engine is player-centric rather than a full-team inning
+simulator. Legacy callers therefore use an isolated compatibility steal context;
+advancement and double-play formulas are exposed for a future real base-state
+engine and are not faked inside the player-only loop.
 """
 from __future__ import annotations
 from dataclasses import dataclass
+import hashlib
 import math
 from . import config
 from .hitting import parameters as hitting_parameters
-from .hitting.baserunning import (
-    GameState,
-    resolve_double_play,
-    resolve_first_to_third,
-    resolve_second_to_home,
-    resolve_steal,
-)
+from .hitting.baserunning import GameState, resolve_steal
 from .hitting.model import (
     HitterSnapshot,
     HittingEngine,
@@ -108,6 +108,8 @@ def _condition_modifiers(p: Player) -> tuple[float, float]:
 
 def _hitter_snapshot(p: Player) -> HitterSnapshot:
     bats = (p.bats_throws or "R/R").split("/", 1)[0]
+    # Switch hitters are kept on the historical neutral/default side until a
+    # separately validated handedness matchup layer exists.
     handedness = "L" if bats == "L" else "R"
     return HitterSnapshot(
         contact=p.effective_stat("contact"),
@@ -173,101 +175,65 @@ def _run_rbi_values(result: str, rng: RNG) -> tuple[int, int]:
         return (1 if rng.random() < .28 else 0, 1 if rng.random() < .48 else 0)
     if result == "single":
         return (1 if rng.random() < .20 else 0, 1 if rng.random() < .30 else 0)
-    if result in {"walk", "hit_by_pitch"}:
+    if result in {"walk", "hit_by_pitch", "reached_on_error"}:
         return (1 if rng.random() < .10 else 0, 0)
     return 0, 0
 
-def _abstract_game_state(
-    rng: RNG, appearance_index: int, appearances: int
-) -> GameState:
-    """Compatibility adapter until the project has a full-team inning engine.
+def _fork_rng(rng: RNG, namespace: str) -> RNG:
+    """Create a deterministic child stream without consuming career RNG state.
 
-    Callers with a real base/inning state can pass ``game_state`` directly to
-    ``simulate_player_game``. Existing career callers omit it and use this
-    deterministic abstract state.
+    Balance-Lab H3.2/H3.2.1 intentionally used a separate running stream so
+    adding baserunning did not change subsequent batting outcomes. Production
+    keeps that property while preserving save/load reproducibility of the parent
+    career RNG.
     """
+    payload = (namespace + "|" + repr(rng.get_state())).encode("utf-8")
+    seed = int.from_bytes(hashlib.sha256(payload).digest()[:8], "big")
+    return RNG(seed)
+
+def _compat_steal_state(rng: RNG, appearance_index: int, appearances: int) -> GameState:
+    """Validated H3.2 context sampler for the legacy player-only game loop."""
     progress = appearance_index / max(1, appearances - 1)
     inning = max(1, min(9, 1 + int(progress * 8)))
-    outs = rng.randint(0, 2)
+    x = rng.random()
+    outs = 0 if x < .34 else 1 if x < .69 else 2
     score_diff = int(round(max(-6, min(6, rng.gauss(0, 2.25)))))
-    first = rng.random() < .20
-    second = rng.random() < .12
-    third = rng.random() < .07
-    return GameState(inning, outs, score_diff, first, second, third)
-
-def _apply_pre_pa_double_play(
-    p: Player, outcome: PlateAppearanceOutcome, state: GameState,
-    line: BattingLine, rng: RNG
-) -> PlateAppearanceOutcome:
-    ball = outcome.batted_ball
-    if (
-        outcome.result != "out"
-        or ball is None
-        or ball.ball_type != "ground_ball"
-        or not state.first_occupied
-        or state.outs >= 2
-    ):
-        return outcome
-    if resolve_double_play(p.effective_stat("speed"), rng):
-        line.GDP += 1
-        state.outs = min(3, state.outs + 2)
-        state.first_occupied = False
-        return outcome
-    line.DP_avoided += 1
-    state.outs = min(3, state.outs + 1)
-    state.first_occupied = True
-    return PlateAppearanceOutcome(
-        "fielders_choice",
-        batted_ball=ball,
-        raw_candidate=outcome.raw_candidate,
-        resolved_candidate=outcome.resolved_candidate,
+    return GameState(
+        inning=inning,
+        outs=outs,
+        score_diff=score_diff,
+        first_occupied=True,
+        second_occupied=rng.random() < hitting_parameters.STEAL_SECOND_BASE_OCCUPIED_RATE,
+        third_occupied=False,
     )
 
-def _apply_post_reach_baserunning(
+def _maybe_compat_steal(
     p: Player,
-    result: str,
-    state: GameState,
     line: BattingLine,
-    rng: RNG,
-    recovery: float,
+    result: str,
+    parent_rng: RNG,
+    appearance_index: int,
+    appearances: int,
+    running_defense: float,
 ) -> None:
-    speed = p.effective_stat("speed")
-    if result in {"single", "walk", "hit_by_pitch", "reached_on_error", "fielders_choice"}:
-        state.first_occupied = True
-    elif result == "double":
-        state.second_occupied = True
-    elif result == "triple":
-        state.third_occupied = True
-    else:
+    """Legacy adapter: only SB/CS is meaningful without a team base-state engine.
+
+    1B->3B, 2B->Home, and DP-avoidance production formulas are available in
+    ``src.hitting.baserunning`` for callers that own real runner/base state.
+    They are deliberately not fabricated here from the hitter's own PA.
+    """
+    if result not in {"single", "walk", "hit_by_pitch", "reached_on_error"}:
         return
-
-    if state.steal_eligible():
-        steal = resolve_steal(speed, state, rng, recovery)
-        if steal.attempted:
-            line.SB_attempts += 1
-            if steal.success:
-                line.SB += 1
-                state.first_occupied = False
-                state.second_occupied = True
-            else:
-                line.CS += 1
-                state.first_occupied = False
-                state.outs = min(3, state.outs + 1)
-
-    if state.first_occupied and rng.random() < hitting_parameters.FIRST_TO_THIRD_OPP_RATE:
-        line.XBT_attempts += 1
-        if resolve_first_to_third(speed, recovery, rng):
-            line.XBT += 1
-            line.first_to_third += 1
-            state.first_occupied = False
-            state.third_occupied = True
-    if state.second_occupied and rng.random() < hitting_parameters.SECOND_TO_HOME_OPP_RATE:
-        line.XBT_attempts += 1
-        if resolve_second_to_home(speed, recovery, rng):
-            line.XBT += 1
-            line.second_to_home += 1
-            line.R += 1
-            state.second_occupied = False
+    run_rng = _fork_rng(parent_rng, f"h321-steal:{appearance_index}:{appearances}")
+    state = _compat_steal_state(run_rng, appearance_index, appearances)
+    steal = resolve_steal(p.effective_stat("speed"), state, run_rng, running_defense)
+    if not steal.attempted:
+        return
+    line.SB_attempts += 1
+    if steal.success:
+        line.SB += 1
+    else:
+        line.CS += 1
 
 def simulate_player_game(
     p: Player,
@@ -277,6 +243,15 @@ def simulate_player_game(
     pa_count: int | None = None,
     game_state: GameState | None = None,
 ) -> None:
+    """Simulate the player's game while preserving the established public API.
+
+    ``game_state`` is reserved for the future full-team inning integration. The
+    current career engine has no runner identities between teammate PAs, so it
+    cannot safely apply H3.2.1 advancement/DP events here without inventing
+    state. Callers with a real inning engine should use ``src.hitting.baserunning``
+    directly with the actual runner's Speed.
+    """
+    del game_state  # API reservation; see docstring.
     pitcher = PitcherProfile.from_level(opponent_level, rng)
     line.G += 1
     appearances = (
@@ -284,9 +259,6 @@ def simulate_player_game(
         else rng.weighted_choice(((3, .12), (4, .58), (5, .25), (6, .05)))
     )
     for index in range(appearances):
-        state = game_state if game_state is not None else _abstract_game_state(
-            rng, index, appearances
-        )
         outcome = simulate_plate_appearance_outcome(
             p,
             pitcher,
@@ -294,9 +266,14 @@ def simulate_player_game(
             pressure=index >= 3 and rng.random() < .28,
             defense_level=opponent_level,
         )
-        outcome = _apply_pre_pa_double_play(p, outcome, state, line, rng)
         runs, rbi = _run_rbi_values(outcome.result, rng)
         line.record_pa(outcome.result, runs=runs, rbi=rbi)
-        _apply_post_reach_baserunning(
-            p, outcome.result, state, line, rng, opponent_level
+        _maybe_compat_steal(
+            p,
+            line,
+            outcome.result,
+            rng,
+            index,
+            appearances,
+            opponent_level,
         )
