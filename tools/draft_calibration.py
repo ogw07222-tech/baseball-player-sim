@@ -67,7 +67,7 @@ def run(players:int=10000,npcs:int=10000,drafts:int=10000,seed:int=20260905)->di
 
 
 def validate(report:dict[str,object])->list[str]:
-    errors=[];p=report['player_ability'];n=report['npc_ability'];d=report['draft_pct']
+    errors=[];p=report['player_ability'];n=report['npc_ability'];d=report['draft_pct'];c=report['mean_absolute_contribution_pct']
     if not 79<=p['mean']<=81:errors.append(f"player mean {p['mean']} outside 79..81")
     if not 9<=p['sd']<=12:errors.append(f"player sd {p['sd']} outside 9..12")
     if not 68<=n['mean']<=72:errors.append(f"npc mean {n['mean']} outside 68..72")
@@ -79,6 +79,9 @@ def validate(report:dict[str,object])->list[str]:
         if not lo<=d[name]<=hi:errors.append(f"{name} {d[name]} outside {lo}..{hi}")
     if report['configured_draft_weights']['performance']<.70:errors.append('draft is not performance dominant')
     if report['configured_draft_weights']['current_ability']!=0:errors.append('current ability direct weight must be zero')
+    if not 70<=c['performance']<=85:errors.append(f"realized performance contribution {c['performance']} outside 70..85")
+    if not 5<=c['scouting']<=15:errors.append(f"realized scouting contribution {c['scouting']} outside 5..15")
+    if not 3<=c['position']<=10:errors.append(f"realized position contribution {c['position']} outside 3..10")
     return errors
 
 
