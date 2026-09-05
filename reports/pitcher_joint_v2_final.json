@@ -1,0 +1,97 @@
+{
+  "main_base": "44b4bbb9113e351ceb35aac75f02a8ee6eab3723",
+  "velocity_v2_source_sha": "c405b3e9c1ec2633fabd0f033c0c923b165bd6af",
+  "velocity_fixed": {
+    "reference_kmh": 146.0,
+    "gameplay_points_per_kmh": 1.5,
+    "raw_reference": 97.0,
+    "mapping_status": "frozen"
+  },
+  "physical_velocity_safety": {
+    "base_soft_start_kmh": 160.0,
+    "base_hard_cap_kmh": 164.0,
+    "effective_soft_start_kmh": 164.0,
+    "effective_hard_cap_kmh": 167.0,
+    "max_pitch_hard_cap_kmh": 170.0,
+    "career_stress_n": 100000,
+    "base_avg_max_kmh": 161.33175074183976,
+    "effective_avg_max_kmh": 164.92231812577066,
+    "max_pitch_max_kmh": 170.0,
+    "base_exact_cap_fraction": 0.0,
+    "effective_exact_cap_fraction": 0.0,
+    "max_pitch_exact_cap_fraction": 0.00046,
+    "gate": "PHYSICAL_VELOCITY_SAFETY_READY"
+  },
+  "population": {
+    "hitters": 2000,
+    "pitchers": 2000,
+    "physical_velocity": {
+      "mean": 144.95858292675382,
+      "sd": 3.2802746772367546,
+      "p10": 140.6917148362235,
+      "p25": 142.6015625,
+      "p50": 144.84920634920636,
+      "p75": 147.15079365079364,
+      "p90": 149.14904140166337,
+      "p95": 150.49612403100775,
+      "p99": 152.6412213740458,
+      "max": 155.73880597014926
+    },
+    "prime_age28_raw": {
+      "velocity_mean": 95.7972,
+      "stuff_mean": 96.86373333333333,
+      "control_mean": 91.9656,
+      "breaking_mean": 95.738,
+      "ability_mean": 95.54963933333335,
+      "requested_center_about_110_met": false
+    }
+  },
+  "best_candidate": {
+    "weights": {
+      "w_control_zone": 0.7250417401045524,
+      "w_stuff_quality": 0.5925985469092584,
+      "w_stuff_contact": 0.21753922190170344,
+      "w_breaking_contact": 0.6995581820155009,
+      "w_breaking_quality": 0.5671943694776231
+    },
+    "metrics": {
+      "AVG": 0.20705107015972385,
+      "OBP": 0.2539754,
+      "SLG": 0.3111569459269902,
+      "OPS": 0.5651323459269901,
+      "BB%": 0.059177,
+      "K%": 0.249119,
+      "HR%": 0.0210504,
+      "1B%": 0.139979,
+      "2B%": 0.032744,
+      "3B%": 0.001025,
+      "BABIP": 0.25907269375521774
+    },
+    "passed_tolerances": false,
+    "normalized_loss": 3.649614676387847,
+    "multi_seed": 5,
+    "validation_pa_per_seed": 1000000
+  },
+  "semantic_gates": {
+    "control_owns_bb": true,
+    "breaking_more_k_than_stuff": true,
+    "stuff_quality_identity": false,
+    "stuff_not_universal": true,
+    "control_not_universal": true,
+    "archetype_diversity_sane": false,
+    "velocity_stuff_synergy_sane": false
+  },
+  "velocity_distribution_preserved": true,
+  "extreme_rating_safe": true,
+  "h3_2_1_hitter_formula_diff": "NONE",
+  "gates": {
+    "PHYSICAL_VELOCITY_SAFETY_READY": true,
+    "PITCHER_JOINT_CALIBRATION_V2_READY": false
+  },
+  "joint_gate": "PITCHER_JOINT_CALIBRATION_V2_NOT_READY",
+  "merge_recommendation": {
+    "physical_velocity_safety_layer": "PROMOTE_AFTER_VELOCITY_V2",
+    "joint_scb_coefficients": "DO_NOT_PROMOTE",
+    "next_prerequisite": "define Stuff/Control/Breaking raw-scale contract; target prime center around 110 if retained as a design requirement, while preserving the frozen physical Velocity distribution"
+  }
+}
