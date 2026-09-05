@@ -3,6 +3,7 @@ import { PlayerDashboard } from './screens/PlayerDashboard'
 import { SeasonScreen } from './screens/SeasonScreen'
 import { NewCareerPage } from './screens/NewCareerPage'
 import { DraftDayPage } from './screens/DraftDayPage'
+import { CareerScreen, LeagueScreen, NewsScreen, RecordsScreen, TeamScreen } from './screens/PlayableOverviewScreens'
 import type { DashboardViewModel, SeasonViewModel } from './types/viewModels'
 import type { NewCareerRequest } from './types/newCareer'
 import type { AdvanceCommand, GameDataProvider } from './services/GameDataProvider'
@@ -51,7 +52,11 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
 
   const advance = async(command:AdvanceCommand) => {
     const actions = { nextGame:provider.advanceNextGame, week:provider.advanceWeek, month:provider.advanceMonth, season:provider.advanceSeason }
-    try { setDashboard(await actions[command].call(provider)) } catch { setError(true) }
+    try {
+      const updatedDashboard = await actions[command].call(provider)
+      setDashboard(updatedDashboard)
+      setSeason(await provider.getSeason())
+    } catch { setError(true) }
   }
 
   if(loading) return <LoadingState/>
@@ -66,6 +71,20 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
   }
 
   const seasonMeta = dashboard?.season ?? season?.season
+  const content = !dashboard || !season ? <LoadingState/> : screen==='player'
+    ? <PlayerDashboard data={dashboard} onAdvance={advance}/>
+    : screen==='season'
+      ? <SeasonScreen data={season} onSave={()=>void provider.saveGame()}/>
+      : screen==='career'
+        ? <CareerScreen data={dashboard}/>
+        : screen==='team'
+          ? <TeamScreen data={season}/>
+          : screen==='league'
+            ? <LeagueScreen data={season}/>
+            : screen==='records'
+              ? <RecordsScreen dashboard={dashboard} season={season}/>
+              : <NewsScreen data={dashboard}/>
+
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><strong>KBO CAREER</strong><small>BASEBALL PLAYER SIMULATOR</small></div>
@@ -81,9 +100,7 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
         <div className="current-date">{seasonMeta?.date ?? '시즌 데이터 로딩 중'}<small>다음 경기를 진행하세요.</small></div>
         <button className="icon-button" aria-label="검색">⌕</button><button className="icon-button" aria-label="설정">⚙</button>
       </header>
-      <main>
-        {error?<ErrorState onRetry={()=>void load()}/>:screen==='player'&&dashboard?<PlayerDashboard data={dashboard} onAdvance={advance}/>:screen==='season'&&season?<SeasonScreen data={season} onSave={()=>void provider.saveGame()}/>:<div className="coming-soon panel"><h1>{navItems.find(n=>n.key===screen)?.label}</h1><p>이 화면은 v0.1 범위 밖이며 App Shell navigation만 연결되어 있습니다.</p></div>}
-      </main>
+      <main>{error?<ErrorState onRetry={()=>void load()}/>:content}</main>
     </div>
   </div>
 }
