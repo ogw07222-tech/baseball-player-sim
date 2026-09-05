@@ -1,0 +1,44 @@
+{
+  "gate": "HITTER_CPD_GAMEPLAY_SCALE_READY",
+  "raw_scale_gate": "HITTER_CPD_RAW_SCALE_READY",
+  "model": "linear",
+  "selected_common_slope": 0.6,
+  "references": {
+    "contact": 109.26405555555556,
+    "power": 109.10451111111111,
+    "discipline": 108.80516666666666
+  },
+  "prime_gameplay_center": {
+    "contact": 100.0,
+    "power": 100.0,
+    "discipline": 100.0
+  },
+  "actual_population_multi_seed_mean": {
+    "AVG": 0.26241108714896405,
+    "OBP": 0.32281966666666667,
+    "SLG": 0.4111959254650493,
+    "OPS": 0.734015592131716,
+    "BB": 0.0819,
+    "K": 0.211432,
+    "HR": 0.028089,
+    "1B": 0.162372,
+    "2B": 0.048584999999999996,
+    "3B": 0.0018736666666666667,
+    "BABIP": 0.3136417425981081
+  },
+  "kbo_reference_for_context_only": {
+    "AVG": 0.2616,
+    "OBP": 0.3385,
+    "SLG": 0.3887,
+    "OPS": 0.7272,
+    "BB": 0.09149,
+    "K": 0.19687,
+    "HR": 0.02127,
+    "1B": 0.16398,
+    "2B": 0.04006,
+    "3B": 0.00371,
+    "BABIP": 0.3122
+  },
+  "selection_basis": "common slope preserving ~12-14 gameplay SD and monotonic stat identity; not league-fit optimization",
+  "h32_formula_changed": false
+}
