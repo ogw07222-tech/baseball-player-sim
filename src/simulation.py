@@ -22,6 +22,7 @@ from .hitting.model import (
     PitcherSnapshot,
     PlateAppearanceOutcome,
 )
+from .hitting.normalization import normalize_hitter, normalize_speed
 from .player import Player
 from .records import BattingLine
 from .rng import RNG
@@ -109,11 +110,17 @@ def _condition_modifiers(p: Player) -> tuple[float, float]:
 def _hitter_snapshot(p: Player) -> HitterSnapshot:
     bats = (p.bats_throws or "R/R").split("/", 1)[0]
     handedness = "L" if bats == "L" else "R"
+    gameplay = normalize_hitter(
+        p.effective_stat("contact"),
+        p.effective_stat("power"),
+        p.effective_stat("discipline"),
+        p.effective_stat("speed"),
+    )
     return HitterSnapshot(
-        contact=p.effective_stat("contact"),
-        power=p.effective_stat("power"),
-        discipline=p.effective_stat("discipline"),
-        speed=p.effective_stat("speed"),
+        contact=gameplay.contact,
+        power=gameplay.power,
+        discipline=gameplay.discipline,
+        speed=gameplay.speed,
         handedness=handedness,
         approach="balanced",
     )
@@ -212,7 +219,7 @@ def _maybe_compat_steal(
         return
     run_rng = _fork_rng(parent_rng, f"h321-steal:{appearance_index}:{appearances}")
     state = _compat_steal_state(run_rng)
-    steal = resolve_steal(p.effective_stat("speed"), state, run_rng, running_defense)
+    steal = resolve_steal(normalize_speed(p.effective_stat("speed")), state, run_rng, running_defense)
     if not steal.attempted:
         return
     line.SB_attempts += 1
@@ -235,7 +242,7 @@ def simulate_player_game(
     current career engine has no runner identities between teammate PAs, so it
     cannot safely apply H3.2.1 advancement/DP events here without inventing
     state. Callers with a real inning engine should use ``src.hitting.baserunning``
-    directly with the actual runner's Speed.
+    directly with the actual runner's normalized gameplay Speed.
     """
     del game_state
     pitcher = PitcherProfile.from_level(opponent_level, rng)
