@@ -24,7 +24,7 @@ from src.stats import generate_high_school_npc_stats
 from src.traits import generate_random_traits
 
 SOURCE_BRANCH = "feature/h32-production-integration"
-SOURCE_SHA = "bb3257a0295d094590cd39c3f703405eaabe1f9f"
+SOURCE_SHA = "c3ebae8763337bfec5b0ec8e1eee0ec03d078cf9"
 DEFAULT_MASTER_SEED = 20260905
 AGES = (18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,35,37,40)
 COMPARE_AGES = (18,20,22,24,26,28,30,32,35)

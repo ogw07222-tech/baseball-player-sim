@@ -1,7 +1,8 @@
 {
   "source": {
     "branch": "feature/h32-production-integration",
-    "sha": "bb3257a0295d094590cd39c3f703405eaabe1f9f"
+    "sha": "c3ebae8763337bfec5b0ec8e1eee0ec03d078cf9",
+    "note": "Production HEAD actually executed by the sharded validation. Branch advanced concurrently from the initially inspected bb3257a snapshot via draft-score-only config commits before sharded execution."
   },
   "seed": 20260905,
   "sample_size": {

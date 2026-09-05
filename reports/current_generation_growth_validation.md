@@ -3,7 +3,8 @@
 ## 1. Source branch / SHA
 
 - Branch: `feature/h32-production-integration`
-- Production snapshot under validation: `bb3257a0295d094590cd39c3f703405eaabe1f9f`
+- Production snapshot actually executed: `c3ebae8763337bfec5b0ec8e1eee0ec03d078cf9`
+- Initial inspected snapshot before concurrent draft-only branch updates: `bb3257a0295d094590cd39c3f703405eaabe1f9f`
 - Master seed: `20260905`
 - Validation only. No production growth, generation, Talent, profile, aging, event, coach, injury, retirement, or threshold tuning was performed.
 
