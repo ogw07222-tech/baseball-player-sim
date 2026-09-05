@@ -23,10 +23,19 @@ EXPECTED = {
 }
 
 
+def _restore_row_types(row: dict) -> dict:
+    """Restore JSON-coerced mapping keys needed by the in-memory summarizers."""
+    snaps = row.get("snaps")
+    if isinstance(snaps, dict):
+        row["snaps"] = {int(age): values for age, values in snaps.items()}
+    return row
+
+
 def load_group(root: Path, name: str) -> list[dict]:
     rows: list[dict] = []
     for path in sorted(root.glob(f"{name}_*.json")):
-        rows.extend(json.loads(path.read_text(encoding="utf-8")))
+        shard_rows = json.loads(path.read_text(encoding="utf-8"))
+        rows.extend(_restore_row_types(row) for row in shard_rows)
     expected = EXPECTED[name]
     if len(rows) != expected:
         raise RuntimeError(f"{name}: expected {expected} rows, got {len(rows)}")
