@@ -10,6 +10,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
+      - name: Install test dependency
+        run: python -m pip install pytest
       - name: Joint v2 unit tests
         run: python -m pytest tests/test_pitcher_joint_v2.py -q
       - name: Prime raw diagnostic
