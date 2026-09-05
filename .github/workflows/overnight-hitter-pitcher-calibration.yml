@@ -25,10 +25,33 @@ jobs:
             reports/hitter_cpd_*.csv
             reports/hitter_cpd_*.json
             reports/hitter_cpd_*.md
-      - name: Publish Stage A reports
+  stage-b-hitter-normalization:
+    runs-on: ubuntu-latest
+    needs: stage-a-hitter-cpd
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install pytest
+      - name: Normalization tests
+        run: pytest -q tests/test_hitter_gameplay_normalization.py tests/test_hitter_cpd_recenter.py
+      - name: Multi-seed C/P/D normalization
+        run: python -m tools.overnight_calibration.hitter_normalization_v2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: overnight-hitter-normalization
+          path: |
+            reports/hitter_cpd_normalization_*.csv
+            reports/hitter_cpd_normalization_*.json
+            reports/hitter_cpd_sensitivity.csv
+            reports/hitter_cpd_raw_to_gameplay.csv
+            reports/hitter_actual_population_validation.csv
+      - name: Publish Stage A/B reports
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add reports/hitter_cpd_*
-          git diff --cached --quiet || git commit -m "report: publish hitter C/P/D recenter diagnostic [skip ci]"
+          git pull --rebase origin feature/overnight-hitter-pitcher-calibration
+          git add reports/hitter_cpd_* reports/hitter_actual_population_validation.csv
+          git diff --cached --quiet || git commit -m "report: publish hitter C/P/D normalization calibration [skip ci]"
           git push
