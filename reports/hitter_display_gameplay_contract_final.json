@@ -1,0 +1,49 @@
+{
+  "gate": "HITTER_DISPLAY_GAMEPLAY_CONTRACT_READY",
+  "subgates": {
+    "HITTER_CPD_RAW_SCALE_READY": "READY",
+    "HITTER_CPD_GAMEPLAY_SCALE_READY": "READY",
+    "HITTER_SPEED_RATIO_READY": "READY"
+  },
+  "raw_prime_mean": {
+    "contact": 109.18633333333334,
+    "power": 109.04966666666667,
+    "discipline": 109.53,
+    "speed": 110.632
+  },
+  "gameplay_prime_mean": {
+    "contact": 99.95336666666667,
+    "power": 99.96709333333334,
+    "discipline": 100.4349,
+    "speed": 100.57450666666666
+  },
+  "gameplay_prime_sd": {
+    "contact": 11.661098608621746,
+    "power": 12.887685283246173,
+    "discipline": 11.709326026719044,
+    "speed": 18.760035411480438
+  },
+  "references": {
+    "contact": 109.26405555555556,
+    "power": 109.10451111111111,
+    "discipline": 108.80516666666666,
+    "speed": 109.91386666666666
+  },
+  "multi_seed_offense_mean": {
+    "AVG": 0.26260686334397093,
+    "OBP": 0.32377900000000004,
+    "SLG": 0.4116629270963683,
+    "OPS": 0.7354419270963684,
+    "BB": 0.08295733333333333,
+    "K": 0.210967,
+    "HR": 0.027681,
+    "1B": 0.16141966666666668,
+    "2B": 0.049794333333333336,
+    "3B": 0.0019266666666666666,
+    "BABIP": 0.31418405524708437
+  },
+  "speed_140_150_running_value_delta": 0.005269969533526736,
+  "speed_safety": true,
+  "h32_formula_changed": false,
+  "raw_save_storage_unchanged": true
+}
