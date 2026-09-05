@@ -63,8 +63,6 @@ class PitcherCalibrationTests(unittest.TestCase):
         a = adapter_for(velocity=150, stuff=70).pitch_stat_modifier(None, 0)
         b = adapter_for(velocity=70, stuff=150).pitch_stat_modifier(None, 0)
         c = adapter_for(velocity=120, stuff=120).pitch_stat_modifier(None, 0)
-        # The balanced profile improves both stages.  Each one-sided profile has
-        # one strong stage and one compensating weak stage.
         self.assertLess(c[0], 0.0)
         self.assertLess(c[1], 0.0)
         self.assertGreater(a[1], 0.0)
@@ -118,7 +116,7 @@ class PitcherCalibrationTests(unittest.TestCase):
         self.assertGreater(f1 - f5, f5 - f0)
 
     def test_extreme_rating_safety(self):
-        valid = {"walk", "strikeout", "home_run", "single", "double", "triple", "out", "error"}
+        valid = {"walk", "strikeout", "home_run", "single", "double", "triple", "out", "reached_on_error"}
         hitter = HitterSnapshot(100, 100, 100, 100)
         for rating in (30, 50, 70, 100, 130, 160, 200, 250):
             p = DummyPitcher(rating, rating, rating, rating, rating, rating, rating)
@@ -128,9 +126,6 @@ class PitcherCalibrationTests(unittest.TestCase):
                 self.assertIn(outcome.result, valid)
 
     def test_probability_bounds(self):
-        # H3 itself owns probability clamping.  Exercise extreme adapted inputs
-        # repeatedly: any out-of-range probability would surface as invalid RNG
-        # behavior or an exception before a valid terminal result is produced.
         hitter = HitterSnapshot(250, 250, 250, 250)
         p = DummyPitcher(250, 250, 250, 250, 100, 100, 100)
         engine = PitcherPAAdapter(p, CalibrationWeights()).make_engine(hitter, 100, random.Random(9))
