@@ -14,8 +14,8 @@ from src.stats import PlayerStats
 def base_player(talent=100,age=20):return Player('T',age,PlayerStats(80,80,80,80,80,80,80,80,80,talent),development_profile='normal')
 def staff(kind):return CoachingStaff(generate_batting_coach(RNG(100),kind),generate_fielding_coach(RNG(200),'balanced'))
 class BalanceV04Tests(unittest.TestCase):
-    def test_starting_ability_scale_near_70_with_dispersion(self):
-        vals=[Player.random('A',RNG(i)).stats.current_ability() for i in range(1000)];m=statistics.mean(vals);self.assertGreaterEqual(m,68);self.assertLessEqual(m,72);self.assertTrue(any(v<60 for v in vals));self.assertTrue(any(v>=80 for v in vals));self.assertLess(sum(v>=100 for v in vals)/len(vals),.01)
+    def test_starting_ability_scale_near_80_with_dispersion(self):
+        vals=[Player.random('A',RNG(i)).stats.current_ability() for i in range(1000)];m=statistics.mean(vals);sd=statistics.pstdev(vals);self.assertGreaterEqual(m,79);self.assertLessEqual(m,81);self.assertGreaterEqual(sd,9);self.assertLessEqual(sd,12);self.assertTrue(any(v<65 for v in vals));self.assertTrue(any(v>=95 for v in vals));self.assertLess(sum(v>=100 for v in vals)/len(vals),.08)
     def test_natural_growth_remains_weak(self):
         vals=[]
         for seed in range(250):vals.append(sum(apply_season_growth(base_player(),RNG(seed)).deltas.values())/9)
