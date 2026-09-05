@@ -61,7 +61,7 @@ describe('web UI',()=>{
     render(<App provider={existingCareerProvider()}/>)
     expect(await screen.findByRole('heading',{name:'KBO DRAFT'})).toBeInTheDocument()
     expect(screen.getByRole('heading',{name:'SELECTED'})).toBeInTheDocument()
-    expect(screen.getByText('키움 히어로즈')).toBeInTheDocument()
+    expect(screen.getAllByText('키움 히어로즈').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('OVERALL PICK')).toBeInTheDocument()
     expect(screen.getByRole('heading',{name:'PRE-DRAFT PROJECTION'})).toBeInTheDocument()
     expect(screen.getByRole('heading',{name:'TEAM FIT'})).toBeInTheDocument()
