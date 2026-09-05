@@ -15,6 +15,27 @@ class SlowProvider extends MockGameDataProvider {
   async getSeason() { await new Promise(resolve=>setTimeout(resolve,20)); return super.getSeason() }
 }
 
+class EmptyOptionalDataProvider extends MockGameDataProvider {
+  constructor(){ super({hasCareer:true}) }
+  async getDashboard() {
+    const data = await super.getDashboard()
+    data.seasonStory = []
+    data.traits = []
+    data.titleRace = {}
+    return data
+  }
+  async getSeason() {
+    const data = await super.getSeason()
+    data.teamBatting = []
+    data.teamMetrics = []
+    data.recentResults = []
+    data.standings = []
+    data.hittingLeaderboards = {}
+    data.pitchingLeaderboards = {}
+    return data
+  }
+}
+
 const existingCareerProvider = () => new MockGameDataProvider({hasCareer:true})
 afterEach(()=>{ window.location.hash='' })
 
@@ -112,6 +133,59 @@ describe('web UI',()=>{
     expect(await screen.findByRole('heading',{name:'팀 순위'})).toBeInTheDocument()
     fireEvent.click(screen.getByRole('tab',{name:'HR'}))
     expect(screen.getAllByText('38').length).toBeGreaterThan(0)
+  })
+
+  it('connects every app-shell destination to usable provider-backed content', async()=>{
+    render(<App provider={existingCareerProvider()}/>)
+    await screen.findByRole('heading',{name:/김건우/})
+    const checks:[string,string][] = [['커리어','현재 능력치'],['팀','팀 타격 기록'],['리그','팀 순위'],['기록','타이틀 레이스'],['뉴스','3경기 연속 홈런']]
+    for(const [nav,label] of checks){
+      fireEvent.click(screen.getByRole('button',{name:nav}))
+      expect(await screen.findByText(label)).toBeInTheDocument()
+      expect(screen.getByRole('button',{name:nav})).toHaveAttribute('aria-current','page')
+    }
+  })
+
+  it('connects season tabs that already have provider data and leaves monthly report explicit', async()=>{
+    render(<App provider={existingCareerProvider()}/>)
+    await screen.findByRole('heading',{name:/김건우/})
+    fireEvent.click(screen.getByRole('button',{name:'시즌'}))
+    fireEvent.click(screen.getByRole('tab',{name:'팀 기록'}))
+    expect(await screen.findByText('키움 히어로즈 팀 타격 기록')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab',{name:'선수 기록'}))
+    expect(await screen.findByText('김건우 시즌 기록')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab',{name:'경기 일정/결과'}))
+    expect(await screen.findByText('최근 경기 결과')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab',{name:'시즌 스토리'}))
+    expect(await screen.findByText('3경기 연속 홈런')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('tab',{name:'월간 리포트'}))
+    expect(await screen.findByText(/현재 provider에 월간 집계 계약이 없어/)).toBeInTheDocument()
+  })
+
+  it('refreshes dashboard and season metadata after an advance action', async()=>{
+    const provider = existingCareerProvider()
+    render(<App provider={provider}/>)
+    await screen.findByRole('heading',{name:/김건우/})
+    expect(screen.getByText(/GAME 47 \/ 144/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:/다음 경기/}))
+    await waitFor(()=>expect(screen.getByText(/GAME 48 \/ 144/)).toBeInTheDocument())
+    expect((await provider.getSeason()).season.game).toBe(48)
+    fireEvent.click(screen.getByRole('button',{name:'리그'}))
+    expect(await screen.findByText('팀 순위')).toBeInTheDocument()
+  })
+
+  it('renders graceful empty states when optional collections are empty', async()=>{
+    render(<App provider={new EmptyOptionalDataProvider()}/>)
+    await screen.findByRole('heading',{name:/김건우/})
+    fireEvent.click(screen.getByRole('button',{name:'커리어'}))
+    expect(await screen.findByText('현재 적용 중인 특성이 없습니다.')).toBeInTheDocument()
+    expect(screen.getByText('현재 시즌에 기록된 스토리가 없습니다.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:'팀'}))
+    expect(await screen.findByText('현재 제공되는 팀 타격 기록이 없습니다.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:'리그'}))
+    expect(await screen.findByText('현재 리그 순위 데이터가 없습니다.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:'뉴스'}))
+    expect(await screen.findByText('현재 시즌에 생성된 뉴스 이벤트가 없습니다.')).toBeInTheDocument()
   })
 
   it('switches title race metric', async()=>{
