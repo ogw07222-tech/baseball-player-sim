@@ -1,0 +1,36 @@
+name: velocity-scale-calibration
+
+on:
+  push:
+    branches:
+      - feature/velocity-scale-calibration
+  workflow_dispatch:
+
+jobs:
+  velocity-scale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Velocity scale unit tests
+        run: python -m unittest tests.test_velocity_scale -v
+      - name: Run velocity calibration
+        run: >-
+          python -m tools.velocity_scale.calibrate
+          --careers 1200
+          --pa-per-point 20000
+          --pitch-samples 15000
+          --seed 20260906
+          --output-dir reports
+      - name: Upload velocity reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: velocity-scale-reports
+          path: |
+            reports/velocity_scale_summary.md
+            reports/velocity_scale_candidates.csv
+            reports/velocity_scale_final.json
