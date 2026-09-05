@@ -1,3 +1,5 @@
+import inspect
+import src.hitting.model as h32_model
 from src.hitting.normalization import *
 from src.hitting.model import HitterSnapshot,PitcherSnapshot,HittingEngine
 from src.player import Player
@@ -44,3 +46,8 @@ def test_power_identity_preserved():
     lo=_pa(rawp=100,seed=62);hi=_pa(rawp=120,seed=62);assert hi[1]>lo[1] and abs(hi[2]-lo[2])<.02
 def test_discipline_identity_preserved():
     lo=_pa(rawd=100,seed=63);hi=_pa(rawd=120,seed=63);assert hi[2]>lo[2]
+
+def test_h32_formula_diff_none():
+    # The conversion boundary must stay outside frozen H3.2.1 formula code.
+    source=inspect.getsource(h32_model)
+    assert 'hitting.normalization' not in source and 'normalize_contact' not in source
