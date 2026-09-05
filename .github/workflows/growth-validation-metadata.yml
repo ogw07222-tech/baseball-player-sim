@@ -1,0 +1,52 @@
+name: growth-validation-metadata
+
+on:
+  push:
+    branches:
+      - feature/h32-production-integration
+    paths:
+      - .github/workflows/growth-validation-metadata.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  correct-source-metadata:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/h32-production-integration
+          fetch-depth: 0
+      - name: Correct validation source SHA metadata
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          old = "bb3257a0295d094590cd39c3f703405eaabe1f9f"
+          new = "c3ebae8763337bfec5b0ec8e1eee0ec03d078cf9"
+
+          p = Path("tools/growth_validation.py")
+          text = p.read_text(encoding="utf-8")
+          p.write_text(text.replace(old, new), encoding="utf-8")
+
+          p = Path("reports/current_generation_growth_validation.json")
+          data = json.loads(p.read_text(encoding="utf-8"))
+          data["source"]["sha"] = new
+          data["source"]["note"] = "Production HEAD actually executed by the sharded validation. Branch advanced concurrently from the initially inspected bb3257a snapshot via draft-score-only config commits before sharded execution."
+          p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          p = Path("reports/current_generation_growth_validation.md")
+          text = p.read_text(encoding="utf-8")
+          text = text.replace("Production snapshot under validation: `" + old + "`", "Production snapshot actually executed: `" + new + "`\n- Initial inspected snapshot before concurrent draft-only branch updates: `" + old + "`")
+          p.write_text(text, encoding="utf-8")
+          PY
+      - name: Commit corrected metadata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tools/growth_validation.py reports/current_generation_growth_validation.json reports/current_generation_growth_validation.md
+          git commit -m "validation: record actual executed production source SHA" || exit 0
+          git push origin HEAD:feature/h32-production-integration
