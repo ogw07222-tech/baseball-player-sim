@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 from . import config
 from .coaches import CoachingStaff, generate_batting_coach, generate_fielding_coach, generate_league_staffs
+from .draft_scoring import evaluate_hitter_draft
 from .events import CareerEvent, EventChoice, EventContext, EventResolution, EVENT_CATALOG, EVENT_BY_ID, auto_choose, eligible, event_weight, resolve_event
 from .growth import GrowthExperience, GrowthModifiers, GrowthResult, apply_season_growth
 from .player import InjuryStatus, Player
@@ -62,8 +63,20 @@ class CareerEngineBase:
             if self.player.draft_info:
                 i=self.player.draft_info;return DraftResult(str(i['team']),int(i['round']) if i.get('round') else None,int(i['pick']) if i.get('pick') else None,str(i['status']),float(i['scouting_score']),int(i['scouted_talent']))
             raise RuntimeError('draft can only run after high school')
-        self.finish_high_school();scouted=max(0,int(round(self.rng.gauss(self.player.stats.talent,24.))));ability=self.player.stats.current_ability();perf=72.+(self.player.high_school_stats.OPS-.75)*55.+min(12.,self.player.high_school_stats.HR*1.4);position=75.+config.POSITION_DRAFT_VALUE.get(self.player.position,0);w=config.DRAFT_WEIGHTS
-        score=ability*w['current_ability']+scouted*w['scouted_talent']+perf*w['performance']+position*w['position']+self.player.stats.durability*w['health']+self.rng.gauss(0.,7.)+config.DRAFT_SCORE_OFFSET;t=config.DRAFT_THRESHOLDS
+        self.finish_high_school()
+        # Clubs never read exact internal current ability/Talent. True Talent is
+        # observed only through this noisy projection; actual high-school game
+        # production is the dominant draft component.
+        scouted=max(0,int(round(self.rng.gauss(self.player.stats.talent,24.))))
+        evaluation=evaluate_hitter_draft(
+            self.player.high_school_stats,
+            self.player.position,
+            scouted,
+            self.player.stats.durability,
+            self.tournament_results,
+            self.rng,
+        )
+        score=evaluation.score;t=config.DRAFT_THRESHOLDS
         if score>=t['round1']:round_no=1
         elif score>=t['round2_3']:round_no=self.rng.randint(2,3)
         elif score>=t['round4_7']:round_no=self.rng.randint(4,7)

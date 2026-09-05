@@ -1,4 +1,4 @@
-"""Prototype balance configuration for v0.4.
+"""Prototype balance configuration for v0.4 / H3.2.1 production candidate.
 
 DESIGN.md remains the game-design source of truth. Numeric values here are
 provisional defaults that are validated with Monte Carlo simulation.
@@ -12,12 +12,20 @@ POSITIONS=('C','1B','2B','3B','SS','LF','CF','RF','DH')
 BATS_THROWS=('R/R','R/L','L/R','L/L','S/R','S/L')
 START_AGE=18; START_YEAR=2026; SAVE_VERSION=3; SUPPORTED_SAVE_VERSIONS=(1,2,3)
 
-# v0.4: raise the high-school starting scale while preserving dispersion.
+# Shared neutral high-school stat shape. Player/NPC cohort overlays below move
+# the resulting current-ability distribution without generating ability directly.
 INITIAL_STAT_DISTRIBUTIONS={
     'contact':(69.,14.),'power':(65.,16.),'discipline':(63.,14.),
     'speed':(75.,18.),'defense':(70.,15.),'throwing':(70.,16.),
     'stamina':(78.,14.),'durability':(80.,16.),'mentality':(63.,18.),
 }
+# The protagonist is a notable draft prospect by default, but keeps a thicker
+# shared talent/current-skill tail so low-start and instant-impact careers exist.
+PLAYER_STARTING_STAT_BONUS=10.0
+PLAYER_STARTING_SHARED_OFFSET_SD=8.0
+# Generic high-school population stays lower and tighter than the protagonist.
+NPC_STARTING_STAT_BONUS=0.0
+NPC_STARTING_SHARED_OFFSET_SD=4.0
 POSITION_ADJUSTMENTS={
     'SS':{'speed':8,'defense':10,'throwing':8,'power':-5},
     'CF':{'speed':10,'defense':8,'throwing':3},'1B':{'power':10,'speed':-12,'defense':-4},
@@ -28,7 +36,7 @@ POSITION_ADJUSTMENTS={
 TALENT_MIXTURE=((.85,85.,17.,35),(.12,125.,15.,90),(.025,160.,17.,120),(.005,205.,30.,150))
 TRAIT_POSITIVE_SHARE=.50; TRAIT_DEFAULT_WEIGHT=1.; TRAIT_WEIGHTS={'fast_growth':.65,'slow_growth':.65,'injury_risk':.70,'clutch':.75}; TRAIT_EFFECT=8.
 
-# Growth v0.3 philosophy is retained: natural growth stays weak.
+# Growth v0.3/v0.4 philosophy is retained: natural growth stays weak.
 GROWTH_BASE_STDDEV=3.15
 GROWTH_TALENT_REFERENCE=100.; GROWTH_TALENT_SCALE=.016
 GROWTH_CURRENT_STAT_DAMPING=.0030
@@ -76,10 +84,41 @@ KBO_TEAMS=(
 POSITION_COMPETITION={'C':4,'1B':1,'2B':3,'3B':2,'SS':5,'LF':0,'CF':4,'RF':1,'DH':-2}
 SLUMP_BASE_CHANCE_PER_GAME=.0040; HOT_STREAK_BASE_CHANCE_PER_GAME=.0045; FORM_MIN_GAMES=4; FORM_MAX_GAMES=18; FORM_CONTACT_DELTA=7; FORM_POWER_DELTA=5
 INJURY_BASE_CHANCE_PER_GAME=.00135; FATIGUE_PER_GAME_BASE=7.; FATIGUE_REST_RECOVERY=12.
-DRAFT_WEIGHTS={'current_ability':.34,'scouted_talent':.28,'performance':.25,'position':.08,'health':.05}
+
+# Draft performance normalization. Values are frozen career-layer calibration
+# assumptions for the H3.2.1 high-school environment, not H3.2.1 hitting math.
+HIGH_SCHOOL_PERFORMANCE_RELIABILITY_PA=45.0
+HIGH_SCHOOL_PERFORMANCE_BASELINES={
+    'obp':(.200,.080,1.0),
+    'iso':(.053,.065,1.0),
+    'hr_rate':(.010,.018,1.0),
+    'bb_rate':(.049,.041,1.0),
+    'k_rate':(.208,.073,-1.0),
+    'baserunning':(0.000,.025,1.0),
+}
+OVERALL_HITTER_PERFORMANCE_WEIGHTS={'obp':.30,'iso':.20,'hr_rate':.12,'bb_rate':.12,'k_rate':.16,'baserunning':.10}
+# Catcher is intentionally absent. Its receiving/framing/blocking/game-calling
+# model is pending and uses an explicit legacy fallback in draft_scoring.py.
+POSITION_PERFORMANCE_WEIGHTS={
+    '1B':{'obp':.28,'iso':.30,'hr_rate':.24,'bb_rate':.08,'k_rate':.07,'baserunning':.03},
+    'LF':{'obp':.28,'iso':.28,'hr_rate':.22,'bb_rate':.09,'k_rate':.08,'baserunning':.05},
+    'RF':{'obp':.28,'iso':.28,'hr_rate':.22,'bb_rate':.09,'k_rate':.08,'baserunning':.05},
+    'DH':{'obp':.27,'iso':.31,'hr_rate':.25,'bb_rate':.08,'k_rate':.07,'baserunning':.02},
+    '2B':{'obp':.30,'iso':.12,'hr_rate':.06,'bb_rate':.15,'k_rate':.20,'baserunning':.17},
+    'SS':{'obp':.30,'iso':.10,'hr_rate':.05,'bb_rate':.15,'k_rate':.21,'baserunning':.19},
+    'CF':{'obp':.29,'iso':.12,'hr_rate':.07,'bb_rate':.13,'k_rate':.19,'baserunning':.20},
+    '3B':{'obp':.28,'iso':.23,'hr_rate':.15,'bb_rate':.11,'k_rate':.13,'baserunning':.10},
+}
+CATCHER_LEGACY_PERFORMANCE_WEIGHTS={'obp':.30,'iso':.20,'hr_rate':.12,'bb_rate':.14,'k_rate':.18,'baserunning':.06}
+DRAFT_WEIGHTS={'performance':.80,'scouting':.10,'position':.06,'health':.02,'context':.02,'current_ability':0.0}
+DRAFT_COMPONENT_REFERENCE=100.0
+DRAFT_COMPONENT_SCALE=15.0
+DRAFT_SCORE_CENTER=83.0
+DRAFT_SCORE_SPREAD=48.5
+DRAFT_RANDOM_SD=3.0
 DRAFT_THRESHOLDS={'round1':105.,'round2_3':97.,'round4_7':86.8,'round8_11':76.2}
-DRAFT_SCORE_OFFSET=5.5
 POSITION_DRAFT_VALUE={'C':9,'SS':10,'CF':7,'2B':5,'3B':4,'RF':2,'LF':1,'1B':0,'DH':-4}
+
 FIRST_TEAM_PLAY_BASELINE=92.; FARM_PLAY_BASELINE=71.; CALLUP_COMPETITION_OFFSET=5.; FIRST_TEAM_INITIAL_OFFSET=5.
 RETIREMENT_HARD_AGE=45
 
@@ -93,7 +132,6 @@ EVENT_CATEGORY_TARGETS={'training':(.55,.70),'performance':(.15,.25),'injury':(.
 EVENT_COOLDOWN_DEFAULT=42
 MAJOR_BREAKTHROUGH_TARGET_PER_SEASON=.25
 LEGENDARY_BREAKTHROUGH_MAX_PER_SEASON=.05
-# Hidden career-level event luck creates meaningful breakthrough-count dispersion.
 BREAKTHROUGH_AFFINITY_WEIGHTS=((.25,.12),(.55,.18),(1.0,.45),(1.45,.18),(2.0,.06),(2.8,.01))
 ESTABLISHED_FIRST_TEAM_PA=500
 ESTABLISHED_FIRST_TEAM_ABILITY_FLOOR=82.

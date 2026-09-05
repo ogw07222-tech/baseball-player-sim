@@ -65,13 +65,48 @@ class PlayerStats:
         return sum(getattr(self, name) * weight for name, weight in weights.items()) / sum(weights.values())
 
 
-def generate_random_stats(rng: RNG, position: str = "SS") -> PlayerStats:
+def _generate_cohort_stats(
+    rng: RNG,
+    position: str,
+    stat_bonus: float,
+    shared_offset_sd: float,
+) -> PlayerStats:
     if position not in config.POSITIONS:
         raise ValueError(f"unsupported position: {position}")
     adjustments = config.POSITION_ADJUSTMENTS.get(position, {})
+    shared_offset = rng.gauss(0.0, shared_offset_sd) if shared_offset_sd > 0 else 0.0
     values: dict[str, int] = {}
     for name, (mean, stddev) in config.INITIAL_STAT_DISTRIBUTIONS.items():
-        base = _truncated_gauss_int(rng, mean, stddev, config.STAT_MIN)
+        base = _truncated_gauss_int(
+            rng,
+            mean + stat_bonus + shared_offset,
+            stddev,
+            config.STAT_MIN,
+        )
         values[name] = max(config.STAT_MIN, base + adjustments.get(name, 0))
     values["talent"] = _generate_talent(rng)
     return PlayerStats(**values)
+
+
+def generate_random_stats(rng: RNG, position: str = "SS") -> PlayerStats:
+    """Generate the protagonist/prospect cohort.
+
+    Individual stats are still sampled first; current ability is never sampled
+    directly. A shared prospect offset creates the intended correlated spread.
+    """
+    return _generate_cohort_stats(
+        rng,
+        position,
+        config.PLAYER_STARTING_STAT_BONUS,
+        config.PLAYER_STARTING_SHARED_OFFSET_SD,
+    )
+
+
+def generate_high_school_npc_stats(rng: RNG, position: str = "SS") -> PlayerStats:
+    """Generate a generic high-school population player for calibration/future NPCs."""
+    return _generate_cohort_stats(
+        rng,
+        position,
+        config.NPC_STARTING_STAT_BONUS,
+        config.NPC_STARTING_SHARED_OFFSET_SD,
+    )

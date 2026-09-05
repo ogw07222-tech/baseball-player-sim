@@ -18,13 +18,20 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile
-        run: python -m compileall -q src tests
+        run: python -m compileall -q src tests tools/draft_calibration.py
       - name: Unit tests
         run: python -m unittest discover -s tests -v
       - name: Auto career smoke
         run: python -m src.main --seed 20260903 --auto --name "CI Smoke" --position SS --bats-throws R/R --traits 3
       - name: Balance smoke
         run: python -m src.balance --samples 100 --careers 20 --coach-samples 20 --event-samples 100 --seed 20260903
+      - name: High-school / draft calibration gate
+        run: python -m tools.draft_calibration --players 10000 --npcs 10000 --drafts 10000 --seed 20260905 --output draft-calibration.json
+      - name: Upload draft calibration report
+        uses: actions/upload-artifact@v4
+        with:
+          name: draft-calibration
+          path: draft-calibration.json
 
   web-tests:
     runs-on: ubuntu-latest
