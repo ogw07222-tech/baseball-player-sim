@@ -1,5 +1,6 @@
 import type { GameDataProvider } from '../services/GameDataProvider'
-import type { DashboardViewModel, LeaderboardEntry, SeasonViewModel, TeamBattingRow } from '../types/viewModels'
+import type { NewCareerRequest } from '../types/newCareer'
+import type { DashboardViewModel, LeaderboardEntry, SeasonViewModel, TeamBattingRow, TraitViewModel } from '../types/viewModels'
 
 const teams = ['LG 트윈스','KIA 타이거즈','삼성 라이온즈','SSG 랜더스','두산 베어스','KT 위즈','한화 이글스','롯데 자이언츠','NC 다이노스','키움 히어로즈']
 
@@ -87,20 +88,90 @@ const season: SeasonViewModel = {
   ],
 }
 
+const traitPool: TraitViewModel[] = [
+  {name:'클러치',category:'performance',tone:'positive'},
+  {name:'꾸준함',category:'mental',tone:'positive'},
+  {name:'직구 특화',category:'pitch',tone:'positive'},
+  {name:'빠른 적응',category:'growth',tone:'positive'},
+  {name:'변화구 취약',category:'pitch',tone:'negative'},
+  {name:'기복',category:'mental',tone:'negative'},
+  {name:'슬로 스타터',category:'performance',tone:'negative'},
+  {name:'침착함',category:'mental',tone:'neutral'},
+]
+
 const clone = <T>(value:T):T => structuredClone(value)
+const handCode = (value:'LEFT'|'RIGHT') => value === 'LEFT' ? 'L' : 'R'
+const seedFor = (request:NewCareerRequest) => Array.from(`${request.name}|${request.position}|${request.bats}|${request.throws}|${request.traitCount}`).reduce((seed,ch)=>((seed*31)+ch.charCodeAt(0))>>>0,2166136261)
+const nextRandom = (state:{value:number}) => { state.value = (1664525*state.value+1013904223)>>>0; return state.value/4294967296 }
+
+function generatedAbilities(request:NewCareerRequest) {
+  const state = {value:seedFor(request)}
+  const specs = [['contact','컨택'],['power','파워'],['discipline','선구안'],['speed','주력'],['defense','수비'],['throwing','송구'],['stamina','체력'],['durability','내구성'],['mentality','멘탈']] as const
+  const abilities = specs.map(([key,label])=>{
+    const rating = Math.max(45,Math.min(120,Math.round(80+(nextRandom(state)-.5)*40+(nextRandom(state)-.5)*18)))
+    return {key,label,rating,delta:0,trend:'flat' as const}
+  })
+  const talent = Math.round(75+nextRandom(state)*65)
+  return [...abilities,{key:'talent',label:'재능',rating:talent,delta:0,trend:'flat' as const}]
+}
+
+function generatedTraits(request:NewCareerRequest) {
+  const state = {value:seedFor(request)^0x9e3779b9}
+  const pool = clone(traitPool)
+  const result:TraitViewModel[] = []
+  while(result.length<request.traitCount && pool.length){ const index=Math.floor(nextRandom(state)*pool.length); result.push(pool.splice(index,1)[0]) }
+  return result
+}
 
 export class MockGameDataProvider implements GameDataProvider {
-  async getDashboard() { return clone(dashboard) }
-  async getSeason() { return clone(season) }
+  private careerExists:boolean
+  private dashboardState:DashboardViewModel
+  private seasonState:SeasonViewModel
+
+  constructor(options:{hasCareer?:boolean}={}) {
+    this.careerExists = options.hasCareer ?? false
+    this.dashboardState = clone(dashboard)
+    this.seasonState = clone(season)
+  }
+
+  async hasCareer() { return this.careerExists }
+
+  async createCareer(request:NewCareerRequest) {
+    const abilities = generatedAbilities(request)
+    const traits = generatedTraits(request)
+    this.dashboardState = clone(dashboard)
+    this.dashboardState.league = {code:'HS',name:'High School Baseball'}
+    this.dashboardState.season = {year:2026,game:0,totalGames:20,date:'2026년 고교 시즌 개막 전',progress:0}
+    this.dashboardState.player = {name:request.name,number:7,age:18,position:request.position,batsThrows:`${handCode(request.bats)}/${handCode(request.throws)}`,team:'고교 유망주',rosterLevel:'고교',careerYear:1,form:'NORMAL'}
+    this.dashboardState.abilities = abilities
+    this.dashboardState.traits = traits
+    this.dashboardState.seasonStats = {g:0,pa:0,avg:0,obp:0,slg:0,ops:0,hr:0,rbi:0,sb:0,war:0}
+    this.dashboardState.recentGames = {metric:'Game AVG',avg:0,hr:0,ops:0,points:[]}
+    this.dashboardState.status = {condition:'좋음',fatigue:0,injury:'없음',form:'NORMAL'}
+    this.dashboardState.seasonStory = [{date:'DAY 1',title:'새 커리어 시작',detail:'고교 야구 선수로 첫 시즌을 준비합니다.',category:'MAJOR'}]
+    Object.values(this.dashboardState.titleRace).forEach(rows=>rows.forEach(row=>{if(row.isUser) row.player=request.name}))
+
+    this.seasonState = clone(season)
+    this.seasonState.league = clone(this.dashboardState.league)
+    this.seasonState.season = clone(this.dashboardState.season)
+    this.seasonState.teamBatting = this.seasonState.teamBatting.map(row=>row.isUser?{...row,player:request.name,g:0,pa:0,ab:0,r:0,h:0,doubles:0,triples:0,hr:0,rbi:0,sb:0,bb:0,so:0,avg:0,obp:0,slg:0,ops:0,war:0}:row)
+    Object.values(this.seasonState.hittingLeaderboards).forEach(rows=>rows.forEach(row=>{if(row.isUser) row.player=request.name}))
+    this.careerExists = true
+    return clone(this.dashboardState)
+  }
+
+  async getDashboard() { return clone(this.dashboardState) }
+  async getSeason() { return clone(this.seasonState) }
   async advanceNextGame() { return this.advance(1) }
   async advanceWeek() { return this.advance(6) }
   async advanceMonth() { return this.advance(24) }
-  async advanceSeason() { return this.advance(dashboard.season.totalGames - dashboard.season.game) }
+  async advanceSeason() { return this.advance(this.dashboardState.season.totalGames - this.dashboardState.season.game) }
   async saveGame() { await Promise.resolve() }
   private async advance(games:number) {
-    const next = clone(dashboard)
+    const next = clone(this.dashboardState)
     next.season.game = Math.min(next.season.totalGames, next.season.game + games)
     next.season.progress = Math.round((next.season.game / next.season.totalGames) * 100)
+    this.dashboardState = clone(next)
     return next
   }
 }

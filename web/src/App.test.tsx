@@ -1,21 +1,62 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { App } from './App'
 import { MockGameDataProvider } from './mock/mockGameDataProvider'
 import type { GameDataProvider } from './services/GameDataProvider'
 
 class FailingProvider extends MockGameDataProvider {
+  constructor(){ super({hasCareer:true}) }
   async getDashboard(): ReturnType<GameDataProvider['getDashboard']> { throw new Error('boom') }
 }
 
 class SlowProvider extends MockGameDataProvider {
+  constructor(){ super({hasCareer:true}) }
   async getDashboard() { await new Promise(resolve=>setTimeout(resolve,20)); return super.getDashboard() }
   async getSeason() { await new Promise(resolve=>setTimeout(resolve,20)); return super.getSeason() }
 }
 
-describe('web UI v0.1',()=>{
-  it('renders player dashboard and all ten abilities including uncapped values', async()=>{
+const existingCareerProvider = () => new MockGameDataProvider({hasCareer:true})
+
+describe('web UI',()=>{
+  it('renders the single-screen new career UI without catcher, wizard steps, or back button', async()=>{
     render(<App />)
+    expect(await screen.findByRole('heading',{name:'NEW CAREER'})).toBeInTheDocument()
+    expect(screen.getByLabelText('PLAYER NAME')).toBeInTheDocument()
+    expect(screen.getAllByRole('button').filter(button=>['1B','2B','3B','SS','LF','CF','RF'].includes(button.textContent?.trim() ?? ''))).toHaveLength(7)
+    expect(screen.queryByRole('button',{name:'C'})).not.toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:'뒤로'})).not.toBeInTheDocument()
+    expect(screen.queryByText('선수 설정')).not.toBeInTheDocument()
+    expect(screen.getByRole('button',{name:/커리어 시작/})).toBeDisabled()
+  })
+
+  it('updates preview and creates a player before navigating to the dashboard', async()=>{
+    const provider = new MockGameDataProvider()
+    render(<App provider={provider}/>)
+    await screen.findByRole('heading',{name:'NEW CAREER'})
+    fireEvent.change(screen.getByLabelText('PLAYER NAME'),{target:{value:'테스트선수'}})
+    fireEvent.click(screen.getByRole('button',{name:'1B'}))
+    fireEvent.click(within(screen.getByRole('group',{name:/BATS/})).getByRole('button',{name:/LEFT/}))
+    fireEvent.click(within(screen.getByRole('group',{name:/THROWS/})).getByRole('button',{name:/RIGHT/}))
+    fireEvent.click(within(screen.getByRole('group',{name:/STARTING TRAITS/})).getByRole('button',{name:'3'}))
+    expect(screen.getByRole('heading',{name:'테스트선수'})).toBeInTheDocument()
+    expect(screen.getByText(/1B\s*\|\s*L \/ R/)).toBeInTheDocument()
+    expect(screen.getByText('3개 (랜덤)')).toBeInTheDocument()
+    const startButton = screen.getByRole('button',{name:/커리어 시작/})
+    expect(startButton).toBeEnabled()
+    fireEvent.click(startButton)
+    await waitFor(async()=>expect(await provider.hasCareer()).toBe(true))
+    expect(await screen.findByTestId('ability-contact')).toBeInTheDocument()
+    expect(screen.getByRole('heading',{name:/테스트선수/})).toBeInTheDocument()
+    expect(screen.getAllByTestId(/ability-/)).toHaveLength(10)
+    const created = await provider.getDashboard()
+    expect(created.player.position).toBe('1B')
+    expect(created.player.batsThrows).toBe('L/R')
+    expect(created.traits).toHaveLength(3)
+    expect(created.season.game).toBe(0)
+  })
+
+  it('renders player dashboard and all ten abilities including uncapped values for an existing career', async()=>{
+    render(<App provider={existingCareerProvider()}/>)
     expect(await screen.findByRole('heading',{name:/김건우/})).toBeInTheDocument()
     expect(screen.getAllByTestId(/ability-/)).toHaveLength(10)
     expect(screen.getByTestId('ability-power')).toHaveTextContent('137')
@@ -23,7 +64,7 @@ describe('web UI v0.1',()=>{
   })
 
   it('navigates to season screen and switches leaderboards', async()=>{
-    render(<App />)
+    render(<App provider={existingCareerProvider()}/>)
     await screen.findByRole('heading',{name:/김건우/})
     fireEvent.click(screen.getByRole('button',{name:'시즌'}))
     expect(await screen.findByRole('heading',{name:'팀 순위'})).toBeInTheDocument()
@@ -32,15 +73,14 @@ describe('web UI v0.1',()=>{
   })
 
   it('switches title race metric', async()=>{
-    render(<App />)
+    render(<App provider={existingCareerProvider()}/>)
     await screen.findByRole('heading',{name:/김건우/})
     fireEvent.click(screen.getByRole('tab',{name:'WAR'}))
     expect(screen.getAllByText('5.7').length).toBeGreaterThan(0)
   })
 
   it('accepts a replaceable provider', async()=>{
-    const provider = new MockGameDataProvider()
-    render(<App provider={provider}/>)
+    render(<App provider={existingCareerProvider()}/>)
     expect(await screen.findByRole('heading',{name:/김건우/})).toBeInTheDocument()
   })
 

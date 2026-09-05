@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PlayerDashboard } from './screens/PlayerDashboard'
 import { SeasonScreen } from './screens/SeasonScreen'
+import { NewCareerPage } from './screens/NewCareerPage'
 import type { DashboardViewModel, SeasonViewModel } from './types/viewModels'
+import type { NewCareerRequest } from './types/newCareer'
 import type { AdvanceCommand, GameDataProvider } from './services/GameDataProvider'
 import { MockGameDataProvider } from './mock/mockGameDataProvider'
 import { ErrorState, LoadingState } from './components/ui'
@@ -15,6 +17,7 @@ const navItems: { key:Screen; label:string; icon:string }[] = [
 export function App({ provider: injectedProvider }: { provider?:GameDataProvider }) {
   const provider = useMemo(()=>injectedProvider ?? new MockGameDataProvider(),[injectedProvider])
   const [screen,setScreen] = useState<Screen>('player')
+  const [careerReady,setCareerReady] = useState<boolean|null>(null)
   const [dashboard,setDashboard] = useState<DashboardViewModel|null>(null)
   const [season,setSeason] = useState<SeasonViewModel|null>(null)
   const [loading,setLoading] = useState(true)
@@ -23,17 +26,33 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
   const load = useCallback(async()=>{
     setLoading(true); setError(false)
     try {
-      const [dashboardData,seasonData] = await Promise.all([provider.getDashboard(),provider.getSeason()])
-      setDashboard(dashboardData); setSeason(seasonData)
+      const exists = await provider.hasCareer()
+      setCareerReady(exists)
+      if(exists) {
+        const [dashboardData,seasonData] = await Promise.all([provider.getDashboard(),provider.getSeason()])
+        setDashboard(dashboardData); setSeason(seasonData)
+      } else {
+        setDashboard(null); setSeason(null)
+      }
     } catch { setError(true) } finally { setLoading(false) }
   },[provider])
 
   useEffect(()=>{ void load() },[load])
 
+  const startCareer = async(request:NewCareerRequest) => {
+    const created = await provider.createCareer(request)
+    const seasonData = await provider.getSeason()
+    setDashboard(created); setSeason(seasonData); setCareerReady(true); setScreen('player'); setError(false)
+  }
+
   const advance = async(command:AdvanceCommand) => {
     const actions = { nextGame:provider.advanceNextGame, week:provider.advanceWeek, month:provider.advanceMonth, season:provider.advanceSeason }
     try { setDashboard(await actions[command].call(provider)) } catch { setError(true) }
   }
+
+  if(loading) return <LoadingState/>
+  if(error && careerReady===null) return <ErrorState onRetry={()=>void load()}/>
+  if(careerReady===false) return <NewCareerPage onStart={startCareer}/>
 
   const seasonMeta = dashboard?.season ?? season?.season
   return <div className="app-shell">
@@ -52,7 +71,7 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
         <button className="icon-button" aria-label="검색">⌕</button><button className="icon-button" aria-label="설정">⚙</button>
       </header>
       <main>
-        {loading?<LoadingState/>:error?<ErrorState onRetry={()=>void load()}/>:screen==='player'&&dashboard?<PlayerDashboard data={dashboard} onAdvance={advance}/>:screen==='season'&&season?<SeasonScreen data={season} onSave={()=>void provider.saveGame()}/>:<div className="coming-soon panel"><h1>{navItems.find(n=>n.key===screen)?.label}</h1><p>이 화면은 v0.1 범위 밖이며 App Shell navigation만 연결되어 있습니다.</p></div>}
+        {error?<ErrorState onRetry={()=>void load()}/>:screen==='player'&&dashboard?<PlayerDashboard data={dashboard} onAdvance={advance}/>:screen==='season'&&season?<SeasonScreen data={season} onSave={()=>void provider.saveGame()}/>:<div className="coming-soon panel"><h1>{navItems.find(n=>n.key===screen)?.label}</h1><p>이 화면은 v0.1 범위 밖이며 App Shell navigation만 연결되어 있습니다.</p></div>}
       </main>
     </div>
   </div>
