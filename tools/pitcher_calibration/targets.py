@@ -1,7 +1,7 @@
 """Frozen 2025 KBO full-league targets for pitcher calibration.
 
-Source totals are the 10 KBO regular-season team batting lines.  The source page
-states its data source is koreabaseball.com.  Targets/tolerances are fixed before
+Source totals are the 10 KBO regular-season team batting lines. The source page
+states its data source is koreabaseball.com. Targets/tolerances are fixed before
 candidate search; they must not be loosened after observing results.
 """
 from __future__ import annotations
@@ -36,7 +36,6 @@ KBO_TARGETS = {
     "BABIP": 0.3122366267,
 }
 
-# Fixed pre-search acceptance tolerances.
 TOLERANCES = {
     "AVG": 0.010,
     "OBP": 0.010,
@@ -50,8 +49,6 @@ TOLERANCES = {
     "BABIP": 0.012,
 }
 
-# OPS is reported but intentionally not an independent objective term because
-# OBP and SLG are already included; double-counting it would bias the search.
 OBJECTIVE_WEIGHTS = {
     "AVG": 1.0,
     "OBP": 1.0,
@@ -65,10 +62,14 @@ OBJECTIVE_WEIGHTS = {
     "BABIP": 0.75,
 }
 
+# Search ranges are deliberately broad because the production growth population
+# has a league median around the low/mid-80s while H3.2.1's mathematical neutral
+# reference is 100. We keep raw ratings intact and let this isolated adapter map
+# that existing scale; no hitter formula or growth distribution is recentered.
 SEARCH_RANGES = {
-    "w_control_zone": (0.40, 1.40),
-    "w_velocity_contact": (0.03, 0.20),
-    "w_breaking_contact": (0.02, 0.16),
-    "w_stuff_quality": (0.03, 0.20),
-    "w_breaking_quality": (0.02, 0.14),
+    "w_control_zone": (0.40, 4.00),
+    "w_velocity_contact": (0.03, 0.70),
+    "w_breaking_contact": (0.02, 0.70),
+    "w_stuff_quality": (0.03, 0.70),
+    "w_breaking_quality": (0.02, 0.60),
 }
