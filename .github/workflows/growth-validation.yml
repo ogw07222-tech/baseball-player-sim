@@ -1,0 +1,41 @@
+name: growth-validation
+
+on:
+  push:
+    branches:
+      - feature/h32-production-integration
+    paths:
+      - .github/workflows/growth-validation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/h32-production-integration
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run Monte Carlo validation
+        run: |
+          python tools/growth_validation.py \
+            --pure 20000 \
+            --full 5000 \
+            --npc-pure 20000 \
+            --npc-full 5000 \
+            --seed 20260905 \
+            --workers 2
+      - name: Commit generated validation data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add reports/current_generation_growth_validation.json reports/current_generation_growth_validation_samples.csv
+          git commit -m "validation: record current generation growth results" || exit 0
+          git push origin HEAD:feature/h32-production-integration
