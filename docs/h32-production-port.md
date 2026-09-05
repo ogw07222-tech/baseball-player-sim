@@ -5,6 +5,7 @@
 - Balance-Lab source branch: `test/h31-balance-lab-integration`
 - Balance-Lab source commit: `b7b8aafde0a50e687310dbe03b872087a569e08c`
 - Production integration branch: `feature/h32-production-integration`
+- Pull request: `#11`
 
 ## Scope
 This port moves the validated H3.1 pitch/contact/batted-ball/defense model and
@@ -52,7 +53,7 @@ Production-only wrappers:
 remain loadable. Existing save serialization includes the new fields
 automatically on the next save.
 
-## Local regression before PR CI
+## Balance regression
 Production HittingEngine, neutral C/P/D/S=100, pitcher=100, defense=100,
 100,000 PA, seed 20260905:
 - AVG: 0.261151
@@ -63,12 +64,31 @@ Production HittingEngine, neutral C/P/D/S=100, pitcher=100, defense=100,
 - BB/PA: 0.080150
 - K/PA: 0.213480
 
-These are the same 100k neutral values previously produced by the H3.1
-Balance-Lab candidate.
+These reproduce the same 100k neutral values previously produced by the H3.1
+Balance-Lab candidate. New production-port tests are 12/12 PASS.
 
-New production-port unit tests: 12/12 passed locally.
+## Repository CI result
+PR #11 CI compiled successfully and the web build/tests passed. In the Python
+suite, the H3.2.1 production tests, the existing full-career smoke test, and the
+existing save/load round-trip test all passed.
 
-## Remaining risks
+One existing balance regression failed:
+- `test_balance_v04.BalanceV04Tests.test_draft_distribution_not_extreme`
+- observed undrafted fraction: `0.44`
+- existing required maximum: `< 0.35`
+
+Because `evaluate_draft()` finishes/simulates the high-school phase, changing the
+production hitting engine changes high-school performance and therefore draft
+outcomes. This is a real integration-level career-balance regression, not a
+failure of the H3.2.1 neutral formula tests.
+
+Per the formula-freeze rule, this PR does not retune H3.2.1 and does not adjust
+draft/career balance to hide the regression. A follow-up Balance-Lab/career
+calibration pass is required before promotion.
+
+## Remaining risks / blockers
+- **BLOCKER:** high-school/draft distribution shifts too far toward undrafted
+  players (44% in the deterministic regression sample).
 - The project still lacks a full-team inning simulator. Real `GameState` can be
   supplied now, but the existing career path uses an abstract compatibility
   state for omitted teammate plate appearances.
@@ -78,6 +98,9 @@ New production-port unit tests: 12/12 passed locally.
 - Existing real-player ratings are not refit in this port.
 
 ## Promotion recommendation
-The branch should not merge until repository CI and full career/save smoke tests
-pass. If they pass without balance-regression failures, mark the port
-`PRODUCTION_PORT_READY`; otherwise `PRODUCTION_PORT_NOT_READY`.
+`PRODUCTION_PORT_NOT_READY`
+
+Do not merge PR #11 into `main` yet. Preserve the branch as the production-port
+candidate, then run a separate high-school/draft calibration pass against the
+frozen H3.2.1 gameplay formulas. The gameplay formulas should not be changed in
+this integration PR merely to make the career-balance test pass.
