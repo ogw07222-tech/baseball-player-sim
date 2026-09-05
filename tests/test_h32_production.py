@@ -11,8 +11,13 @@ from src.hitting.baserunning import (
 )
 from src.hitting.defense import catch_probability
 from src.hitting.model import HitterSnapshot, HittingEngine, PitcherSnapshot
+from src.player import Player
 from src.records import BattingLine
 from src.rng import RNG
+from src.simulation import _maybe_compat_steal
+from src.stats import PlayerStats
+from tools.balance_lab.h3.model import simulate_profile as lab_simulate_profile
+from tools.balance_lab.h3.profiles import H3HitterProfile
 
 
 def run_profile(hitter: HitterSnapshot, pa: int, seed: int = 20260905, defense: float = 100.0):
@@ -52,6 +57,20 @@ class H32ProductionPortTests(unittest.TestCase):
         self.assertAlmostEqual(m["BB%"], .0807, delta=.006)
         self.assertAlmostEqual(m["K%"], .2130, delta=.008)
 
+    def test_neutral_core_matches_balance_lab_event_counts(self):
+        pa = 12_000
+        seed = 24680
+        production = run_profile(HitterSnapshot(100, 100, 100, 100), pa, seed)
+        lab = lab_simulate_profile(H3HitterProfile(), pa, seed)
+        self.assertEqual(production["walk"], lab.bb)
+        self.assertEqual(production["strikeout"], lab.so)
+        self.assertEqual(production["reached_on_error"], lab.roe)
+        self.assertEqual(production["single"], lab.singles)
+        self.assertEqual(production["double"], lab.doubles)
+        self.assertEqual(production["triple"], lab.triples)
+        self.assertEqual(production["home_run"], lab.hr)
+        self.assertEqual(production["out"], lab.outs - lab.so)
+
     def test_contact_monotonicity(self):
         low = run_profile(HitterSnapshot(80, 100, 100, 100), 35_000, 11)
         high = run_profile(HitterSnapshot(120, 100, 100, 100), 35_000, 11)
@@ -86,6 +105,8 @@ class H32ProductionPortTests(unittest.TestCase):
         self.assertLess(steal_attempt_probability(100, state), steal_attempt_probability(140, state))
         self.assertLess(steal_success_probability(60, state), steal_success_probability(140, state))
         self.assertLess(steal_success_probability(220, state), .926)
+        self.assertLess(steal_attempt_probability(50, state), .002)
+        self.assertLess(steal_attempt_probability(70, state), .01)
         self.assertLess(
             steal_attempt_probability(170, state) - steal_attempt_probability(150, state),
             steal_attempt_probability(120, state) - steal_attempt_probability(100, state),
@@ -117,6 +138,18 @@ class H32ProductionPortTests(unittest.TestCase):
         a = run_profile(HitterSnapshot(100, 100, 100, 100), 10_000, 321)
         b = run_profile(HitterSnapshot(100, 100, 100, 100), 10_000, 321)
         self.assertEqual(a, b)
+
+    def test_compat_baserunning_does_not_consume_parent_rng(self):
+        player = Player(
+            "RNG",
+            18,
+            PlayerStats(100, 100, 100, 100, 100, 100, 100, 100, 100, 100),
+        )
+        line = BattingLine()
+        parent = RNG(444)
+        before = parent.get_state()
+        _maybe_compat_steal(player, line, "single", parent, 0, 4, 100.0)
+        self.assertEqual(before, parent.get_state())
 
     def test_old_batting_line_save_load_defaults(self):
         old = {
