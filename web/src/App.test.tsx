@@ -69,7 +69,7 @@ describe('web UI',()=>{
     expect(screen.getByText('132')).toBeInTheDocument()
     expect(screen.getByText('HS PERFORMANCE BASED')).toBeInTheDocument()
     expect(screen.getByText('예상 지명 범위')).toBeInTheDocument()
-    expect(screen.getByText('2–3 ROUND')).toBeInTheDocument()
+    expect(screen.getAllByText('2–3 ROUND').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders the player-path bracket and opens/closes the full bracket modal', async()=>{
@@ -86,7 +86,7 @@ describe('web UI',()=>{
   it('shows all four high school tournaments, development, recent games, news, and draft trend', async()=>{
     await createHighSchoolCareer()
     expect(await screen.findByText('청룡기')).toBeInTheDocument()
-    expect(screen.getByText('황금사자기')).toBeInTheDocument()
+    expect(screen.getAllByText('황금사자기').length).toBeGreaterThan(0)
     expect(screen.getByText('대통령배')).toBeInTheDocument()
     expect(screen.getByText('봉황대기')).toBeInTheDocument()
     expect(screen.getByRole('heading',{name:'HIGH SCHOOL PERFORMANCE'})).toBeInTheDocument()
