@@ -19,14 +19,14 @@ jobs:
       - name: Run calibration smoke
         run: >-
           python -m tools.pitcher_calibration.calibrate
-          --hitters 500
-          --pitchers 500
-          --candidates 20
-          --pa-per-candidate 15000
-          --validation-pa 30000
-          --diagnostic-pa 10000
-          --matrix-pa 2000
-          --growth-careers 500
+          --hitters 1000
+          --pitchers 1000
+          --candidates 80
+          --pa-per-candidate 25000
+          --validation-pa 100000
+          --diagnostic-pa 30000
+          --matrix-pa 5000
+          --growth-careers 1000
           --seed 20260906
           --output-dir reports
       - name: Upload calibration reports
