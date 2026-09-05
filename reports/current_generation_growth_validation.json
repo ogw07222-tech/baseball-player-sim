@@ -1,0 +1,2978 @@
+{
+  "source": {
+    "branch": "feature/h32-production-integration",
+    "sha": "bb3257a0295d094590cd39c3f703405eaabe1f9f"
+  },
+  "seed": 20260905,
+  "sample_size": {
+    "player_pure": 20000,
+    "npc_pure": 20000,
+    "player_full": 5000,
+    "npc_full": 5000
+  },
+  "positions": "cycled uniformly across config.POSITIONS, matching tools/draft_calibration.py",
+  "mode_notes": {
+    "pure": "production generation + development profile + Talent + production apply_season_growth; traits cleared; coach/experience/event/injury absent; fixed through age 45",
+    "full_player": "production Player.random + production CareerEngine, including high school/draft, coaches, playing time, experience, traits, events, injuries, breakthroughs, aging and retirement",
+    "full_npc": "generate_high_school_npc_stats with the same profile/traits/breakthrough-affinity generation as Player.random, then the same production CareerEngine; no hidden NPC-only growth assumptions",
+    "sharding": "global sample indices and per-sample seeds exactly match the original unsharded run"
+  },
+  "summaries": {
+    "player_pure": {
+      "starting": {
+        "n": 20000,
+        "mean": 79.702,
+        "sd": 9.775,
+        "min": 41.692,
+        "max": 114.442,
+        "p1": 57.325,
+        "p5": 63.617,
+        "p10": 67.207,
+        "p25": 73.083,
+        "p50": 79.683,
+        "p75": 86.35,
+        "p90": 92.243,
+        "p95": 95.775,
+        "p99": 102.433,
+        "bands_pct": {
+          "<60": 2.17,
+          "60-69": 14.045,
+          "70-79": 35.01,
+          "80-89": 34.05,
+          "90-99": 12.91,
+          "100-109": 1.745,
+          "110+": 0.07
+        }
+      },
+      "age_curve": {
+        "18": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "19": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "20": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "21": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "22": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "23": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "24": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "25": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "26": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "27": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "28": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "29": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "30": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "31": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "32": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "33": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "35": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "37": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "40": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        }
+      },
+      "peak": {
+        "n": 20000,
+        "mean": 96.538,
+        "sd": 11.581,
+        "min": 47.8,
+        "max": 161.192,
+        "p10": 81.917,
+        "p25": 88.8,
+        "p50": 96.383,
+        "p75": 104.142,
+        "p90": 111.333,
+        "p95": 115.642,
+        "p99": 124.742,
+        "bands_pct": {
+          "<90": 28.395,
+          "90-99": 34.235,
+          "100-109": 25.355,
+          "110-119": 9.63,
+          "120-129": 2.0,
+          "130-139": 0.29,
+          "140-149": 0.075,
+          "150+": 0.02
+        }
+      },
+      "peak_age": {
+        "n": 20000,
+        "mean": 28.915,
+        "sd": 2.352,
+        "min": 18,
+        "max": 45,
+        "p10": 26.0,
+        "p50": 29.0,
+        "p90": 32.0,
+        "bands_pct": {
+          "<=22": 0.515,
+          "23-24": 2.645,
+          "25-26": 8.855,
+          "27-28": 31.135,
+          "29-30": 34.23,
+          "31-32": 17.35,
+          "33+": 5.27
+        }
+      },
+      "growth": {
+        "n": 20000,
+        "mean": 16.836,
+        "sd": 6.312,
+        "min": 0.0,
+        "max": 68.208,
+        "p10": 9.367,
+        "p50": 16.442,
+        "p90": 24.375,
+        "p95": 27.425,
+        "p99": 35.35,
+        "bands_pct": {
+          "<0": 0.0,
+          "0-9": 12.055,
+          "10-19": 60.885,
+          "20-29": 24.295,
+          "30-39": 2.29,
+          "40+": 0.475
+        }
+      },
+      "starting_buckets": [
+        {
+          "group": "<65",
+          "count": 1341,
+          "mean_start": 60.815,
+          "mean_peak": 77.652,
+          "mean_growth": 16.837,
+          "mean_peak_age": 28.978,
+          "p90_peak": 85.992,
+          "ge100_pct": 0.522,
+          "ge110_pct": 0.075,
+          "ge120_pct": 0.075
+        },
+        {
+          "group": "65-69",
+          "count": 1902,
+          "mean_start": 67.816,
+          "mean_peak": 84.703,
+          "mean_growth": 16.887,
+          "mean_peak_age": 28.921,
+          "p90_peak": 92.8,
+          "ge100_pct": 1.63,
+          "ge110_pct": 0.21,
+          "ge120_pct": 0.105
+        },
+        {
+          "group": "70-74",
+          "count": 3095,
+          "mean_start": 72.68,
+          "mean_peak": 89.599,
+          "mean_growth": 16.919,
+          "mean_peak_age": 28.877,
+          "p90_peak": 96.825,
+          "ge100_pct": 5.073,
+          "ge110_pct": 0.872,
+          "ge120_pct": 0.129
+        },
+        {
+          "group": "75-79",
+          "count": 3907,
+          "mean_start": 77.541,
+          "mean_peak": 94.487,
+          "mean_growth": 16.947,
+          "mean_peak_age": 28.955,
+          "p90_peak": 102.273,
+          "ge100_pct": 16.432,
+          "ge110_pct": 2.099,
+          "ge120_pct": 0.384
+        },
+        {
+          "group": "80-84",
+          "count": 3813,
+          "mean_start": 82.402,
+          "mean_peak": 99.253,
+          "mean_growth": 16.851,
+          "mean_peak_age": 28.861,
+          "p90_peak": 107.095,
+          "ge100_pct": 42.696,
+          "ge110_pct": 5.062,
+          "ge120_pct": 0.472
+        },
+        {
+          "group": "85-89",
+          "count": 2997,
+          "mean_start": 87.33,
+          "mean_peak": 104.03,
+          "mean_growth": 16.7,
+          "mean_peak_age": 28.968,
+          "p90_peak": 112.033,
+          "ge100_pct": 73.64,
+          "ge110_pct": 15.449,
+          "ge120_pct": 1.935
+        },
+        {
+          "group": "90-94",
+          "count": 1792,
+          "mean_start": 92.244,
+          "mean_peak": 108.735,
+          "mean_growth": 16.49,
+          "mean_peak_age": 28.859,
+          "p90_peak": 116.648,
+          "ge100_pct": 92.411,
+          "ge110_pct": 38.895,
+          "ge120_pct": 4.353
+        },
+        {
+          "group": "95-99",
+          "count": 790,
+          "mean_start": 97.182,
+          "mean_peak": 114.285,
+          "mean_growth": 17.103,
+          "mean_peak_age": 28.884,
+          "p90_peak": 122.51,
+          "ge100_pct": 99.114,
+          "ge110_pct": 74.43,
+          "ge120_pct": 16.456
+        },
+        {
+          "group": "100+",
+          "count": 363,
+          "mean_start": 103.605,
+          "mean_peak": 120.333,
+          "mean_growth": 16.728,
+          "mean_peak_age": 29.025,
+          "p90_peak": 128.982,
+          "ge100_pct": 100.0,
+          "ge110_pct": 95.868,
+          "ge120_pct": 47.107
+        }
+      ],
+      "talent_buckets": [
+        {
+          "group": "<70",
+          "count": 3054,
+          "mean_start": 79.728,
+          "mean_peak": 91.182,
+          "mean_growth": 11.454,
+          "mean_peak_age": 27.734,
+          "p90_peak": 104.831,
+          "ge100_pct": 20.367,
+          "ge110_pct": 3.504,
+          "ge120_pct": 0.295
+        },
+        {
+          "group": "70-89",
+          "count": 7177,
+          "mean_start": 79.609,
+          "mean_peak": 94.159,
+          "mean_growth": 14.55,
+          "mean_peak_age": 28.477,
+          "p90_peak": 107.825,
+          "ge100_pct": 28.898,
+          "ge110_pct": 6.604,
+          "ge120_pct": 0.557
+        },
+        {
+          "group": "90-109",
+          "count": 5852,
+          "mean_start": 79.655,
+          "mean_peak": 97.333,
+          "mean_growth": 17.678,
+          "mean_peak_age": 29.09,
+          "p90_peak": 111.158,
+          "ge100_pct": 40.226,
+          "ge110_pct": 11.705,
+          "ge120_pct": 1.589
+        },
+        {
+          "group": "110-129",
+          "count": 2377,
+          "mean_start": 79.756,
+          "mean_peak": 100.89,
+          "mean_growth": 21.134,
+          "mean_peak_age": 29.719,
+          "p90_peak": 114.39,
+          "ge100_pct": 53.176,
+          "ge110_pct": 19.689,
+          "ge120_pct": 3.87
+        },
+        {
+          "group": "130-149",
+          "count": 924,
+          "mean_start": 79.902,
+          "mean_peak": 105.023,
+          "mean_growth": 25.121,
+          "mean_peak_age": 30.58,
+          "p90_peak": 118.487,
+          "ge100_pct": 67.316,
+          "ge110_pct": 31.169,
+          "ge120_pct": 7.576
+        },
+        {
+          "group": "150-179",
+          "count": 448,
+          "mean_start": 80.239,
+          "mean_peak": 110.507,
+          "mean_growth": 30.269,
+          "mean_peak_age": 31.772,
+          "p90_peak": 123.006,
+          "ge100_pct": 83.036,
+          "ge110_pct": 53.795,
+          "ge120_pct": 18.527
+        },
+        {
+          "group": "180+",
+          "count": 168,
+          "mean_start": 81.581,
+          "mean_peak": 122.304,
+          "mean_growth": 40.723,
+          "mean_peak_age": 34.857,
+          "p90_peak": 139.597,
+          "ge100_pct": 98.81,
+          "ge110_pct": 83.333,
+          "ge120_pct": 53.571
+        }
+      ],
+      "talent_peak_corr": 0.4126,
+      "talent_growth_corr": 0.7383,
+      "profiles": [
+        {
+          "profile": "early_bloomer",
+          "count": 4085,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 97.915,
+          "peak_age_mean": 26.955,
+          "growth_mean": 18.38
+        },
+        {
+          "profile": "normal",
+          "count": 11095,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 97.082,
+          "peak_age_mean": 28.839,
+          "growth_mean": 17.389
+        },
+        {
+          "profile": "late_bloomer",
+          "count": 3832,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 94.636,
+          "peak_age_mean": 30.614,
+          "growth_mean": 14.785
+        },
+        {
+          "profile": "very_late_bloomer",
+          "count": 988,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 92.115,
+          "peak_age_mean": 31.284,
+          "growth_mean": 12.195
+        }
+      ],
+      "instant_90": {
+        "name": "start>=90",
+        "count": 2945,
+        "share_pct": 14.725,
+        "mean_start": 94.969,
+        "mean_peak": 111.653,
+        "p90_peak": 121.505,
+        "mean_peak_age": 28.886,
+        "mean_growth": 16.684,
+        "ge90_pct": 100.0,
+        "ge100_pct": 95.144,
+        "ge110_pct": 55.45,
+        "ge120_pct": 12.869,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "instant_100": {
+        "name": "start>=100",
+        "count": 363,
+        "share_pct": 1.815,
+        "mean_start": 103.605,
+        "mean_peak": 120.333,
+        "p90_peak": 128.982,
+        "mean_peak_age": 29.025,
+        "mean_growth": 16.728,
+        "ge90_pct": 100.0,
+        "ge100_pct": 100.0,
+        "ge110_pct": 95.868,
+        "ge120_pct": 47.107,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "low_start_high_talent": {
+        "name": "start<75 & talent>=130",
+        "count": 439,
+        "share_pct": 2.195,
+        "mean_start": 68.528,
+        "mean_peak": 97.388,
+        "p90_peak": 107.268,
+        "mean_peak_age": 31.524,
+        "mean_growth": 28.861,
+        "ge90_pct": 81.093,
+        "ge100_pct": 33.485,
+        "ge110_pct": 7.289,
+        "ge120_pct": 1.595,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "high_start_low_talent": {
+        "name": "start>=90 & talent<90",
+        "count": 1497,
+        "share_pct": 7.485,
+        "mean_start": 94.886,
+        "mean_peak": 108.212,
+        "p90_peak": 116.275,
+        "mean_peak_age": 28.232,
+        "mean_growth": 13.326,
+        "ge90_pct": 100.0,
+        "ge100_pct": 91.316,
+        "ge110_pct": 36.139,
+        "ge120_pct": 3.273,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "stat_curves": {
+        "contact": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 100.589
+        },
+        "power": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 99.044
+        },
+        "discipline": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 94.41
+        },
+        "speed": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 104.069
+        },
+        "defense": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 100.883
+        }
+      },
+      "extreme_peak_pct": {
+        "120": 2.385,
+        "130": 0.385,
+        "140": 0.095,
+        "150": 0.02,
+        "170": 0.0,
+        "200": 0.0
+      },
+      "extreme_stat_pct": {
+        "150": 1.2,
+        "180": 0.033,
+        "200": 0.0,
+        "250": 0.0
+      },
+      "retirement_age": {
+        "n": 0
+      }
+    },
+    "npc_pure": {
+      "starting": {
+        "n": 20000,
+        "mean": 69.705,
+        "sd": 6.925,
+        "min": 42.783,
+        "max": 96.483,
+        "p1": 53.675,
+        "p5": 58.292,
+        "p10": 60.825,
+        "p25": 65.042,
+        "p50": 69.692,
+        "p75": 74.333,
+        "p90": 78.642,
+        "p95": 81.05,
+        "p99": 85.875,
+        "bands_pct": {
+          "<60": 8.1,
+          "60-69": 43.52,
+          "70-79": 41.465,
+          "80-89": 6.755,
+          "90-99": 0.16,
+          "100-109": 0.0,
+          "110+": 0.0
+        }
+      },
+      "age_curve": {
+        "18": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "19": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "20": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "21": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "22": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "23": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "24": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "25": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "26": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "27": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "28": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "29": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "30": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "31": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "32": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "33": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "35": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "37": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "40": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        }
+      },
+      "peak": {
+        "n": 20000,
+        "mean": 86.525,
+        "sd": 9.361,
+        "min": 49.508,
+        "max": 146.258,
+        "p10": 74.774,
+        "p25": 80.242,
+        "p50": 86.333,
+        "p75": 92.508,
+        "p90": 98.259,
+        "p95": 102.118,
+        "p99": 109.867,
+        "bands_pct": {
+          "<90": 65.48,
+          "90-99": 27.285,
+          "100-109": 6.28,
+          "110-119": 0.77,
+          "120-129": 0.14,
+          "130-139": 0.035,
+          "140-149": 0.01,
+          "150+": 0.0
+        }
+      },
+      "peak_age": {
+        "n": 20000,
+        "mean": 28.959,
+        "sd": 2.358,
+        "min": 18,
+        "max": 45,
+        "p10": 26.0,
+        "p50": 29.0,
+        "p90": 32.0,
+        "bands_pct": {
+          "<=22": 0.535,
+          "23-24": 2.52,
+          "25-26": 8.52,
+          "27-28": 31.03,
+          "29-30": 34.15,
+          "31-32": 17.72,
+          "33+": 5.525
+        }
+      },
+      "growth": {
+        "n": 20000,
+        "mean": 16.82,
+        "sd": 6.31,
+        "min": 0.0,
+        "max": 82.042,
+        "p10": 9.283,
+        "p50": 16.442,
+        "p90": 24.408,
+        "p95": 27.267,
+        "p99": 34.6,
+        "bands_pct": {
+          "<0": 0.0,
+          "0-9": 12.26,
+          "10-19": 60.79,
+          "20-29": 24.235,
+          "30-39": 2.305,
+          "40+": 0.41
+        }
+      },
+      "starting_buckets": [
+        {
+          "group": "<65",
+          "count": 4966,
+          "mean_start": 60.891,
+          "mean_peak": 77.676,
+          "mean_growth": 16.785,
+          "mean_peak_age": 28.989,
+          "p90_peak": 86.354,
+          "ge100_pct": 0.483,
+          "ge110_pct": 0.081,
+          "ge120_pct": 0.04
+        },
+        {
+          "group": "65-69",
+          "count": 5358,
+          "mean_start": 67.563,
+          "mean_peak": 84.472,
+          "mean_growth": 16.909,
+          "mean_peak_age": 28.959,
+          "p90_peak": 92.392,
+          "ge100_pct": 1.624,
+          "ge110_pct": 0.317,
+          "ge120_pct": 0.112
+        },
+        {
+          "group": "70-74",
+          "count": 5229,
+          "mean_start": 72.365,
+          "mean_peak": 89.184,
+          "mean_growth": 16.818,
+          "mean_peak_age": 28.963,
+          "p90_peak": 96.95,
+          "ge100_pct": 4.934,
+          "ge110_pct": 0.688,
+          "ge120_pct": 0.153
+        },
+        {
+          "group": "75-79",
+          "count": 3064,
+          "mean_start": 77.169,
+          "mean_peak": 93.935,
+          "mean_growth": 16.766,
+          "mean_peak_age": 28.938,
+          "p90_peak": 101.762,
+          "ge100_pct": 14.687,
+          "ge110_pct": 1.501,
+          "ge120_pct": 0.294
+        },
+        {
+          "group": "80-84",
+          "count": 1090,
+          "mean_start": 81.932,
+          "mean_peak": 98.556,
+          "mean_growth": 16.624,
+          "mean_peak_age": 28.883,
+          "p90_peak": 106.234,
+          "ge100_pct": 38.257,
+          "ge110_pct": 3.578,
+          "ge120_pct": 0.183
+        },
+        {
+          "group": "85-89",
+          "count": 261,
+          "mean_start": 86.7,
+          "mean_peak": 103.691,
+          "mean_growth": 16.991,
+          "mean_peak_age": 28.989,
+          "p90_peak": 112.917,
+          "ge100_pct": 68.966,
+          "ge110_pct": 14.176,
+          "ge120_pct": 1.916
+        },
+        {
+          "group": "90-94",
+          "count": 29,
+          "mean_start": 91.537,
+          "mean_peak": 109.177,
+          "mean_growth": 17.64,
+          "mean_peak_age": 28.103,
+          "p90_peak": 120.307,
+          "ge100_pct": 96.552,
+          "ge110_pct": 34.483,
+          "ge120_pct": 13.793
+        },
+        {
+          "group": "95-99",
+          "count": 3,
+          "mean_start": 95.744,
+          "mean_peak": 115.4,
+          "mean_growth": 19.656,
+          "mean_peak_age": 28,
+          "p90_peak": 122.28,
+          "ge100_pct": 100.0,
+          "ge110_pct": 66.667,
+          "ge120_pct": 33.333
+        },
+        {
+          "group": "100+",
+          "count": 0
+        }
+      ],
+      "talent_buckets": [
+        {
+          "group": "<70",
+          "count": 3089,
+          "mean_start": 69.537,
+          "mean_peak": 80.886,
+          "mean_growth": 11.349,
+          "mean_peak_age": 27.81,
+          "p90_peak": 91.23,
+          "ge100_pct": 0.486,
+          "ge110_pct": 0.032,
+          "ge120_pct": 0.0
+        },
+        {
+          "group": "70-89",
+          "count": 7333,
+          "mean_start": 69.755,
+          "mean_peak": 84.39,
+          "mean_growth": 14.635,
+          "mean_peak_age": 28.543,
+          "p90_peak": 94.725,
+          "ge100_pct": 2.714,
+          "ge110_pct": 0.082,
+          "ge120_pct": 0.0
+        },
+        {
+          "group": "90-109",
+          "count": 5673,
+          "mean_start": 69.72,
+          "mean_peak": 87.439,
+          "mean_growth": 17.719,
+          "mean_peak_age": 29.113,
+          "p90_peak": 97.957,
+          "ge100_pct": 6.099,
+          "ge110_pct": 0.247,
+          "ge120_pct": 0.018
+        },
+        {
+          "group": "110-129",
+          "count": 2380,
+          "mean_start": 69.901,
+          "mean_peak": 91.195,
+          "mean_growth": 21.294,
+          "mean_peak_age": 29.855,
+          "p90_peak": 102.051,
+          "ge100_pct": 14.202,
+          "ge110_pct": 1.05,
+          "ge120_pct": 0.0
+        },
+        {
+          "group": "130-149",
+          "count": 954,
+          "mean_start": 69.382,
+          "mean_peak": 94.368,
+          "mean_growth": 24.986,
+          "mean_peak_age": 30.527,
+          "p90_peak": 104.629,
+          "ge100_pct": 24.109,
+          "ge110_pct": 3.04,
+          "ge120_pct": 0.105
+        },
+        {
+          "group": "150-179",
+          "count": 435,
+          "mean_start": 69.648,
+          "mean_peak": 99.991,
+          "mean_growth": 30.343,
+          "mean_peak_age": 31.821,
+          "p90_peak": 110.037,
+          "ge100_pct": 46.437,
+          "ge110_pct": 10.115,
+          "ge120_pct": 1.839
+        },
+        {
+          "group": "180+",
+          "count": 136,
+          "mean_start": 69.281,
+          "mean_peak": 111.772,
+          "mean_growth": 42.491,
+          "mean_peak_age": 35.287,
+          "p90_peak": 126.379,
+          "ge100_pct": 86.029,
+          "ge110_pct": 52.941,
+          "ge120_pct": 19.853
+        }
+      ],
+      "talent_peak_corr": 0.5007,
+      "talent_growth_corr": 0.7403,
+      "profiles": [
+        {
+          "profile": "early_bloomer",
+          "count": 4064,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 88.453,
+          "peak_age_mean": 27.04,
+          "growth_mean": 18.662
+        },
+        {
+          "profile": "normal",
+          "count": 10935,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 86.938,
+          "peak_age_mean": 28.841,
+          "growth_mean": 17.283
+        },
+        {
+          "profile": "late_bloomer",
+          "count": 3989,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 84.657,
+          "peak_age_mean": 30.683,
+          "growth_mean": 14.854
+        },
+        {
+          "profile": "very_late_bloomer",
+          "count": 1012,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 81.68,
+          "peak_age_mean": 31.15,
+          "growth_mean": 12.165
+        }
+      ],
+      "instant_90": {
+        "name": "start>=90",
+        "count": 32,
+        "share_pct": 0.16,
+        "mean_start": 91.931,
+        "mean_peak": 109.76,
+        "p90_peak": 121.322,
+        "mean_peak_age": 28.094,
+        "mean_growth": 17.829,
+        "ge90_pct": 100.0,
+        "ge100_pct": 96.875,
+        "ge110_pct": 37.5,
+        "ge120_pct": 15.625,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "instant_100": {
+        "name": "start>=100",
+        "count": 0
+      },
+      "low_start_high_talent": {
+        "name": "start<75 & talent>=130",
+        "count": 1223,
+        "share_pct": 6.115,
+        "mean_start": 67.062,
+        "mean_peak": 95.15,
+        "p90_peak": 105.803,
+        "mean_peak_age": 31.335,
+        "mean_growth": 28.088,
+        "ge90_pct": 72.854,
+        "ge100_pct": 24.448,
+        "ge110_pct": 4.579,
+        "ge120_pct": 1.308,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "high_start_low_talent": {
+        "name": "start>=90 & talent<90",
+        "count": 16,
+        "share_pct": 0.08,
+        "mean_start": 91.701,
+        "mean_peak": 105.023,
+        "p90_peak": 110.921,
+        "mean_peak_age": 27.375,
+        "mean_growth": 13.323,
+        "ge90_pct": 100.0,
+        "ge100_pct": 93.75,
+        "ge110_pct": 12.5,
+        "ge120_pct": 0.0,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "stat_curves": {
+        "contact": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 90.48
+        },
+        "power": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 88.951
+        },
+        "discipline": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 84.636
+        },
+        "speed": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 94.131
+        },
+        "defense": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 90.715
+        }
+      },
+      "extreme_peak_pct": {
+        "120": 0.185,
+        "130": 0.045,
+        "140": 0.01,
+        "150": 0.0,
+        "170": 0.0,
+        "200": 0.0
+      },
+      "extreme_stat_pct": {
+        "150": 0.249,
+        "180": 0.002,
+        "200": 0.0,
+        "250": 0.0
+      },
+      "retirement_age": {
+        "n": 0
+      }
+    },
+    "player_full": {
+      "starting": {
+        "n": 5000,
+        "mean": 79.785,
+        "sd": 10.008,
+        "min": 38.7,
+        "max": 116.85,
+        "p1": 55.85,
+        "p5": 63.073,
+        "p10": 67.22,
+        "p25": 73.125,
+        "p50": 80.013,
+        "p75": 86.277,
+        "p90": 92.376,
+        "p95": 96.102,
+        "p99": 102.86,
+        "bands_pct": {
+          "<60": 2.6,
+          "60-69": 13.62,
+          "70-79": 33.74,
+          "80-89": 35.0,
+          "90-99": 12.94,
+          "100-109": 1.98,
+          "110+": 0.12
+        }
+      },
+      "age_curve": {
+        "18": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "19": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "20": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "21": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "22": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "23": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "24": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "25": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "26": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "27": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "28": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "29": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "30": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "31": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "32": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "33": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "35": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "37": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "40": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        }
+      },
+      "peak": {
+        "n": 5000,
+        "mean": 112.397,
+        "sd": 13.684,
+        "min": 55.525,
+        "max": 179.267,
+        "p10": 95.368,
+        "p25": 103.883,
+        "p50": 112.125,
+        "p75": 120.804,
+        "p90": 128.936,
+        "p95": 134.333,
+        "p99": 148.025,
+        "bands_pct": {
+          "<90": 5.44,
+          "90-99": 11.08,
+          "100-109": 25.98,
+          "110-119": 30.44,
+          "120-129": 18.06,
+          "130-139": 6.36,
+          "140-149": 1.76,
+          "150+": 0.88
+        }
+      },
+      "peak_age": {
+        "n": 5000,
+        "mean": 31.327,
+        "sd": 3.011,
+        "min": 19,
+        "max": 44,
+        "p10": 28.0,
+        "p50": 31.0,
+        "p90": 36.0,
+        "bands_pct": {
+          "<=22": 0.14,
+          "23-24": 0.16,
+          "25-26": 2.14,
+          "27-28": 15.72,
+          "29-30": 26.36,
+          "31-32": 22.44,
+          "33+": 33.04
+        }
+      },
+      "growth": {
+        "n": 5000,
+        "mean": 32.611,
+        "sd": 9.41,
+        "min": 0.233,
+        "max": 99.992,
+        "p10": 21.798,
+        "p50": 31.817,
+        "p90": 44.22,
+        "p95": 48.577,
+        "p99": 60.937,
+        "bands_pct": {
+          "<0": 0.0,
+          "0-9": 0.24,
+          "10-19": 6.38,
+          "20-29": 34.1,
+          "30-39": 40.78,
+          "40+": 18.5
+        }
+      },
+      "starting_buckets": [
+        {
+          "group": "<65",
+          "count": 344,
+          "mean_start": 60.019,
+          "mean_peak": 91.757,
+          "mean_growth": 31.739,
+          "mean_peak_age": 30.378,
+          "p90_peak": 105.706,
+          "ge100_pct": 23.256,
+          "ge110_pct": 3.488,
+          "ge120_pct": 0.872
+        },
+        {
+          "group": "65-69",
+          "count": 467,
+          "mean_start": 67.817,
+          "mean_peak": 101.157,
+          "mean_growth": 33.34,
+          "mean_peak_age": 31.118,
+          "p90_peak": 113.278,
+          "ge100_pct": 53.747,
+          "ge110_pct": 18.201,
+          "ge120_pct": 4.283
+        },
+        {
+          "group": "70-74",
+          "count": 727,
+          "mean_start": 72.617,
+          "mean_peak": 105.249,
+          "mean_growth": 32.632,
+          "mean_peak_age": 31.3,
+          "p90_peak": 116.863,
+          "ge100_pct": 71.802,
+          "ge110_pct": 26.823,
+          "ge120_pct": 6.052
+        },
+        {
+          "group": "75-79",
+          "count": 960,
+          "mean_start": 77.512,
+          "mean_peak": 110.39,
+          "mean_growth": 32.879,
+          "mean_peak_age": 31.422,
+          "p90_peak": 121.457,
+          "ge100_pct": 88.333,
+          "ge110_pct": 50.208,
+          "ge120_pct": 13.229
+        },
+        {
+          "group": "80-84",
+          "count": 1016,
+          "mean_start": 82.392,
+          "mean_peak": 115.025,
+          "mean_growth": 32.633,
+          "mean_peak_age": 31.39,
+          "p90_peak": 126.833,
+          "ge100_pct": 97.441,
+          "ge110_pct": 70.079,
+          "ge120_pct": 25.591
+        },
+        {
+          "group": "85-89",
+          "count": 734,
+          "mean_start": 87.316,
+          "mean_peak": 120.049,
+          "mean_growth": 32.733,
+          "mean_peak_age": 31.485,
+          "p90_peak": 131.567,
+          "ge100_pct": 99.728,
+          "ge110_pct": 88.828,
+          "ge120_pct": 44.55
+        },
+        {
+          "group": "90-94",
+          "count": 443,
+          "mean_start": 92.247,
+          "mean_peak": 124.38,
+          "mean_growth": 32.133,
+          "mean_peak_age": 31.528,
+          "p90_peak": 135.155,
+          "ge100_pct": 99.774,
+          "ge110_pct": 96.614,
+          "ge120_pct": 66.817
+        },
+        {
+          "group": "95-99",
+          "count": 204,
+          "mean_start": 97.292,
+          "mean_peak": 129.081,
+          "mean_growth": 31.79,
+          "mean_peak_age": 31.48,
+          "p90_peak": 140.602,
+          "ge100_pct": 100.0,
+          "ge110_pct": 100.0,
+          "ge120_pct": 86.275
+        },
+        {
+          "group": "100+",
+          "count": 105,
+          "mean_start": 103.733,
+          "mean_peak": 135.93,
+          "mean_growth": 32.197,
+          "mean_peak_age": 31.848,
+          "p90_peak": 146.268,
+          "ge100_pct": 100.0,
+          "ge110_pct": 100.0,
+          "ge120_pct": 95.238
+        }
+      ],
+      "talent_buckets": [
+        {
+          "group": "<70",
+          "count": 774,
+          "mean_start": 80.198,
+          "mean_peak": 106.128,
+          "mean_growth": 25.931,
+          "mean_peak_age": 29.884,
+          "p90_peak": 121.298,
+          "ge100_pct": 70.672,
+          "ge110_pct": 37.597,
+          "ge120_pct": 11.628
+        },
+        {
+          "group": "70-89",
+          "count": 1795,
+          "mean_start": 79.774,
+          "mean_peak": 109.625,
+          "mean_growth": 29.85,
+          "mean_peak_age": 30.743,
+          "p90_peak": 124.557,
+          "ge100_pct": 79.61,
+          "ge110_pct": 50.251,
+          "ge120_pct": 18.942
+        },
+        {
+          "group": "90-109",
+          "count": 1460,
+          "mean_start": 79.838,
+          "mean_peak": 113.116,
+          "mean_growth": 33.278,
+          "mean_peak_age": 31.434,
+          "p90_peak": 128.162,
+          "ge100_pct": 87.877,
+          "ge110_pct": 61.507,
+          "ge120_pct": 27.808
+        },
+        {
+          "group": "110-129",
+          "count": 581,
+          "mean_start": 79.05,
+          "mean_peak": 116.801,
+          "mean_growth": 37.751,
+          "mean_peak_age": 32.768,
+          "p90_peak": 132.075,
+          "ge100_pct": 91.91,
+          "ge110_pct": 74.01,
+          "ge120_pct": 41.308
+        },
+        {
+          "group": "130-149",
+          "count": 242,
+          "mean_start": 80.239,
+          "mean_peak": 123.407,
+          "mean_growth": 43.168,
+          "mean_peak_age": 33.636,
+          "p90_peak": 138.021,
+          "ge100_pct": 97.107,
+          "ge110_pct": 86.777,
+          "ge120_pct": 59.917
+        },
+        {
+          "group": "150-179",
+          "count": 112,
+          "mean_start": 78.737,
+          "mean_peak": 133.119,
+          "mean_growth": 54.382,
+          "mean_peak_age": 35.098,
+          "p90_peak": 151.616,
+          "ge100_pct": 98.214,
+          "ge110_pct": 96.429,
+          "ge120_pct": 88.393
+        },
+        {
+          "group": "180+",
+          "count": 36,
+          "mean_start": 81.403,
+          "mean_peak": 146.61,
+          "mean_growth": 65.207,
+          "mean_peak_age": 36.722,
+          "p90_peak": 171.317,
+          "ge100_pct": 100.0,
+          "ge110_pct": 100.0,
+          "ge120_pct": 91.667
+        }
+      ],
+      "talent_peak_corr": 0.4369,
+      "talent_growth_corr": 0.6479,
+      "profiles": [
+        {
+          "profile": "early_bloomer",
+          "count": 974,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 112.168,
+          "peak_age_mean": 29.83,
+          "growth_mean": 32.625
+        },
+        {
+          "profile": "normal",
+          "count": 2790,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 112.096,
+          "peak_age_mean": 31.272,
+          "growth_mean": 32.479
+        },
+        {
+          "profile": "late_bloomer",
+          "count": 979,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 113.306,
+          "peak_age_mean": 32.508,
+          "growth_mean": 33.139
+        },
+        {
+          "profile": "very_late_bloomer",
+          "count": 257,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 113.066,
+          "peak_age_mean": 33.113,
+          "growth_mean": 31.986
+        }
+      ],
+      "instant_90": {
+        "name": "start>=90",
+        "count": 752,
+        "share_pct": 15.04,
+        "mean_start": 95.219,
+        "mean_peak": 127.268,
+        "p90_peak": 140.636,
+        "mean_peak_age": 31.56,
+        "mean_growth": 32.049,
+        "ge90_pct": 100.0,
+        "ge100_pct": 99.867,
+        "ge110_pct": 98.005,
+        "ge120_pct": 76.064,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "instant_100": {
+        "name": "start>=100",
+        "count": 105,
+        "share_pct": 2.1,
+        "mean_start": 103.733,
+        "mean_peak": 135.93,
+        "p90_peak": 146.268,
+        "mean_peak_age": 31.848,
+        "mean_growth": 32.197,
+        "ge90_pct": 100.0,
+        "ge100_pct": 100.0,
+        "ge110_pct": 100.0,
+        "ge120_pct": 95.238,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "low_start_high_talent": {
+        "name": "start<75 & talent>=130",
+        "count": 117,
+        "share_pct": 2.34,
+        "mean_start": 68.083,
+        "mean_peak": 117.275,
+        "p90_peak": 131.897,
+        "mean_peak_age": 34.47,
+        "mean_growth": 49.192,
+        "ge90_pct": 98.291,
+        "ge100_pct": 92.308,
+        "ge110_pct": 72.65,
+        "ge120_pct": 38.462,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "high_start_low_talent": {
+        "name": "start>=90 & talent<90",
+        "count": 396,
+        "share_pct": 7.92,
+        "mean_start": 95.224,
+        "mean_peak": 123.267,
+        "p90_peak": 133.579,
+        "mean_peak_age": 30.795,
+        "mean_growth": 28.044,
+        "ge90_pct": 100.0,
+        "ge100_pct": 99.747,
+        "ge110_pct": 96.717,
+        "ge120_pct": 64.394,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "stat_curves": {
+        "contact": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 127.879
+        },
+        "power": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 129.306
+        },
+        "discipline": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 109.003
+        },
+        "speed": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 106.619
+        },
+        "defense": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 110.141
+        }
+      },
+      "extreme_peak_pct": {
+        "120": 27.06,
+        "130": 9.0,
+        "140": 2.64,
+        "150": 0.88,
+        "170": 0.1,
+        "200": 0.0
+      },
+      "extreme_stat_pct": {
+        "150": 10.528,
+        "180": 1.152,
+        "200": 0.208,
+        "250": 0.004
+      },
+      "retirement_age": {
+        "n": 5000,
+        "mean": 38.527,
+        "sd": 3.283,
+        "min": 19,
+        "max": 45,
+        "p10": 35.0,
+        "p50": 39.0,
+        "p90": 42.0
+      }
+    },
+    "npc_full": {
+      "starting": {
+        "n": 5000,
+        "mean": 69.819,
+        "sd": 6.963,
+        "min": 43.183,
+        "max": 96.125,
+        "p1": 53.29,
+        "p5": 58.291,
+        "p10": 60.9,
+        "p25": 65.092,
+        "p50": 69.942,
+        "p75": 74.442,
+        "p90": 78.642,
+        "p95": 81.084,
+        "p99": 85.784,
+        "bands_pct": {
+          "<60": 7.7,
+          "60-69": 42.7,
+          "70-79": 42.96,
+          "80-89": 6.46,
+          "90-99": 0.18,
+          "100-109": 0.0,
+          "110+": 0.0
+        }
+      },
+      "age_curve": {
+        "18": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "19": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "20": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "21": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "22": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "23": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "24": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "25": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "26": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "27": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "28": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "29": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "30": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "31": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "32": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "33": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "35": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "37": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        },
+        "40": {
+          "n": 0,
+          "ge90_pct": 0.0,
+          "ge100_pct": 0.0,
+          "ge110_pct": 0.0,
+          "ge120_pct": 0.0
+        }
+      },
+      "peak": {
+        "n": 5000,
+        "mean": 101.976,
+        "sd": 12.669,
+        "min": 54.217,
+        "max": 169.542,
+        "p10": 85.916,
+        "p25": 93.723,
+        "p50": 102.292,
+        "p75": 109.677,
+        "p90": 117.495,
+        "p95": 122.217,
+        "p99": 135.017,
+        "bands_pct": {
+          "<90": 17.02,
+          "90-99": 24.66,
+          "100-109": 34.24,
+          "110-119": 17.14,
+          "120-129": 5.28,
+          "130-139": 1.16,
+          "140-149": 0.3,
+          "150+": 0.2
+        }
+      },
+      "peak_age": {
+        "n": 5000,
+        "mean": 30.998,
+        "sd": 3.2,
+        "min": 18,
+        "max": 44,
+        "p10": 28.0,
+        "p50": 31.0,
+        "p90": 36.0,
+        "bands_pct": {
+          "<=22": 0.6,
+          "23-24": 0.54,
+          "25-26": 2.62,
+          "27-28": 19.34,
+          "29-30": 25.64,
+          "31-32": 20.86,
+          "33+": 30.4
+        }
+      },
+      "growth": {
+        "n": 5000,
+        "mean": 32.157,
+        "sd": 10.177,
+        "min": 0.25,
+        "max": 109.692,
+        "p10": 20.424,
+        "p50": 31.729,
+        "p90": 44.059,
+        "p95": 48.984,
+        "p99": 62.567,
+        "bands_pct": {
+          "<0": 0.0,
+          "0-9": 1.1,
+          "10-19": 8.16,
+          "20-29": 33.42,
+          "30-39": 39.04,
+          "40+": 18.28
+        }
+      },
+      "starting_buckets": [
+        {
+          "group": "<65",
+          "count": 1229,
+          "mean_start": 60.827,
+          "mean_peak": 92.139,
+          "mean_growth": 31.312,
+          "mean_peak_age": 30.214,
+          "p90_peak": 106.212,
+          "ge100_pct": 23.922,
+          "ge110_pct": 6.184,
+          "ge120_pct": 2.034
+        },
+        {
+          "group": "65-69",
+          "count": 1291,
+          "mean_start": 67.679,
+          "mean_peak": 99.541,
+          "mean_growth": 31.862,
+          "mean_peak_age": 31.05,
+          "p90_peak": 111.625,
+          "ge100_pct": 48.18,
+          "ge110_pct": 12.548,
+          "ge120_pct": 3.176
+        },
+        {
+          "group": "70-74",
+          "count": 1344,
+          "mean_start": 72.323,
+          "mean_peak": 105.011,
+          "mean_growth": 32.688,
+          "mean_peak_age": 31.339,
+          "p90_peak": 116.716,
+          "ge100_pct": 70.982,
+          "ge110_pct": 25.223,
+          "ge120_pct": 6.696
+        },
+        {
+          "group": "75-79",
+          "count": 804,
+          "mean_start": 77.294,
+          "mean_peak": 110.375,
+          "mean_growth": 33.081,
+          "mean_peak_age": 31.409,
+          "p90_peak": 121.177,
+          "ge100_pct": 90.299,
+          "ge110_pct": 50.124,
+          "ge120_pct": 12.313
+        },
+        {
+          "group": "80-84",
+          "count": 261,
+          "mean_start": 82.07,
+          "mean_peak": 113.882,
+          "mean_growth": 31.812,
+          "mean_peak_age": 31.257,
+          "p90_peak": 125.3,
+          "ge100_pct": 95.785,
+          "ge110_pct": 63.218,
+          "ge120_pct": 22.605
+        },
+        {
+          "group": "85-89",
+          "count": 62,
+          "mean_start": 86.662,
+          "mean_peak": 118.24,
+          "mean_growth": 31.578,
+          "mean_peak_age": 31.419,
+          "p90_peak": 127.068,
+          "ge100_pct": 98.387,
+          "ge110_pct": 80.645,
+          "ge120_pct": 40.323
+        },
+        {
+          "group": "90-94",
+          "count": 8,
+          "mean_start": 91.5,
+          "mean_peak": 129.32,
+          "mean_growth": 37.82,
+          "mean_peak_age": 31.5,
+          "p90_peak": 137.632,
+          "ge100_pct": 100.0,
+          "ge110_pct": 100.0,
+          "ge120_pct": 87.5
+        },
+        {
+          "group": "95-99",
+          "count": 1,
+          "mean_start": 96.125,
+          "mean_peak": 169.542,
+          "mean_growth": 73.417,
+          "mean_peak_age": 41,
+          "p90_peak": 169.542,
+          "ge100_pct": 100.0,
+          "ge110_pct": 100.0,
+          "ge120_pct": 100.0
+        },
+        {
+          "group": "100+",
+          "count": 0
+        }
+      ],
+      "talent_buckets": [
+        {
+          "group": "<70",
+          "count": 763,
+          "mean_start": 70.341,
+          "mean_peak": 95.375,
+          "mean_growth": 25.034,
+          "mean_peak_age": 29.528,
+          "p90_peak": 108.685,
+          "ge100_pct": 36.697,
+          "ge110_pct": 6.815,
+          "ge120_pct": 0.524
+        },
+        {
+          "group": "70-89",
+          "count": 1842,
+          "mean_start": 69.478,
+          "mean_peak": 98.414,
+          "mean_growth": 28.936,
+          "mean_peak_age": 30.326,
+          "p90_peak": 111.682,
+          "ge100_pct": 48.154,
+          "ge110_pct": 13.518,
+          "ge120_pct": 1.574
+        },
+        {
+          "group": "90-109",
+          "count": 1375,
+          "mean_start": 69.994,
+          "mean_peak": 103.33,
+          "mean_growth": 33.335,
+          "mean_peak_age": 31.159,
+          "p90_peak": 116.96,
+          "ge100_pct": 65.164,
+          "ge110_pct": 26.691,
+          "ge120_pct": 5.091
+        },
+        {
+          "group": "110-129",
+          "count": 624,
+          "mean_start": 69.986,
+          "mean_peak": 107.41,
+          "mean_growth": 37.424,
+          "mean_peak_age": 32.362,
+          "p90_peak": 120.942,
+          "ge100_pct": 78.846,
+          "ge110_pct": 39.263,
+          "ge120_pct": 12.34
+        },
+        {
+          "group": "130-149",
+          "count": 243,
+          "mean_start": 69.491,
+          "mean_peak": 112.818,
+          "mean_growth": 43.326,
+          "mean_peak_age": 33.527,
+          "p90_peak": 127.86,
+          "ge100_pct": 86.831,
+          "ge110_pct": 61.728,
+          "ge120_pct": 27.984
+        },
+        {
+          "group": "150-179",
+          "count": 115,
+          "mean_start": 69.161,
+          "mean_peak": 122.269,
+          "mean_growth": 53.109,
+          "mean_peak_age": 35.017,
+          "p90_peak": 136.725,
+          "ge100_pct": 98.261,
+          "ge110_pct": 90.435,
+          "ge120_pct": 55.652
+        },
+        {
+          "group": "180+",
+          "count": 38,
+          "mean_start": 70.939,
+          "mean_peak": 138.223,
+          "mean_growth": 67.285,
+          "mean_peak_age": 36.553,
+          "p90_peak": 155.495,
+          "ge100_pct": 97.368,
+          "ge110_pct": 97.368,
+          "ge120_pct": 92.105
+        }
+      ],
+      "talent_peak_corr": 0.5062,
+      "talent_growth_corr": 0.6358,
+      "profiles": [
+        {
+          "profile": "early_bloomer",
+          "count": 1007,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 102.192,
+          "peak_age_mean": 29.661,
+          "growth_mean": 32.244
+        },
+        {
+          "profile": "normal",
+          "count": 2756,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 101.949,
+          "peak_age_mean": 31.0,
+          "growth_mean": 32.232
+        },
+        {
+          "profile": "late_bloomer",
+          "count": 960,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 102.947,
+          "peak_age_mean": 32.126,
+          "growth_mean": 32.962
+        },
+        {
+          "profile": "very_late_bloomer",
+          "count": 277,
+          "age18_mean": null,
+          "age22_mean": null,
+          "age25_mean": null,
+          "age28_mean": null,
+          "age31_mean": null,
+          "peak_mean": 98.093,
+          "peak_age_mean": 31.935,
+          "growth_mean": 28.298
+        }
+      ],
+      "instant_90": {
+        "name": "start>=90",
+        "count": 9,
+        "share_pct": 0.18,
+        "mean_start": 92.014,
+        "mean_peak": 133.789,
+        "p90_peak": 148.508,
+        "mean_peak_age": 32.556,
+        "mean_growth": 41.775,
+        "ge90_pct": 100.0,
+        "ge100_pct": 100.0,
+        "ge110_pct": 100.0,
+        "ge120_pct": 88.889,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "instant_100": {
+        "name": "start>=100",
+        "count": 0
+      },
+      "low_start_high_talent": {
+        "name": "start<75 & talent>=130",
+        "count": 316,
+        "share_pct": 6.32,
+        "mean_start": 67.031,
+        "mean_peak": 115.41,
+        "p90_peak": 132.213,
+        "mean_peak_age": 34.196,
+        "mean_growth": 48.379,
+        "ge90_pct": 96.203,
+        "ge100_pct": 88.924,
+        "ge110_pct": 67.722,
+        "ge120_pct": 33.861,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "high_start_low_talent": {
+        "name": "start>=90 & talent<90",
+        "count": 5,
+        "share_pct": 0.1,
+        "mean_start": 91.497,
+        "mean_peak": 125.795,
+        "p90_peak": 130.845,
+        "mean_peak_age": 30.4,
+        "mean_growth": 34.298,
+        "ge90_pct": 100.0,
+        "ge100_pct": 100.0,
+        "ge110_pct": 100.0,
+        "ge120_pct": 80.0,
+        "age18_mean": null,
+        "age22_mean": null,
+        "age25_mean": null
+      },
+      "stat_curves": {
+        "contact": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 117.245
+        },
+        "power": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 118.997
+        },
+        "discipline": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 97.739
+        },
+        "speed": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 96.338
+        },
+        "defense": {
+          "18": null,
+          "22": null,
+          "25": null,
+          "28": null,
+          "31": null,
+          "35": null,
+          "peak_mean": 99.749
+        }
+      },
+      "extreme_peak_pct": {
+        "120": 6.94,
+        "130": 1.66,
+        "140": 0.5,
+        "150": 0.2,
+        "170": 0.0,
+        "200": 0.0
+      },
+      "extreme_stat_pct": {
+        "150": 5.0,
+        "180": 0.456,
+        "200": 0.064,
+        "250": 0.0
+      },
+      "retirement_age": {
+        "n": 5000,
+        "mean": 37.471,
+        "sd": 4.345,
+        "min": 19,
+        "max": 45,
+        "p10": 30.0,
+        "p50": 38.0,
+        "p90": 42.0
+      }
+    }
+  },
+  "npc_full_extra": {
+    "start_top10": {
+      "name": "start top 10%",
+      "count": 500,
+      "share_pct": 10.0,
+      "mean_start": 81.895,
+      "mean_peak": 114.429,
+      "p90_peak": 126.096,
+      "mean_peak_age": 31.296,
+      "mean_growth": 32.535,
+      "ge90_pct": 99.6,
+      "ge100_pct": 95.0,
+      "ge110_pct": 65.4,
+      "ge120_pct": 24.8,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "start_top5": {
+      "name": "start top 5%",
+      "count": 250,
+      "share_pct": 5.0,
+      "mean_start": 84.072,
+      "mean_peak": 116.018,
+      "p90_peak": 127.129,
+      "mean_peak_age": 31.344,
+      "mean_growth": 31.945,
+      "ge90_pct": 100.0,
+      "ge100_pct": 97.6,
+      "ge110_pct": 70.0,
+      "ge120_pct": 30.4,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "start_top1": {
+      "name": "start top 1%",
+      "count": 50,
+      "share_pct": 1.0,
+      "mean_start": 88.152,
+      "mean_peak": 122.194,
+      "p90_peak": 136.028,
+      "mean_peak_age": 32.08,
+      "mean_growth": 34.042,
+      "ge90_pct": 100.0,
+      "ge100_pct": 100.0,
+      "ge110_pct": 86.0,
+      "ge120_pct": 50.0,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "talent_top10": {
+      "name": "talent top 10%",
+      "count": 506,
+      "share_pct": 10.12,
+      "mean_start": 69.589,
+      "mean_peak": 116.037,
+      "p90_peak": 133.917,
+      "mean_peak_age": 33.933,
+      "mean_growth": 46.448,
+      "ge90_pct": 96.443,
+      "ge100_pct": 88.34,
+      "ge110_pct": 67.194,
+      "ge120_pct": 36.759,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "talent_top5": {
+      "name": "talent top 5%",
+      "count": 262,
+      "share_pct": 5.24,
+      "mean_start": 69.717,
+      "mean_peak": 121.439,
+      "p90_peak": 139.584,
+      "mean_peak_age": 34.855,
+      "mean_growth": 51.721,
+      "ge90_pct": 98.473,
+      "ge100_pct": 93.893,
+      "ge110_pct": 80.916,
+      "ge120_pct": 52.672,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "drafted_subset": {
+      "name": "actual production draft round assigned",
+      "count": 3599,
+      "share_pct": 71.98,
+      "mean_start": 70.951,
+      "mean_peak": 103.606,
+      "p90_peak": 119.058,
+      "mean_peak_age": 31.163,
+      "mean_growth": 32.655,
+      "ge90_pct": 86.607,
+      "ge100_pct": 63.184,
+      "ge110_pct": 28.174,
+      "ge120_pct": 8.558,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "talent_buckets_npc": [
+      {
+        "group": "<70",
+        "count": 763,
+        "mean_start": 70.341,
+        "mean_peak": 95.375,
+        "mean_growth": 25.034,
+        "mean_peak_age": 29.528,
+        "p90_peak": 108.685,
+        "ge100_pct": 36.697,
+        "ge110_pct": 6.815,
+        "ge120_pct": 0.524
+      },
+      {
+        "group": "70-89",
+        "count": 1842,
+        "mean_start": 69.478,
+        "mean_peak": 98.414,
+        "mean_growth": 28.936,
+        "mean_peak_age": 30.326,
+        "p90_peak": 111.682,
+        "ge100_pct": 48.154,
+        "ge110_pct": 13.518,
+        "ge120_pct": 1.574
+      },
+      {
+        "group": "90-109",
+        "count": 1375,
+        "mean_start": 69.994,
+        "mean_peak": 103.33,
+        "mean_growth": 33.335,
+        "mean_peak_age": 31.159,
+        "p90_peak": 116.96,
+        "ge100_pct": 65.164,
+        "ge110_pct": 26.691,
+        "ge120_pct": 5.091
+      },
+      {
+        "group": "110-129",
+        "count": 624,
+        "mean_start": 69.986,
+        "mean_peak": 107.41,
+        "mean_growth": 37.424,
+        "mean_peak_age": 32.362,
+        "p90_peak": 120.942,
+        "ge100_pct": 78.846,
+        "ge110_pct": 39.263,
+        "ge120_pct": 12.34
+      },
+      {
+        "group": "130-149",
+        "count": 243,
+        "mean_start": 69.491,
+        "mean_peak": 112.818,
+        "mean_growth": 43.326,
+        "mean_peak_age": 33.527,
+        "p90_peak": 127.86,
+        "ge100_pct": 86.831,
+        "ge110_pct": 61.728,
+        "ge120_pct": 27.984
+      },
+      {
+        "group": "150+",
+        "count": 153,
+        "mean_start": 69.602,
+        "mean_peak": 126.232,
+        "mean_growth": 56.63,
+        "mean_peak_age": 35.399,
+        "p90_peak": 143.215,
+        "ge100_pct": 98.039,
+        "ge110_pct": 92.157,
+        "ge120_pct": 64.706
+      }
+    ],
+    "low_start_high_talent_npc": {
+      "name": "start<70 & talent>=130",
+      "count": 205,
+      "share_pct": 4.1,
+      "mean_start": 64.122,
+      "mean_peak": 112.176,
+      "p90_peak": 128.407,
+      "mean_peak_age": 34.093,
+      "mean_growth": 48.054,
+      "ge90_pct": 94.146,
+      "ge100_pct": 83.902,
+      "ge110_pct": 57.561,
+      "ge120_pct": 26.829,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "high_start80": {
+      "name": "start>=80",
+      "count": 332,
+      "share_pct": 6.64,
+      "mean_start": 83.197,
+      "mean_peak": 115.235,
+      "p90_peak": 126.887,
+      "mean_peak_age": 31.322,
+      "mean_growth": 32.038,
+      "ge90_pct": 99.699,
+      "ge100_pct": 96.386,
+      "ge110_pct": 67.47,
+      "ge120_pct": 27.711,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "high_start85": {
+      "name": "start>=85",
+      "count": 71,
+      "share_pct": 1.42,
+      "mean_start": 87.34,
+      "mean_peak": 120.211,
+      "p90_peak": 130.242,
+      "mean_peak_age": 31.563,
+      "mean_growth": 32.87,
+      "ge90_pct": 100.0,
+      "ge100_pct": 98.592,
+      "ge110_pct": 83.099,
+      "ge120_pct": 46.479,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "high_start90": {
+      "name": "start>=90",
+      "count": 9,
+      "share_pct": 0.18,
+      "mean_start": 92.014,
+      "mean_peak": 133.789,
+      "p90_peak": 148.508,
+      "mean_peak_age": 32.556,
+      "mean_growth": 41.775,
+      "ge90_pct": 100.0,
+      "ge100_pct": 100.0,
+      "ge110_pct": 100.0,
+      "ge120_pct": 88.889,
+      "age18_mean": null,
+      "age22_mean": null,
+      "age25_mean": null
+    },
+    "population_funnel": {
+      "observed_n": 5000,
+      "age18": {
+        "ge80_count": 332,
+        "ge90_count": 9
+      },
+      "peak": {
+        "ge90_count": 4149,
+        "ge100_count": 2916,
+        "ge110_count": 1204,
+        "ge120_count": 347
+      },
+      "per_10000": {
+        "peak_ge90": 8298,
+        "peak_ge100": 5832,
+        "peak_ge110": 2408,
+        "peak_ge120": 694
+      }
+    }
+  },
+  "compare_pure": {
+    "age_curves": {
+      "18": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "20": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "22": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "24": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "26": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "28": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "30": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "32": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "35": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      }
+    },
+    "gaps": {
+      "start_mean_gap": 9.997,
+      "peak_mean_gap": 10.013,
+      "p90_peak_gap": 13.074,
+      "classification": "gap preserved"
+    },
+    "peak_probabilities": {
+      "100": {
+        "player_pct": 37.37,
+        "npc_pct": 7.235,
+        "odds_ratio": 7.6482
+      },
+      "110": {
+        "player_pct": 12.015,
+        "npc_pct": 0.955,
+        "odds_ratio": 14.1286
+      },
+      "120": {
+        "player_pct": 2.385,
+        "npc_pct": 0.185,
+        "odds_ratio": 13.0203
+      }
+    }
+  },
+  "compare_full": {
+    "age_curves": {
+      "18": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "20": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "22": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "24": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "26": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "28": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "30": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "32": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      },
+      "35": {
+        "player_n": 0,
+        "npc_n": 0,
+        "player_mean": null,
+        "npc_mean": null,
+        "mean_difference": null,
+        "player_p50": null,
+        "npc_p50": null,
+        "player_p90": null,
+        "npc_p90": null,
+        "npc_p95": null,
+        "npc_p99": null
+      }
+    },
+    "gaps": {
+      "start_mean_gap": 9.966,
+      "peak_mean_gap": 10.421,
+      "p90_peak_gap": 11.441,
+      "classification": "gap preserved"
+    },
+    "peak_probabilities": {
+      "100": {
+        "player_pct": 83.48,
+        "npc_pct": 58.32,
+        "odds_ratio": 3.61
+      },
+      "110": {
+        "player_pct": 57.5,
+        "npc_pct": 24.08,
+        "odds_ratio": 4.2641
+      },
+      "120": {
+        "player_pct": 27.06,
+        "npc_pct": 6.94,
+        "odds_ratio": 4.9692
+      }
+    }
+  },
+  "old_v04": {
+    "starting_mean": 70.207,
+    "peak_mean": 102.086,
+    "peak_p90": 116.729,
+    "peak_p95": 123.328,
+    "peak_p99": 133.273,
+    "mean_peak_age": 31.277,
+    "talent_peak_corr": 0.511,
+    "sample_careers": 300,
+    "source": "docs/balance-v0.4.md"
+  }
+}
