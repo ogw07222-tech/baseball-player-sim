@@ -1,0 +1,51 @@
+{
+  "source": {
+    "main_head": "44b4bbb9113e351ceb35aac75f02a8ee6eab3723",
+    "calibration_run_head": "abf0c9f607e21b930549cda1af4c0cf994698310",
+    "h3_balance_source": "b7b8aafde0a50e687310dbe03b872087a569e08c",
+    "hitter_h321_diff": "NONE",
+    "growth_source": ["src/growth.py", "src/pitching/growth.py"],
+    "persistent_inning_changes": "NONE"
+  },
+  "target": {
+    "season": 2025,
+    "metrics": {"AVG": 0.2616021705, "OBP": 0.338495695, "SLG": 0.38873136, "OPS": 0.7272270551, "BB%": 0.0914886778, "K%": 0.1968712051, "HR%": 0.0212693764, "1B%": 0.1639759983, "2B%": 0.0400564326, "3B%": 0.003714551, "BABIP": 0.3122366267},
+    "tolerances": {"AVG": 0.01, "OBP": 0.01, "SLG": 0.02, "BB%": 0.01, "K%": 0.015, "HR%": 0.005, "1B%": 0.01, "2B%": 0.004, "3B%": 0.0015, "BABIP": 0.012}
+  },
+  "population": {"mode": "full", "hitters": 1000, "pitchers": 1000},
+  "search": {"candidates": 80, "pa_per_candidate": 25000, "validation_seeds": 5, "validation_pa_per_seed": 100000, "final_50m_100m_stage_run": false},
+  "best_candidate": {
+    "status": "REJECTED_STRESS_BEST",
+    "normalized_loss": 1.4309552379381425,
+    "weights": {"w_control_zone": 0.4700404619487405, "w_velocity_contact": 1.9215650737368564, "w_breaking_contact": 0.8344318885131823, "w_stuff_quality": 0.6692438927984081, "w_breaking_quality": 0.1354616683240321},
+    "multi_seed_mean": {"AVG": 0.258851, "OBP": 0.301346, "SLG": 0.397313, "OPS": 0.698659, "BB%": 0.057336, "K%": 0.227278, "HR%": 0.028736, "1B%": 0.172218, "2B%": 0.041796, "3B%": 0.00126, "BABIP": 0.313513}
+  },
+  "monotonicity_plus10_delta": {
+    "velocity": {"AVG": -0.0358814705, "OBP": -0.0323666667, "SLG": -0.0579316159, "K%": 0.0142, "BB%": 0.0006333333, "HR%": -0.0048333333},
+    "stuff": {"AVG": -0.0098126086, "OBP": -0.0096333333, "SLG": -0.0226018786, "K%": -0.0010333333, "BB%": -0.0008666667, "HR%": -0.0034333333},
+    "control": {"AVG": 0.0073617542, "OBP": 0.0042333333, "SLG": 0.0112957062, "K%": -0.0015333333, "BB%": -0.0034333333, "HR%": 0.0010666667},
+    "breaking": {"AVG": -0.0195978633, "OBP": -0.0192333333, "SLG": -0.0322856074, "K%": 0.0047, "BB%": -0.0017, "HR%": -0.0031333333}
+  },
+  "stuff_dominance": {"universal_dominant": false},
+  "archetypes_ops": {"power_pitcher": 0.370, "command_starter": 0.744, "breaking_specialist": 0.598, "high_stuff_low_weapons": 0.743, "balanced_ace": 0.406},
+  "velocity_stuff_synergy_ops": {"A_V150_S70": 0.405, "B_V70_S150": 0.747, "C_V120_S120": 0.501, "sane": false},
+  "percentiles": {
+    "hitter_current_ability": {"P20": 75.60, "P50": 83.21, "P80": 92.00, "P95": 100.06},
+    "pitcher_current_ability": {"P20": 76.03, "P50": 83.46, "P80": 90.65, "P95": 98.96},
+    "representative_matrix_ops_range": [0.62, 0.99],
+    "sane": false
+  },
+  "effort_model": {
+    "starter": {"effort": 0.0, "velocity_boost": 0.0, "stuff_boost": 0.0, "fatigue_multiplier": 1.0},
+    "reliever": {"effort": 1.0, "velocity_boost": 4.0, "stuff_boost": 4.0, "fatigue_multiplier": 1.9},
+    "workload_v120_s120_stamina100": {
+      "starter": [{"pitches": 15, "fatigue": 0.15, "effective_velocity": 120.0, "effective_stuff": 120.0}, {"pitches": 30, "fatigue": 0.3, "effective_velocity": 120.0, "effective_stuff": 120.0}, {"pitches": 60, "fatigue": 0.6, "effective_velocity": 119.9338, "effective_stuff": 119.9305}, {"pitches": 90, "fatigue": 0.9, "effective_velocity": 119.2462, "effective_stuff": 119.2085}],
+      "reliever": [{"pitches": 15, "fatigue": 0.285, "effective_velocity": 124.0, "effective_stuff": 124.0}, {"pitches": 30, "fatigue": 0.57, "effective_velocity": 123.9789, "effective_stuff": 123.9779}, {"pitches": 60, "fatigue": 1.14, "effective_velocity": 122.5522, "effective_stuff": 122.4798}, {"pitches": 90, "fatigue": 1.71, "effective_velocity": 120.6292, "effective_stuff": 120.4607}]
+    }
+  },
+  "growth_peak_age": {"velocity": 28, "stuff": 31, "breaking": 32, "control": 32, "overall": 31},
+  "zero_direct_effect_contracts": {"talent": true, "neutral_pa_stamina": true, "neutral_pa_resilience": true},
+  "extreme_safety_ratings": [30, 50, 70, 100, 130, 160, 200, 250],
+  "gates": {"PITCHER_MONTE_CARLO_CALIBRATION_READY": "NOT_READY", "PITCHER_EFFORT_MODEL_READY": "READY"},
+  "rejection_reasons": ["frozen KBO tolerances fail", "stress fit requires pathological Velocity weight", "sensitivity and archetype diversity fail", "Velocity-Stuff synergy fails", "percentile-tail sanity fails", "Control small indirect K direction not established", "50M-100M promotion stage not justified"]
+}
