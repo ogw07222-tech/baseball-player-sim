@@ -26,7 +26,12 @@ jobs:
       - name: Balance smoke
         run: python -m src.balance --samples 100 --careers 20 --coach-samples 20 --event-samples 100 --seed 20260903
       - name: High-school / draft calibration gate
-        run: python -m tools.draft_calibration --players 10000 --npcs 10000 --drafts 10000 --seed 20260905
+        run: python -m tools.draft_calibration --players 10000 --npcs 10000 --drafts 10000 --seed 20260905 --output draft-calibration.json
+      - name: Upload draft calibration report
+        uses: actions/upload-artifact@v4
+        with:
+          name: draft-calibration
+          path: draft-calibration.json
 
   web-tests:
     runs-on: ubuntu-latest
