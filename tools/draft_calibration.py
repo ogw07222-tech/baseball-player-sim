@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse,json,statistics
 from collections import Counter
+from pathlib import Path
 
 from src import config
 from src.career import CareerEngine
@@ -82,8 +83,10 @@ def validate(report:dict[str,object])->list[str]:
 
 
 def main()->None:
-    ap=argparse.ArgumentParser();ap.add_argument('--players',type=int,default=10000);ap.add_argument('--npcs',type=int,default=10000);ap.add_argument('--drafts',type=int,default=10000);ap.add_argument('--seed',type=int,default=20260905);a=ap.parse_args()
-    report=run(a.players,a.npcs,a.drafts,a.seed);print(json.dumps(report,ensure_ascii=False,indent=2));errors=validate(report)
+    ap=argparse.ArgumentParser();ap.add_argument('--players',type=int,default=10000);ap.add_argument('--npcs',type=int,default=10000);ap.add_argument('--drafts',type=int,default=10000);ap.add_argument('--seed',type=int,default=20260905);ap.add_argument('--output',default='');a=ap.parse_args()
+    report=run(a.players,a.npcs,a.drafts,a.seed);text=json.dumps(report,ensure_ascii=False,indent=2);print(text)
+    if a.output:Path(a.output).write_text(text+'\n',encoding='utf-8')
+    errors=validate(report)
     if errors:raise SystemExit('CALIBRATION FAILED: '+'; '.join(errors))
     print('PRODUCTION_PORT_CALIBRATION_PASS')
 if __name__=='__main__':main()
