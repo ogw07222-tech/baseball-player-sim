@@ -1,7 +1,8 @@
 # H3.2.1 Production Port
 
 ## Source
-- Main base: `2b8eba28d5e2c4008840970d044d0aae258e73f6`
+- Initial production branch base: `2b8eba28d5e2c4008840970d044d0aae258e73f6`
+- Latest `main` exercised by the final PR merge-ref CI: `48070ab2a4c3d5793ead6dbbfc239668331a518a`
 - Balance-Lab source branch: `test/h31-balance-lab-integration`
 - Balance-Lab source commit: `b7b8aafde0a50e687310dbe03b872087a569e08c`
 - Production integration branch: `feature/h32-production-integration`
@@ -33,12 +34,12 @@ New production APIs include:
 - `src/records.py`: backward-compatible optional SB/CS/baserunning diagnostics.
 
 ## Formula changes
-**NONE** to the validated neutral-profile formulas.
+**NONE** to the validated H3.2.1 gameplay formulas.
 
-The production port was checked against the Balance-Lab H3.1 neutral model with
-the same seed/profile. A regression test compares event counts directly and
-passes, demonstrating that the production neutral hitting core preserves the
-validated RNG ordering and event math.
+The production port is regression-tested against the Balance-Lab neutral model.
+The same-seed neutral core event-count parity test passes, preserving validated
+RNG ordering and event math. The final draft calibration touched only the career
+layer (`src/config.py` draft score spread); no `src/hitting/*` formula changed.
 
 Production-only wrappers:
 1. Existing trait/form/fatigue effects are applied as per-pitch Contact/Power input adjustments. They are zero for the neutral Balance-Lab regression profile.
@@ -53,13 +54,12 @@ identities/base states required to correctly resolve teammate-driven:
 - 2B -> Home advancement,
 - ground-ball double plays.
 
-The earlier integration draft fabricated these events from the hitter's own PA.
-That adapter was removed. The final production candidate instead:
-- connects validated SB/CS to the legacy player-only loop through an isolated H3.2 context sampler;
+The production candidate therefore:
+- connects validated SB/CS to the legacy player-only loop through an isolated H3.2.1 context adapter;
 - exposes the validated advancement/DP formulas as real `GameState` APIs for a future full-team inning engine;
-- does **not** invent advancement/DP events in the current career loop.
+- does **not** fabricate advancement/DP events in the current player-only career loop.
 
-This preserves formula validity and avoids double counting or false runner state.
+This is a known architectural limitation, not a formula deviation or current merge blocker.
 
 ## Save compatibility
 `BattingLine` adds optional fields with zero defaults:
@@ -70,9 +70,9 @@ This preserves formula validity and avoids double counting or false runner state
 remain loadable. Existing save serialization includes the new fields on the next
 save without requiring a schema-version bump.
 
-Existing save/load round-trip and older-save compatibility tests pass.
+Save/load round-trip, old-field defaulting and RNG reproducibility tests pass.
 
-## Balance regression
+## H3.2.1 balance regression
 Production HittingEngine, neutral C/P/D/S=100, pitcher=100, defense=100,
 100,000 PA, seed 20260905:
 - AVG: `0.261151`
@@ -83,8 +83,77 @@ Production HittingEngine, neutral C/P/D/S=100, pitcher=100, defense=100,
 - BB/PA: `0.080150`
 - K/PA: `0.213480`
 
-In addition to tolerance-band regression, the production core now has a same-seed
-**exact event-count parity test** against the Balance-Lab H3.1 model. It passes.
+The production core also passes a same-seed exact event-count parity test against
+the Balance-Lab H3.1 core.
+
+## Final high-school / draft calibration
+The H3.2.1 gameplay formulas were frozen while the high-school/draft career layer
+was recalibrated independently.
+
+Final generation distributions from the deterministic 10,000-player / 10,000-NPC run:
+- Player current ability: mean `79.710`, SD `9.726`.
+- NPC current ability: mean `69.609`, SD `7.028`.
+- Player mean > NPC mean: **PASS**.
+- Player SD > NPC SD: **PASS**.
+
+Final draft architecture:
+- Performance configured weight: `0.80`
+- Scouting: `0.10`
+- Position: `0.06`
+- Health: `0.02`
+- Context: `0.02`
+- Direct current ability: `0.00`
+- Scout projection compression: `0.20`
+- Draft score center: `83.0`
+- Draft component scale: `15.0`
+- Draft score spread: **`48.5`**
+- Draft random SD: `3.0`
+- Draft thresholds: **unchanged** (`105.0 / 97.0 / 86.8 / 76.2`)
+
+Final deterministic 10k draft distribution:
+- 1R: `14.49%` (target 8-15%)
+- 2-3R: `12.88%` (target 12-20%)
+- 4-7R: `26.99%` (target 25-35%)
+- 8-11R: `29.92%` (target 20-30%)
+- Undrafted: `15.72%` (target 10-25%)
+
+Realized mean absolute contribution:
+- Performance: `78.68%`
+- Scouting: `12.67%`
+- Position: `6.29%`
+- Health: `1.82%`
+- Context: `0.54%`
+- Direct current ability: `0%`
+
+The original ~42% undrafted blocker is resolved without changing draft thresholds
+or H3.2.1 gameplay formulas.
+
+### Final calibration search
+The last failure was isolated to the 8-11R upper band. Tested candidates:
+
+| Scout compression | Score spread | 1R | 2-3R | 4-7R | 8-11R | Undrafted | Performance | Scouting | Result |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 0.20 | 48.00 | 14.17% | 12.87% | 27.15% | 30.28% | 15.53% | 78.68% | 12.67% | FAIL: 8-11R |
+| 0.24 | 48.00 | 14.07% | 12.93% | 27.02% | 30.01% | 15.97% | 76.74% | 14.83% | FAIL: 8-11R |
+| 0.245 | 48.00 | 14.08% | 12.92% | 26.97% | 30.03% | 16.00% | 76.50% | 15.09% | FAIL: 8-11R + scouting |
+| 0.20 | 48.25 | 14.31% | 12.89% | 27.07% | 30.09% | 15.64% | 78.68% | 12.67% | FAIL: 8-11R |
+| **0.20** | **48.50** | **14.49%** | **12.88%** | **26.99%** | **29.92%** | **15.72%** | **78.68%** | **12.67%** | **PASS** |
+
+The selected solution is intentionally minimal: retain the contribution-safe
+`0.20` scouting compression and change only `DRAFT_SCORE_SPREAD` from `48.0` to
+`48.5`. Score center, component scale, random SD, component weights and thresholds
+remain unchanged.
+
+## Draft philosophy regression
+All draft-performance cross tests pass:
+- elite production beats poor production,
+- strong performance can beat high projection with mediocre performance,
+- direct current-ability draft weight is zero,
+- deterministic seed is reproducible,
+- small-PA reliability shrinkage is preserved,
+- position-aware hitter weights remain active,
+- Catcher special-case path remains explicit and operational,
+- Pitcher performance extension marker remains explicit and pending.
 
 ## Production gameplay regression
 The H3.2.1 production tests pass for:
@@ -106,47 +175,32 @@ The H3.2.1 production tests pass for:
 - compatibility baserunning not consuming parent career RNG,
 - old `BattingLine` save defaults.
 
-## Repository CI result
-Latest inspected PR #11 code run:
-- Web build/tests: **PASS**
+## Final CI evidence
+PR #11 candidate `c3ebae8763337bfec5b0ec8e1eee0ec03d078cf9` was exercised by GitHub Actions
+against latest `main` through the PR merge ref.
+
+Run #172:
+- Web build: **PASS**
+- Web tests: **PASS**
 - Python compile: **PASS**
-- H3.1 Balance-Lab tests: **PASS**
-- H3.2.1 production-port tests: **PASS**
-- Existing event/growth/player/presentation tests: **PASS**
-- Existing full-career smoke: **PASS**
-- Existing save/load round-trip: **PASS**
+- Full unit suite: **79/79 PASS**
+- Auto-career smoke: **PASS**
+- Balance smoke: **PASS**
+- Deterministic 10k high-school/draft calibration: **PASS**
+- Draft calibration artifact: **generated and uploaded**
 
-The suite ran 68 tests and only one existing v0.4 balance regression failed:
-- `test_balance_v04.BalanceV04Tests.test_draft_distribution_not_extreme`
-- observed undrafted fraction: **0.42**
-- existing required maximum: **< 0.35**
-
-An earlier wrapper version produced 0.44. Correcting baserunning RNG/context
-reduced it only to 0.42, confirming that the remaining shift is primarily a
-career-balance consequence of replacing the old production hitting model with
-H3.2.1 rather than a baserunning-wrapper defect.
-
-`evaluate_draft()` derives a performance component from the newly simulated
-high-school OPS/HR, so a new production hitting distribution necessarily changes
-draft outcomes unless the high-school/draft layer is recalibrated.
-
-Per the formula-freeze rule, this port does **not** retune H3.2.1, alter draft
-thresholds, change growth/career parameters, weaken the existing test, or refit
-real-player ratings merely to obtain a green CI result.
-
-## Remaining risks / blockers
-- **BLOCKER:** deterministic high-school/draft regression currently produces 42% undrafted versus the existing `<35%` guard.
-- The project still lacks a full-team inning simulator; advancement and DP math is production-ready as an API but cannot yet be exercised correctly by the player-only career loop.
-- HBP generation is not part of the validated H3.1 neutral math and therefore is schema-compatible but not generated by the new neutral H3 path.
+## Remaining risks
+- The project still lacks a full-team persistent inning simulator; advancement and DP APIs cannot yet be exercised through teammate runner state in the current player-only career loop.
+- HBP generation is not part of the validated H3.1 neutral math and therefore is schema-compatible but not generated by the neutral H3 path.
 - `steal_sense` remains intentionally disabled in H3.2.1 production math pending separate validation.
-- Existing real-player ratings were not refit in this port.
+- Existing real-player ratings were not refit in this production port.
+- Catcher-specific receiving/framing/blocking/game-calling evaluation and pitcher draft performance remain explicit future extension points.
+
+None of these items changes the validated H3.2.1 formulas or blocks the current production-port integration gate.
 
 ## Promotion recommendation
-`PRODUCTION_PORT_NOT_READY`
+`PRODUCTION_PORT_READY`
 
-Do **not** merge PR #11 into `main` yet.
+Merge recommendation: **YES**, once PR #11's final documentation-only HEAD remains CI-green and mergeable.
 
-Recommended next step: run a separate high-school/draft career calibration pass
-using the H3.2.1 gameplay formulas as frozen input. That follow-up may adjust the
-career/draft calibration layer if justified, but must not silently retune the
-validated H3.2.1 gameplay equations.
+This task does not merge PR #11 automatically.
