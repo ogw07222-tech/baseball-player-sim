@@ -10,29 +10,25 @@ import math
 
 GAMEPLAY_REFERENCE = 100.0
 
-# Measured age-26/28/30 mixed production references after the validated hitter
-# C/P/D developmental re-centering (30k cohort, seed 91901, 2026-09-06).
+# Measured age-26/28/30 mixed production references after validated
+# development-only display-scale re-centering (30k cohort, seed 91901).
 CONTACT_RAW_REFERENCE = 109.26405555555556
 POWER_RAW_REFERENCE = 109.10451111111111
 DISCIPLINE_RAW_REFERENCE = 108.80516666666666
-# Speed is not re-centered in Stage A; this is its measured production prime.
-SPEED_RAW_REFERENCE = 98.10803333333332
+SPEED_RAW_REFERENCE = 109.91386666666666
 
-# Linear remains the baseline contract. C/P/D slopes are validated by overnight
-# Monte Carlo before production wiring; Speed is validated separately against
-# the full baserunning value paths.
+# C/P/D common linear slope validated by multi-seed PA sensitivity. Speed uses
+# its separately validated full-baseball-value slope; H3.2.1 formulas remain frozen.
 CONTACT_GAMEPLAY_PER_RAW = 0.60
 POWER_GAMEPLAY_PER_RAW = 0.60
 DISCIPLINE_GAMEPLAY_PER_RAW = 0.60
-SPEED_GAMEPLAY_PER_RAW = 0.60
+SPEED_GAMEPLAY_PER_RAW = 0.80
 
 
 def _linear(raw: float, reference: float, slope: float) -> float:
     value = GAMEPLAY_REFERENCE + (float(raw) - reference) * slope
-    if not math.isfinite(value):
-        raise ValueError("non-finite hitter rating")
+    if not math.isfinite(value):raise ValueError("non-finite hitter rating")
     return value
-
 
 def normalize_contact(raw: float) -> float:return _linear(raw,CONTACT_RAW_REFERENCE,CONTACT_GAMEPLAY_PER_RAW)
 def normalize_power(raw: float) -> float:return _linear(raw,POWER_RAW_REFERENCE,POWER_GAMEPLAY_PER_RAW)
