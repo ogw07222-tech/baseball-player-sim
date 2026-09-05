@@ -1,0 +1,20 @@
+name: pitcher-scb-scale
+on:
+  push:
+    branches: [feature/pitcher-scb-scale-recenter]
+  workflow_dispatch:
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: SCB age curve diagnostic
+        run: python -m tools.pitcher_scb_scale.diagnose --n 30000 --json reports/pitcher_scb_before.json --csv reports/pitcher_scb_before.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pitcher-scb-before
+          path: |
+            reports/pitcher_scb_before.json
+            reports/pitcher_scb_before.csv
