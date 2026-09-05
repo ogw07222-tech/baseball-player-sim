@@ -10,9 +10,24 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
+      - name: Install tests
+        run: pip install pytest
+      - name: Normalization unit gates
+        run: pytest -q tests/test_hitter_gameplay_normalization.py
       - name: Raw hitter distribution
         run: python -m tools.hitter_gameplay_scale.diagnose --n 30000 --csv reports/hitter_raw_distribution.csv --json reports/hitter_raw_distribution.json
+      - name: Ratio and sensitivity Monte Carlo
+        run: python -m tools.hitter_gameplay_scale.calibrate
       - uses: actions/upload-artifact@v4
         with:
-          name: hitter-raw-distribution
-          path: reports/hitter_raw_distribution.*
+          name: hitter-gameplay-scale-reports
+          path: |
+            reports/hitter_raw_distribution.csv
+            reports/hitter_raw_distribution.json
+            reports/hitter_raw_to_gameplay.csv
+            reports/hitter_gameplay_sensitivity.csv
+            reports/hitter_profile_validation.csv
+            reports/hitter_gameplay_scale_candidates.csv
+            reports/hitter_extreme_safety.csv
+            reports/hitter_gameplay_scale_final.json
+            reports/hitter_gameplay_scale_summary.md
