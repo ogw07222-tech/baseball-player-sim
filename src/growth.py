@@ -46,42 +46,39 @@ def _trait_growth_bias(player:Player)->float:
     return 0.0
 
 def _hitter_cpd_recenter_bonus(stat_name:str,age:int)->float:
-    """Move hitter C/P/D toward a human-readable ~110 prime scale.
-
-    Entry ratings are untouched.  The representation shift is earned only
-    during development, then disappears before prime so the existing aging
-    curve resumes control.  Speed and all non-offensive ratings are exempt.
-    """
-    if stat_name=='contact':
-        return 1.70 if age<=25 else 1.00 if age<=27 else 0.0
-    if stat_name=='power':
-        return 1.85 if age<=25 else 1.10 if age<=27 else 0.0
-    if stat_name=='discipline':
-        return 2.45 if age<=25 else 1.50 if age<=27 else 0.0
+    """Move hitter C/P/D toward the human-readable ~110 prime scale."""
+    if stat_name=='contact':return 1.70 if age<=25 else 1.00 if age<=27 else 0.0
+    if stat_name=='power':return 1.85 if age<=25 else 1.10 if age<=27 else 0.0
+    if stat_name=='discipline':return 2.45 if age<=25 else 1.50 if age<=27 else 0.0
     return 0.0
+
+def _hitter_speed_recenter_bonus(age:int)->float:
+    """Development-only Speed representation shift selected after full value validation.
+
+    The H3.2.1 SB/XBT/DP curves are untouched. Entry generation stays unchanged;
+    the extra display-scale development ends before prime and the existing aging
+    curve controls decline thereafter.
+    """
+    return 1.35 if age<=25 else .825 if age<=27 else 0.0
 
 def _experience_bias(player:Player,stat_name:str,experience:GrowthExperience|None)->float:
     if experience is None:return 0.0
     first=min(1.25,experience.first_team_pa/config.EXPERIENCE_FIRST_PA_REFERENCE)
     farm=min(1.25,experience.farm_pa/config.EXPERIENCE_FARM_PA_REFERENCE)
     if experience.first_team_pa+experience.farm_pa<60:return config.EXPERIENCE_LOW_PLAY_PENALTY
-    batting=stat_name in {'contact','power','discipline'}
-    field=stat_name in {'speed','defense','throwing','stamina'}
-    young_farm=farm*(1.0 if player.age<=23 else .45)
+    batting=stat_name in {'contact','power','discipline'};field=stat_name in {'speed','defense','throwing','stamina'};young_farm=farm*(1.0 if player.age<=23 else .45)
     raw=(first*.30+young_farm*.22) if batting else (first*.18+young_farm*.16 if field else first*.08+young_farm*.08)
     return min(config.EXPERIENCE_MAX_MEAN_BONUS,raw)
 
 def growth_distribution(player:Player,stat_name:str,coach:CoachingStaff|None=None,experience:GrowthExperience|None=None,modifiers:GrowthModifiers|None=None)->tuple[float,float]:
-    current=getattr(player.stats,stat_name)
-    talent_effect=(player.stats.talent-config.GROWTH_TALENT_REFERENCE)*config.GROWTH_TALENT_SCALE
-    damping=max(0.0,current-100.)*config.GROWTH_CURRENT_STAT_DAMPING
+    current=getattr(player.stats,stat_name);talent_effect=(player.stats.talent-config.GROWTH_TALENT_REFERENCE)*config.GROWTH_TALENT_SCALE;damping=max(0.0,current-100.)*config.GROWTH_CURRENT_STAT_DAMPING
     mean=_age_bias(player.age)+_profile_bias(player)+talent_effect+_trait_growth_bias(player)-damping
     mean+=_hitter_cpd_recenter_bonus(stat_name,player.age)
+    if stat_name=='speed':mean+=_hitter_speed_recenter_bonus(player.age)
     mean+=_experience_bias(player,stat_name,experience)
     if coach is not None:mean+=coach_growth_mean(coach,stat_name)
     variance=config.GROWTH_BASE_STDDEV*(coach_variance_multiplier(coach) if coach else 1.0)
-    if modifiers:
-        mean+=modifiers.mean_by_stat.get(stat_name,0.0);variance*=modifiers.variance_multiplier
+    if modifiers:mean+=modifiers.mean_by_stat.get(stat_name,0.0);variance*=modifiers.variance_multiplier
     if player.age>=32 and mean<0:mean*=config.AGING_MULTIPLIER.get(stat_name,1.0)
     return mean,max(.75,variance)
 
@@ -95,8 +92,7 @@ def _explosion_chance(player:Player,modifiers:GrowthModifiers|None=None)->float:
 def apply_season_growth(player:Player,rng:RNG,coach:CoachingStaff|None=None,experience:GrowthExperience|None=None,modifiers:GrowthModifiers|None=None)->GrowthResult:
     age_before=player.age;ability_before=player.stats.current_ability();deltas={}
     for stat_name in GROWABLE_STATS:
-        mean,std=growth_distribution(player,stat_name,coach,experience,modifiers)
-        delta=int(round(rng.gauss(mean,std)));before=getattr(player.stats,stat_name);after=player.stats.apply_delta(stat_name,delta);deltas[stat_name]=after-before
+        mean,std=growth_distribution(player,stat_name,coach,experience,modifiers);delta=int(round(rng.gauss(mean,std)));before=getattr(player.stats,stat_name);after=player.stats.apply_delta(stat_name,delta);deltas[stat_name]=after-before
     explosion=rng.random()<_explosion_chance(player,modifiers)
     if explosion:
         count=rng.randint(1,min(3,len(GROWABLE_STATS)))
