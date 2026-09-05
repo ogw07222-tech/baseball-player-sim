@@ -1,0 +1,27 @@
+{
+  "model": "H3.2.1 Low-Speed Baserunning Rebalance",
+  "branch": "test/h31-balance-lab-integration",
+  "production_changes": false,
+  "steal_attempt_curve": {"gate_center": 77.5, "gate_scale": 5.8, "core_center": 108.0, "core_scale": 17.0, "max": 0.205},
+  "run_values": {"SB": 0.2, "CS": -0.42, "first_to_third": 0.18, "second_to_home": 0.32, "dp_avoided": 0.44},
+  "baseline": {
+    "seed": 20260905, "pa": 500000,
+    "h32_AVG": 0.2611247560766023, "h32_OBP": 0.320718, "h32_SLG": 0.39740859262997824, "h32_OPS": 0.7181265926299782,
+    "h32_batting_value": 0.32341622, "h32_steal_only_baserunning_value": 0.00099988, "h32_total_value": 0.3244161,
+    "h321_AVG": 0.2611247560766023, "h321_OBP": 0.320718, "h321_SLG": 0.39740859262997824, "h321_OPS": 0.7181265926299782,
+    "h321_batting_value": 0.32341622, "h321_steal_value": 0.0007607600000000002, "h321_advancement_value": 0.00610472,
+    "h321_dp_avoidance_value": -0.00014992523426991857, "h321_total_baserunning_value": 0.006715554765730081,
+    "h321_total_value": 0.3301317747657301, "h321_layer_runtime_s": 0.4657962149999548, "h321_layer_pa_per_second": 1073430.7920472228
+  },
+  "speed_plus10": {"H3.1": 0.0123134, "H3.2": 0.0135782, "H3.2.1": 0.015439129409453849, "new_post_contact_delta": 0.0031257294094538474},
+  "build_search": {
+    "CPDS20": {"H3.2_first_speed_rank": 11, "H3.2_top10_speed_builds": 0, "H3.2.1_first_speed_rank": 9, "H3.2.1_top10_speed_builds": 1, "pure_speed_rank": 35},
+    "CPDS30": {"H3.2_first_speed_rank": 5, "H3.2_top10_speed_builds": 4, "H3.2.1_first_speed_rank": 3, "H3.2.1_top10_speed_builds": 6, "pure_speed_rank": 84}
+  },
+  "statuses": {
+    "Baseline Preservation": "PASS", "Low-Speed Steal Suppression": "PASS", "Low-Speed Steal Value": "PASS",
+    "Low-Speed Continuous Value": "PASS", "High-Speed Diminishing Returns": "PASS", "Speed Marginal Balance": "PASS",
+    "Build Diversity": "PASS", "Low-Speed Profile Investment": "PASS", "Numerical Stability": "PASS", "Runtime": "PASS"
+  },
+  "promotion_gate": "READY"
+}
