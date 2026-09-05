@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { ReactNode } from 'react'
 import type { CareerPosition, Handedness, NewCareerRequest, TraitCount } from '../types/newCareer'
 import heroArtwork from '../assets/new-career-hero.svg'
 import '../newCareer.css'
@@ -10,7 +11,7 @@ const positions: Array<{value:CareerPosition; label:string}> = [
 
 const handCode = (hand:Handedness) => hand === 'LEFT' ? 'L' : 'R'
 
-function ChoiceButton({pressed,onClick,children,className=''}:{pressed:boolean;onClick:()=>void;children:React.ReactNode;className?:string}) {
+function ChoiceButton({pressed,onClick,children,className=''}:{pressed:boolean;onClick:()=>void;children:ReactNode;className?:string}) {
   return <button type="button" className={`career-choice ${pressed?'selected':''} ${className}`} aria-pressed={pressed} onClick={onClick}>{children}</button>
 }
 
