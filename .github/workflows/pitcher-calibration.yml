@@ -1,0 +1,39 @@
+name: pitcher-calibration-lab
+
+on:
+  push:
+    branches:
+      - feature/pitcher-calibration-lab
+  workflow_dispatch:
+
+jobs:
+  calibration-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run calibration smoke
+        run: >-
+          python -m tools.pitcher_calibration.calibrate
+          --hitters 500
+          --pitchers 500
+          --candidates 20
+          --pa-per-candidate 15000
+          --validation-pa 30000
+          --diagnostic-pa 10000
+          --matrix-pa 2000
+          --growth-careers 500
+          --seed 20260906
+          --output-dir reports
+      - name: Upload calibration reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: pitcher-calibration-reports
+          path: |
+            reports/pitcher_calibration_summary.md
+            reports/pitcher_calibration_candidates.csv
+            reports/pitcher_calibration_final.json
