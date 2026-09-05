@@ -6,8 +6,12 @@ constants are modified here.
 PITCHER_STATS=("velocity","stuff","control","breaking","stamina","resilience")
 ABILITY_WEIGHTS={"velocity":.14,"stuff":.25,"control":.22,"breaking":.18,"stamina":.12,"resilience":.09}
 BASE_MEANS={"velocity":68.6,"stuff":67.6,"control":67.6,"breaking":66.6,"stamina":70.6,"resilience":70.6}
-BASE_SDS={"velocity":10.,"stuff":10.,"control":11.,"breaking":11.,"stamina":12.,"resilience":10.}
+# Velocity v2 uses a deliberately tighter physical-skill distribution than the
+# abstract pitcher stats. Other stat distributions are unchanged.
+BASE_SDS={"velocity":5.,"stuff":10.,"control":11.,"breaking":11.,"stamina":12.,"resilience":10.}
 PLAYER_BONUS=9.5; PLAYER_SHARED_SD=7.5; NPC_SHARED_SD=4.0
+VELOCITY_SHARED_OFFSET_SCALE=.60
+VELOCITY_GROWTH_STDDEV=1.50
 ARCHETYPE_WEIGHTS=(("power",.18),("command",.18),("breaking",.16),("workhorse",.16),("wild_flamethrower",.12),("balanced",.20))
 ARCHETYPE_ADJUSTMENTS={
  "power":{"velocity":12,"stuff":8,"control":-8,"breaking":-2},
