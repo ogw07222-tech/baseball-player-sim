@@ -1,0 +1,50 @@
+{
+  "gate_contract": "HITTER_GAMEPLAY_SCALE_NOT_READY",
+  "gate_ratio": "HITTER_DISPLAY_GAMEPLAY_RATIO_NOT_READY",
+  "references": {
+    "contact": 94.2742,
+    "power": 92.78481111111111,
+    "discipline": 87.34492222222222,
+    "speed": 98.0363888888889
+  },
+  "slopes": {
+    "contact": 0.6,
+    "power": 0.6,
+    "discipline": 0.6,
+    "speed": 0.6
+  },
+  "prime_gameplay_mean": {
+    "contact": 100.0,
+    "power": 100.0,
+    "discipline": 100.0,
+    "speed": 100.0
+  },
+  "population_offense_neutral_pitcher": {
+    "AVG": 0.2622775327419042,
+    "OBP": 0.323268,
+    "SLG": 0.4097823456437515,
+    "OPS": 0.7330503456437515,
+    "BB": 0.082674,
+    "K": 0.211224,
+    "HR": 0.027806,
+    "1B": 0.162746,
+    "2B": 0.048192,
+    "3B": 0.00185,
+    "BABIP": 0.31370964888485264
+  },
+  "h32_formula_changed": false,
+  "model": "linear",
+  "save_compatibility": "derived-only; raw PlayerStats unchanged",
+  "normalization_candidate": {
+    "model": "linear",
+    "status": "VALIDATED_CANDIDATE_NOT_PROMOTED",
+    "slope": 0.6,
+    "contact_power_discipline_behavior": "sane and monotonic",
+    "blockers": [
+      "Raw/display prime means are Contact 94.27, Power 92.78, Discipline 87.34, Speed 98.04, materially below the intended ~110 prime display semantics.",
+      "Speed high-end batting-output separation compresses strongly inside existing H3: raw 130->140 dSLG=0.001463, raw 150->160 dSLG=0.000953; full baserunning/steal separation was not validated in this task.",
+      "Because the display-ratio contract is not ready, the normalization module is intentionally not wired into production simulation.py yet."
+    ]
+  },
+  "production_wiring": "NOT_PROMOTED"
+}
