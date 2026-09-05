@@ -4,15 +4,25 @@ on:
     branches: [feature/pitcher-joint-calibration-v2]
   workflow_dispatch:
 jobs:
-  diagnostic:
+  calibration:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
+      - name: Joint v2 unit tests
+        run: python -m pytest tests/test_pitcher_joint_v2.py -q
       - name: Prime raw diagnostic
         run: python -m tools.pitcher_joint_v2.prime_diagnostic --n 30000 --output reports/pitcher_prime_raw_diagnostic.json
+      - name: Long-career velocity stress
+        run: python -m tools.pitcher_joint_v2.velocity_stress --careers 100000 --output reports/velocity_cap_stress.csv
+      - name: Joint Monte Carlo
+        run: python -m tools.pitcher_joint_v2.calibrate --hitters 2000 --pitchers 2000 --candidates 30 --search-pa 100000 --validation-pa 1000000 --top 3 --seeds 5 --diag-pa 300000 --outdir reports
       - uses: actions/upload-artifact@v4
         with:
-          name: pitcher-joint-v2-diagnostic
-          path: reports/pitcher_prime_raw_diagnostic.json
+          name: pitcher-joint-v2-reports
+          path: |
+            reports/pitcher_prime_raw_diagnostic.json
+            reports/velocity_cap_stress.csv
+            reports/pitcher_joint_v2_candidates.csv
+            reports/pitcher_joint_v2_final.json
