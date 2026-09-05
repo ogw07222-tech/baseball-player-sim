@@ -3,6 +3,10 @@ import unittest
 
 from src.hitting.baserunning import (
     GameState,
+    apply_double_play_to_state,
+    apply_first_to_third_to_state,
+    apply_second_to_home_to_state,
+    apply_steal_to_state,
     dp_completion_probability,
     first_to_third_probability,
     second_to_home_probability,
@@ -116,6 +120,38 @@ class H32ProductionPortTests(unittest.TestCase):
         self.assertGreater(dp_completion_probability(60), dp_completion_probability(140))
         self.assertLess(first_to_third_probability(60), first_to_third_probability(140))
         self.assertLess(second_to_home_probability(60), second_to_home_probability(140))
+
+    def test_game_state_adapters_mutate_only_on_resolved_events(self):
+        # Extreme deterministic RNG choices make state mutation assertions stable
+        # without changing the validated probability functions themselves.
+        class AlwaysZero:
+            def random(self):
+                return 0.0
+
+        state = GameState(5, 1, 0, True, False, False)
+        steal = apply_steal_to_state(140, state, AlwaysZero(), 100.0)
+        self.assertTrue(steal.attempted and steal.success)
+        self.assertFalse(state.first_occupied)
+        self.assertTrue(state.second_occupied)
+
+        state = GameState(5, 1, 0, True, False, False)
+        advance = apply_first_to_third_to_state(120, state, AlwaysZero(), 100.0)
+        self.assertTrue(advance.attempted and advance.success)
+        self.assertFalse(state.first_occupied)
+        self.assertTrue(state.third_occupied)
+
+        state = GameState(5, 1, 0, False, True, False)
+        home = apply_second_to_home_to_state(120, state, AlwaysZero(), 100.0)
+        self.assertTrue(home.attempted and home.success)
+        self.assertEqual(home.runs_scored, 1)
+        self.assertFalse(state.second_occupied)
+
+        state = GameState(5, 0, 0, True, False, False)
+        dp = apply_double_play_to_state(60, state, AlwaysZero())
+        self.assertTrue(dp.attempted and dp.success)
+        self.assertEqual(dp.outs_added, 2)
+        self.assertEqual(state.outs, 2)
+        self.assertFalse(state.first_occupied)
 
     def test_defense_tier_bounds(self):
         self.assertGreater(catch_probability("ROUTINE", 100), .98)
