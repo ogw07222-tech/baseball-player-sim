@@ -45,6 +45,21 @@ def _trait_growth_bias(player:Player)->float:
     if has_trait(player.traits,'slow_growth'):return -.45
     return 0.0
 
+def _hitter_cpd_recenter_bonus(stat_name:str,age:int)->float:
+    """Development-only display-scale recentering for Contact/Power/Discipline.
+
+    Entry generation is untouched. The additional mean is earned during the
+    development window and stops before prime, so existing decline/aging logic
+    resumes control. Speed and every non-batting stat are intentionally exempt.
+    """
+    if stat_name=='contact':
+        return .25 if age<=19 else 1.00 if age<=21 else 1.80 if age<=23 else 2.40 if age<=27 else 0.0
+    if stat_name=='power':
+        return .30 if age<=19 else 1.10 if age<=21 else 2.00 if age<=23 else 2.60 if age<=27 else 0.0
+    if stat_name=='discipline':
+        return .40 if age<=19 else 1.40 if age<=21 else 2.50 if age<=23 else 3.80 if age<=27 else 0.0
+    return 0.0
+
 def _experience_bias(player:Player,stat_name:str,experience:GrowthExperience|None)->float:
     if experience is None:return 0.0
     first=min(1.25,experience.first_team_pa/config.EXPERIENCE_FIRST_PA_REFERENCE)
@@ -61,6 +76,7 @@ def growth_distribution(player:Player,stat_name:str,coach:CoachingStaff|None=Non
     talent_effect=(player.stats.talent-config.GROWTH_TALENT_REFERENCE)*config.GROWTH_TALENT_SCALE
     damping=max(0.0,current-100.)*config.GROWTH_CURRENT_STAT_DAMPING
     mean=_age_bias(player.age)+_profile_bias(player)+talent_effect+_trait_growth_bias(player)-damping
+    mean+=_hitter_cpd_recenter_bonus(stat_name,player.age)
     mean+=_experience_bias(player,stat_name,experience)
     if coach is not None:mean+=coach_growth_mean(coach,stat_name)
     variance=config.GROWTH_BASE_STDDEV*(coach_variance_multiplier(coach) if coach else 1.0)
