@@ -1,7 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from src.hitting.model import HitterSnapshot,HittingEngine,Pitch,PitcherSnapshot
-from src.pitching.physical_velocity import snapshot as velocity_snapshot
+from src.pitching.physical_velocity import snapshot as velocity_snapshot,gameplay_velocity
 
 @dataclass(frozen=True)
 class JointWeights:
@@ -14,15 +14,17 @@ class JointWeights:
 
 class PitcherJointAdapter:
     """Velocity is frozen physical input; only Stuff/Control/Breaking weights vary."""
-    def __init__(self,stats,weights:JointWeights,effort_bonus_kmh:float=0.0,fatigue_loss_kmh:float=0.0):
+    def __init__(self,stats,weights:JointWeights,effort_bonus_kmh:float=0.0,fatigue_loss_kmh:float=0.0,physical_kmh_override:float|None=None):
         self.stats=stats; self.weights=weights
         self.velocity=velocity_snapshot(stats.velocity,effort_bonus_kmh,fatigue_loss_kmh)
+        self._physical_override=physical_kmh_override
+    @property
+    def gameplay_v(self):
+        return gameplay_velocity(self._physical_override) if self._physical_override is not None else self.velocity.gameplay_velocity
     def pitcher_snapshot(self):
-        # Keep legacy H3 stuff/movement channels neutral; Control owns zone/location.
         return PitcherSnapshot(stuff=100.0,control=100.0+self.weights.w_control_zone*(self.stats.control-100.0),movement=100.0)
     def modifier(self,_pitch:Pitch,_strikes:int):
-        # v2 physical Velocity is fixed at 1.50 gameplay points/km/h.
-        velocity_contact=100.0-self.velocity.gameplay_velocity
+        velocity_contact=100.0-self.gameplay_v
         contact_delta=(velocity_contact
                        -self.weights.w_breaking_contact*(self.stats.breaking-100.0)
                        -self.weights.w_stuff_contact*(self.stats.stuff-100.0))
