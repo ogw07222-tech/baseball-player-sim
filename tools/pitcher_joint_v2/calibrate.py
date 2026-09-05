@@ -31,7 +31,8 @@ def build_hitters(n,seed):
 def build_pitchers(n,seed):
  r=RNG(seed);out=[]
  for i in range(n):
-  p=generate_pitcher(f'P{i}',r,player=False,age=18);target=age(r)
+  # Velocity v2 READY was calibrated on the player=True KBO prospect cohort.
+  p=generate_pitcher(f'P{i}',r,player=True,age=18);target=age(r)
   while p.age<target: apply_pitcher_season_growth(p,r)
   out.append(p)
  return out
@@ -66,7 +67,7 @@ def velocity_dist(pitchers):
 def prime_diag(n,seed):
  r=RNG(seed);cols={k:[] for k in ('velocity','stuff','control','breaking','stamina','resilience','ability')}
  for i in range(n):
-  p=generate_pitcher(str(i),r,player=False,age=18)
+  p=generate_pitcher(str(i),r,player=True,age=18)
   while p.age<28:apply_pitcher_season_growth(p,r)
   for k in cols:cols[k].append(p.stats.current_ability() if k=='ability' else getattr(p.stats,k))
  return {k:{'mean':statistics.fmean(v),'sd':statistics.pstdev(v)} for k,v in cols.items()}
@@ -107,7 +108,7 @@ def main():
  except Exception:extreme_ok=False
  velocity_preserved=abs(vd['mean']-145.4462)<=1.0 and abs(vd['sd']-3.7181)<=1.5
  joint_ready=best['passed_tolerances'] and all(sg.values()) and extreme_ok and velocity_preserved
- final={'main_base':MAIN_BASE,'velocity_v2_source_sha':VELOCITY_V2_SHA,'velocity_fixed':{'reference_kmh':146.0,'gameplay_points_per_kmh':1.5},'population':{'hitters':len(hitters),'pitchers':len(pitchers),'physical_velocity':vd,'prime_raw':prime},'best':best,'diagnostics':dg,'semantic_gates':sg,'archetypes':arch,'synergy':syn,'extreme_rating_safe':extreme_ok,'velocity_distribution_preserved':velocity_preserved,'gate':'PITCHER_JOINT_CALIBRATION_V2_READY' if joint_ready else 'PITCHER_JOINT_CALIBRATION_V2_NOT_READY'}
+ final={'main_base':MAIN_BASE,'velocity_v2_source_sha':VELOCITY_V2_SHA,'velocity_fixed':{'reference_kmh':146.0,'gameplay_points_per_kmh':1.5},'population':{'hitters':len(hitters),'pitchers':len(pitchers),'cohort':'player=True (same cohort used by Velocity Scale v2 READY)','physical_velocity':vd,'prime_raw':prime},'best':best,'diagnostics':dg,'semantic_gates':sg,'archetypes':arch,'synergy':syn,'extreme_rating_safe':extreme_ok,'velocity_distribution_preserved':velocity_preserved,'gate':'PITCHER_JOINT_CALIBRATION_V2_READY' if joint_ready else 'PITCHER_JOINT_CALIBRATION_V2_NOT_READY'}
  with open(Path(z.outdir)/'pitcher_joint_v2_final.json','w') as f:json.dump(final,f,indent=2)
  with open(Path(z.outdir)/'pitcher_joint_v2_candidates.csv','w',newline='') as f:
   cw=csv.writer(f);cw.writerow(['rank','loss','passed','w_control_zone','w_stuff_quality','w_stuff_contact','w_breaking_contact','w_breaking_quality','AVG','OBP','SLG','BB%','K%','HR%'])
