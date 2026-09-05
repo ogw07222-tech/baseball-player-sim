@@ -4,15 +4,21 @@ on:
     branches: [feature/velocity-scale-v2-calibration]
   workflow_dispatch:
 jobs:
-  baseline:
+  calibration:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - name: Run baseline population diagnostic
-        run: python -m tools.velocity_scale_v2.diagnose --snapshots 120000 --careers 12000 --seed 20260906 --output reports/velocity_v2_baseline.json
+      - name: Velocity v2 unit tests
+        run: python -m unittest tests.test_velocity_scale_v2 -v
+      - name: Run final velocity v2 calibration
+        run: python -m tools.velocity_scale_v2.calibrate --snapshots 120000 --careers 15000 --pa 50000 --contact 25000 --seed 20260906 --out reports
       - uses: actions/upload-artifact@v4
         with:
-          name: velocity-v2-baseline
-          path: reports/velocity_v2_baseline.json
+          name: velocity-v2-reports
+          path: |
+            reports/velocity_scale_v2_summary.md
+            reports/velocity_scale_v2_candidates.csv
+            reports/velocity_scale_v2_final.json
+            reports/velocity_population_distribution.csv
