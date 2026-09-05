@@ -184,3 +184,47 @@ This branch does not modify:
 
 The new probability contracts live in `src/natural_events.py` and only
 interpret already-produced H3.2.1 batted-ball/state information.
+
+## 100k+ event sanity result
+
+CI run #284 (`tests`) executed the deterministic sanity runner with seed
+`20260906` and completed `100,061` game events across `1,248` neutral games
+(`97,835` plate appearances):
+
+- Sacrifice flies: `179` (`1.098 / 600 PA`)
+- Tag-up: `1,784` attempts / `374` successes (`20.96%`)
+- 1B -> Home on double: `1,428` attempts / `865` successes (`60.57%`)
+- GDP: `1,356` (`8.316 / 600 PA`)
+- XBT: `5,847` (`35.858 / 600 PA`)
+- Fielder's choice: `3,315`
+- Ground-out advancement: `1,098` attempts / `217` successes (`19.76%`)
+- Wild pitch: `0`
+- Passed ball: `0`
+
+The disabled-by-default WP/PB contract therefore does not leak spontaneous
+misc events into normal game simulation. The broad sanity gate rejected neither
+an all-runners-score-on-double pathology nor shallow/tag-up explosion.
+
+## CI evidence
+
+PR #21 code HEAD `ffc4c07c1b69b8f0e604b08b3ab34bc5f1d7371e`, workflow run #284:
+
+- Python compile: PASS
+- Full unit suite: `119/119 PASS`
+- 100k+ natural-event sanity: PASS
+- Auto-career smoke: PASS
+- Balance smoke: PASS
+- High-school / draft calibration gate: PASS
+- Draft calibration artifact upload: PASS
+- Web build: PASS
+- Web tests: PASS
+
+## Gate
+
+**NATURAL_BASEBALL_EVENTS_READY**
+
+P0 natural events are implemented, the WP/PB state contract is present but
+disabled until a future catcher/pitch-misc probability layer exists, runner
+identity/base invariants and deterministic replay are preserved, H3.2.1 formula
+files are unchanged, 100k+ event sanity is non-pathological, and full repository
+CI is green.
