@@ -1,0 +1,107 @@
+{
+  "main_head": "44b4bbb9113e351ceb35aac75f02a8ee6eab3723",
+  "calibration_execution_branch_head": "8d2377bce13a15c63403239680fe6830e23786d9",
+  "reference_system": "KBO/Sports2i PTS season aggregates",
+  "source_urls": {
+    "broad_2025_distribution": "https://kbo-analytics-2025.vercel.app/",
+    "statiz_cited_2025_starter_list": "https://sports.news.nate.com/view/20260116n26163",
+    "individual_provenance": "data/kbo_velocity_reference.csv",
+    "distribution_snapshot": "data/kbo_velocity_distribution_2025.csv"
+  },
+  "league_reference_kmh": 146.0,
+  "distribution_2025": {
+    "n": 119,
+    "mean": 145.44621848739496,
+    "median": 145.3,
+    "sd": 3.7180911339923153,
+    "p10": 141.36,
+    "p20": 142.68,
+    "p50": 145.3,
+    "p80": 148.12,
+    "p90": 150.42,
+    "p95": 151.74
+  },
+  "chosen_mapping": "soft_nonlinear",
+  "raw_reference": 92.0,
+  "mapping_parameters": {
+    "center_kmh": 146.0,
+    "amplitude_kmh": 15.0,
+    "raw_scale": 46.0
+  },
+  "mapping_candidates": {
+    "linear": {"fit_error": 1.4773604612, "extreme_safe": false},
+    "piecewise": {"fit_error": 1.4281637243, "extreme_safe": true},
+    "soft_nonlinear": {"fit_error": 1.0662269174, "extreme_safe": true}
+  },
+  "extreme_mapping_kmh": {
+    "30": 132.8969,
+    "50": 135.1612,
+    "70": 139.3273,
+    "100": 148.5827,
+    "130": 156.1755,
+    "160": 159.517,
+    "200": 160.73,
+    "250": 160.9689
+  },
+  "gameplay_contract": {
+    "physical_reference_kmh": 146.0,
+    "gameplay_reference": 100.0,
+    "gameplay_points_per_kmh": 1.5,
+    "search_range_points_per_kmh": [0.5, 5.0]
+  },
+  "velocity_only_sensitivity": {
+    "per_1_kmh": {
+      "contact_pct_points": -0.2481,
+      "whiff_pct_points": 0.2481,
+      "k_pct_points": 0.1480,
+      "avg": -0.002887,
+      "slg": -0.005375,
+      "hr_pct_points": -0.0760,
+      "bb_pct_points": -0.0340
+    },
+    "plus_3_kmh": {"contact_pct_points": -0.6731, "whiff_pct_points": 0.6731, "k_pct_points": 0.4300, "avg": -0.008795, "slg": -0.015414, "bb_pct_points": -0.0740},
+    "plus_5_kmh": {"contact_pct_points": -0.9779, "whiff_pct_points": 0.9779, "k_pct_points": 0.7200, "avg": -0.014420, "slg": -0.024517, "bb_pct_points": -0.0360},
+    "plus_8_kmh": {"contact_pct_points": -1.5986, "whiff_pct_points": 1.5986, "k_pct_points": 1.0040, "avg": -0.021802, "slg": -0.035991, "bb_pct_points": -0.0840}
+  },
+  "role_diagnostic": {
+    "starter_2025_curated_n": 9,
+    "starter_2025_curated_mean_kmh": 146.9889,
+    "reliever_2025_curated_n": 5,
+    "reliever_2025_curated_mean_kmh": 141.94,
+    "cross_player_gap_kmh": -5.0489,
+    "interpretation": "descriptive_only_not_causal_effort_bonus",
+    "same_player_role_split_evidence_sufficient": false
+  },
+  "max_velocity_model": {
+    "starter_expected_max_minus_avg_kmh": 6.64,
+    "starter_gap_sd_kmh": 1.42,
+    "reliever_expected_max_minus_avg_kmh": 6.07,
+    "reliever_gap_sd_kmh": 1.49
+  },
+  "growth_age_diagnostic": {
+    "20": {"mapped_kmh": 144.20, "actual_band_mean_kmh": 148.19, "diff_kmh": -3.98},
+    "22": {"mapped_kmh": 145.45, "actual_band_mean_kmh": 148.19, "diff_kmh": -2.74},
+    "24": {"mapped_kmh": 146.34, "actual_band_mean_kmh": 144.94, "diff_kmh": 1.40},
+    "26": {"mapped_kmh": 146.84, "actual_band_mean_kmh": 144.94, "diff_kmh": 1.90},
+    "28": {"mapped_kmh": 147.22, "actual_band_mean_kmh": 145.24, "diff_kmh": 1.98},
+    "30": {"mapped_kmh": 146.84, "actual_band_mean_kmh": 145.24, "diff_kmh": 1.60},
+    "32": {"mapped_kmh": 146.55, "actual_band_mean_kmh": 143.48, "diff_kmh": 3.07},
+    "35": {"mapped_kmh": 144.55, "actual_band_mean_kmh": 143.28, "diff_kmh": 1.27}
+  },
+  "gate": "VELOCITY_SCALE_CALIBRATION_NOT_READY",
+  "gate_checks": {
+    "actual_distribution_reasonably_matched": true,
+    "starter_reliever_split_documented": true,
+    "average_velocity_primary_anchor": true,
+    "max_velocity_separate_model": true,
+    "mapping_monotonic_and_safe": true,
+    "gameplay_mapping_monotonic": true,
+    "per_kmh_sensitivity_not_pathological": true,
+    "bb_direct_effect_negligible": true,
+    "base_rating_never_mutates": true,
+    "h321_hitter_formula_diff_none": true,
+    "provenance_complete": true,
+    "same_player_role_gap_evidence_sufficient": false
+  },
+  "next_step": "Strengthen same-player starter/reliever role-split provenance before canonicalizing effort bonus; only after VELOCITY_SCALE_CALIBRATION_READY rerun joint Velocity/Stuff/Control/Breaking calibration."
+}
