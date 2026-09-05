@@ -66,7 +66,7 @@ describe('web UI',()=>{
     expect(screen.getByRole('heading',{name:'PRE-DRAFT PROJECTION'})).toBeInTheDocument()
     expect(screen.getByRole('heading',{name:'TEAM FIT'})).toBeInTheDocument()
     expect(screen.getByRole('heading',{name:'DRAFT RESULT'})).toBeInTheDocument()
-    expect(screen.getAllByText('TEAM INTEREST')).toHaveLength(0)
+    expect(screen.queryAllByText('TEAM INTEREST')).toHaveLength(0)
     expect(screen.getByRole('heading',{name:'FINAL HS RESUME'})).toBeInTheDocument()
     expect(screen.getByRole('heading',{name:'DRAFT FEED'})).toBeInTheDocument()
     expect(screen.getByRole('heading',{name:'ROUND PROGRESS'})).toBeInTheDocument()
