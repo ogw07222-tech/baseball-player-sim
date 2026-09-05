@@ -24,19 +24,18 @@ def _stat_age_offset(stat:str,age:int)->float:
     return 0.0
 
 def _scb_recenter_bonus(stat:str,age:int)->float:
-    """Raise S/C/B career representation toward a ~110 prime UI scale.
+    """Raise S/C/B representation toward a ~110 prime UI scale.
 
-    Entry ratings are intentionally unchanged. Most of the shift is earned during
-    development, then tapers before prime so the existing aging curve still owns
-    the post-prime shape. Velocity is explicitly exempt because its raw scale is
+    Entry ratings are unchanged. The shift is earned during development and
+    tapers before prime; Velocity is explicitly exempt because its raw scale is
     frozen to the physical km/h contract.
     """
     if stat=="stuff":
         return 1.50 if age<=25 else .80 if age<=27 else 0.0
     if stat=="control":
-        return 1.80 if age<=25 else 1.20 if age<=27 else 0.0
+        return 1.95 if age<=25 else 1.25 if age<=27 else 0.0
     if stat=="breaking":
-        return 1.50 if age<=25 else .80 if age<=27 else 0.0
+        return 1.55 if age<=25 else .85 if age<=27 else 0.0
     return 0.0
 
 def growth_distribution(pitcher:Pitcher,stat:str)->tuple[float,float]:
