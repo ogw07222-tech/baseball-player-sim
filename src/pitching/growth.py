@@ -23,9 +23,25 @@ def _stat_age_offset(stat:str,age:int)->float:
     if stat=="stamina": return .15 if age<=24 else 0.0 if age<=28 else -.25 if age<=31 else 0.0
     return 0.0
 
+def _scb_recenter_bonus(stat:str,age:int)->float:
+    """Raise S/C/B career representation toward a ~110 prime UI scale.
+
+    Entry ratings are intentionally unchanged. Most of the shift is earned during
+    development, then tapers before prime so the existing aging curve still owns
+    the post-prime shape. Velocity is explicitly exempt because its raw scale is
+    frozen to the physical km/h contract.
+    """
+    if stat=="stuff":
+        return 1.50 if age<=25 else .80 if age<=27 else 0.0
+    if stat=="control":
+        return 1.80 if age<=25 else 1.20 if age<=27 else 0.0
+    if stat=="breaking":
+        return 1.50 if age<=25 else .80 if age<=27 else 0.0
+    return 0.0
+
 def growth_distribution(pitcher:Pitcher,stat:str)->tuple[float,float]:
     cur=getattr(pitcher.stats,stat); talent=(pitcher.stats.talent-config.GROWTH_TALENT_REFERENCE)*config.GROWTH_TALENT_SCALE; damping=max(0.0,cur-100)*config.GROWTH_CURRENT_STAT_DAMPING
-    mean=_age_bias(pitcher.age)+_stat_age_offset(stat,pitcher.age)+talent-damping
+    mean=_age_bias(pitcher.age)+_stat_age_offset(stat,pitcher.age)+_scb_recenter_bonus(stat,pitcher.age)+talent-damping
     if pitcher.age>=32 and mean<0: mean*=P.PITCHER_AGING_MULTIPLIER[stat]
     sd=P.VELOCITY_GROWTH_STDDEV if stat=="velocity" else max(.75,config.GROWTH_BASE_STDDEV)
     return mean,sd
