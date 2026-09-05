@@ -12,9 +12,114 @@ permissions:
   contents: write
 
 jobs:
-  validate:
+  player-pure:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/h32-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run player pure shard
+        env:
+          PYTHONPATH: .
+          SHARD: ${{ matrix.shard }}
+        run: |
+          START=$((SHARD * 5000))
+          python tools/growth_validation_shard.py --kind pure --cohort player --start "$START" --count 5000 --offset 0 --workers 2 --output "shards/player_pure_${SHARD}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-player-pure-${{ matrix.shard }}
+          path: shards/*.json
+
+  npc-pure:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/h32-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run npc pure shard
+        env:
+          PYTHONPATH: .
+          SHARD: ${{ matrix.shard }}
+        run: |
+          START=$((SHARD * 5000))
+          python tools/growth_validation_shard.py --kind pure --cohort npc --start "$START" --count 5000 --offset 100000 --workers 2 --output "shards/npc_pure_${SHARD}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-npc-pure-${{ matrix.shard }}
+          path: shards/*.json
+
+  player-full:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/h32-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run player full shard
+        env:
+          PYTHONPATH: .
+          SHARD: ${{ matrix.shard }}
+        run: |
+          START=$((SHARD * 500))
+          python tools/growth_validation_shard.py --kind full --cohort player --start "$START" --count 500 --offset 200000 --workers 2 --output "shards/player_full_${SHARD}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-player-full-${{ matrix.shard }}
+          path: shards/*.json
+
+  npc-full:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/h32-production-integration
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run npc full shard
+        env:
+          PYTHONPATH: .
+          SHARD: ${{ matrix.shard }}
+        run: |
+          START=$((SHARD * 500))
+          python tools/growth_validation_shard.py --kind full --cohort npc --start "$START" --count 500 --offset 300000 --workers 2 --output "shards/npc_full_${SHARD}.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-npc-full-${{ matrix.shard }}
+          path: shards/*.json
+
+  aggregate:
+    needs: [player-pure, npc-pure, player-full, npc-full]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,17 +128,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Run Monte Carlo validation
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: validation-*
+          path: shards
+          merge-multiple: true
+      - name: Aggregate validation shards
         env:
           PYTHONPATH: .
         run: |
-          python tools/growth_validation.py \
-            --pure 20000 \
-            --full 5000 \
-            --npc-pure 20000 \
-            --npc-full 5000 \
-            --seed 20260905 \
-            --workers 2
+          python tools/growth_validation_aggregate.py --input shards --seed 20260905
       - name: Commit generated validation data
         run: |
           git config user.name "github-actions[bot]"
