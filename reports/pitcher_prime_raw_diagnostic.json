@@ -1,0 +1,16 @@
+{
+  "cohort": "player=True (Velocity v2 calibration cohort)",
+  "sample_size": 30000,
+  "age": 28,
+  "stats": {
+    "velocity": {"mean": 95.7972, "sd": 11.680271350729257},
+    "stuff": {"mean": 96.86373333333333, "sd": 16.974807747430372},
+    "control": {"mean": 91.9656, "sd": 18.606282540403747},
+    "breaking": {"mean": 95.738, "sd": 17.895225322228647},
+    "stamina": {"mean": 97.9794, "sd": 18.444595657626472},
+    "resilience": {"mean": 96.65886666666667, "sd": 16.83792231983771},
+    "ability": {"mean": 95.54963933333335, "sd": 10.160189023336109}
+  },
+  "requested_prime_center_about_110_met": false,
+  "note": "Velocity remains physically anchored by Velocity Scale v2 and must not be recentered to 110 without breaking the KBO km/h distribution. S/C/B raw-scale comparability remains a prerequisite for the next joint calibration."
+}
