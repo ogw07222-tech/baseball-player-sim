@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { App } from './App'
 import { MockGameDataProvider } from './mock/mockGameDataProvider'
 import type { GameDataProvider } from './services/GameDataProvider'
@@ -16,6 +16,7 @@ class SlowProvider extends MockGameDataProvider {
 }
 
 const existingCareerProvider = () => new MockGameDataProvider({hasCareer:true})
+afterEach(()=>{ window.location.hash='' })
 
 describe('web UI',()=>{
   it('renders the single-screen new career UI without catcher, wizard steps, or back button', async()=>{
@@ -53,6 +54,47 @@ describe('web UI',()=>{
     expect(created.player.batsThrows).toBe('L/R')
     expect(created.traits).toHaveLength(3)
     expect(created.season.game).toBe(0)
+  })
+
+  it('renders the focused selected-state Draft Day screen with the requested hierarchy', async()=>{
+    window.location.hash='#draft'
+    render(<App provider={existingCareerProvider()}/>)
+    expect(await screen.findByRole('heading',{name:'KBO DRAFT'})).toBeInTheDocument()
+    expect(screen.getByRole('heading',{name:'SELECTED'})).toBeInTheDocument()
+    expect(screen.getAllByText('키움 히어로즈').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('OVERALL PICK')).toBeInTheDocument()
+    expect(screen.getByRole('heading',{name:'PRE-DRAFT PROJECTION'})).toBeInTheDocument()
+    expect(screen.getByRole('heading',{name:'TEAM FIT'})).toBeInTheDocument()
+    expect(screen.getByRole('heading',{name:'DRAFT RESULT'})).toBeInTheDocument()
+    expect(screen.queryAllByText('TEAM INTEREST')).toHaveLength(0)
+    expect(screen.getByRole('heading',{name:'FINAL HS RESUME'})).toBeInTheDocument()
+    expect(screen.getByRole('heading',{name:'DRAFT FEED'})).toBeInTheDocument()
+    expect(screen.getByRole('heading',{name:'ROUND PROGRESS'})).toBeInTheDocument()
+    expect(document.querySelector('[data-selected="true"]')).not.toBeNull()
+  })
+
+  it('opens and closes the full Draft Board modal with button and ESC', async()=>{
+    window.location.hash='#draft'
+    render(<App provider={existingCareerProvider()}/>)
+    await screen.findByRole('heading',{name:'KBO DRAFT'})
+    fireEvent.click(screen.getByRole('button',{name:/전체 드래프트 보기/}))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('heading',{name:'FULL DRAFT BOARD'})).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:'전체 드래프트 닫기'}))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:/전체 드래프트 보기/}))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    fireEvent.keyDown(window,{key:'Escape'})
+    await waitFor(()=>expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
+
+  it('uses the Pro Career CTA as a safe transition back to the existing KBO career hub', async()=>{
+    window.location.hash='#draft'
+    render(<App provider={existingCareerProvider()}/>)
+    await screen.findByRole('heading',{name:'KBO DRAFT'})
+    fireEvent.click(screen.getByRole('button',{name:/프로 커리어 시작/}))
+    expect(await screen.findByRole('heading',{name:/김건우/})).toBeInTheDocument()
+    expect(window.location.hash).toBe('')
   })
 
   it('renders player dashboard and all ten abilities including uncapped values for an existing career', async()=>{
