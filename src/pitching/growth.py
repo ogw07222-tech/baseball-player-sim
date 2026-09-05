@@ -27,7 +27,8 @@ def growth_distribution(pitcher:Pitcher,stat:str)->tuple[float,float]:
     cur=getattr(pitcher.stats,stat); talent=(pitcher.stats.talent-config.GROWTH_TALENT_REFERENCE)*config.GROWTH_TALENT_SCALE; damping=max(0.0,cur-100)*config.GROWTH_CURRENT_STAT_DAMPING
     mean=_age_bias(pitcher.age)+_stat_age_offset(stat,pitcher.age)+talent-damping
     if pitcher.age>=32 and mean<0: mean*=P.PITCHER_AGING_MULTIPLIER[stat]
-    return mean,max(.75,config.GROWTH_BASE_STDDEV)
+    sd=P.VELOCITY_GROWTH_STDDEV if stat=="velocity" else max(.75,config.GROWTH_BASE_STDDEV)
+    return mean,sd
 
 def apply_pitcher_season_growth(pitcher:Pitcher,rng:RNG)->PitcherGrowthResult:
     before_age=pitcher.age; before=pitcher.stats.current_ability(); deltas={}
