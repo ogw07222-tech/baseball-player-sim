@@ -101,8 +101,9 @@ def score_hitter_performance(line: BattingLine, position: str) -> DraftPerforman
 
 def scout_projection_score(scouted_talent: float) -> float:
     # Scouting is deliberately a noisy secondary projection rather than exact
-    # access to true Talent. Compression prevents projection from dominating.
-    return 100.0 + (scouted_talent - 100.0) * 0.30
+    # access to true Talent. Compression keeps realized contribution in the
+    # intended 5-15% band instead of allowing noisy projection to dominate.
+    return 100.0 + (scouted_talent - 100.0) * 0.20
 
 
 def position_value_score(position: str) -> float:
