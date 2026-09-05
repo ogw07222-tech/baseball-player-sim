@@ -1,0 +1,83 @@
+{
+  "source_base": "5aad8004650c07a6f82560eaaf2c5ff89580598a",
+  "prime": {
+    "contact": {
+      "mean": 108.14008888888888,
+      "sd": 19.836981669847773,
+      "p01": 62.0,
+      "p05": 75.0,
+      "p10": 83.0,
+      "p25": 95.0,
+      "p50": 108.0,
+      "p75": 122.0,
+      "p90": 134.0,
+      "p95": 141.0,
+      "p99": 154.0
+    },
+    "power": {
+      "mean": 108.34556666666667,
+      "sd": 21.90300576306062,
+      "p01": 58.0,
+      "p05": 72.0,
+      "p10": 80.0,
+      "p25": 93.75,
+      "p50": 108.0,
+      "p75": 123.0,
+      "p90": 136.0,
+      "p95": 144.0,
+      "p99": 159.0
+    },
+    "discipline": {
+      "mean": 108.38894444444445,
+      "sd": 19.935419623184988,
+      "p01": 62.0,
+      "p05": 76.0,
+      "p10": 83.0,
+      "p25": 95.0,
+      "p50": 108.0,
+      "p75": 122.0,
+      "p90": 134.0,
+      "p95": 141.0,
+      "p99": 155.0
+    },
+    "speed": {
+      "mean": 98.0770111111111,
+      "sd": 23.82639228437166,
+      "p01": 43.0,
+      "p05": 59.0,
+      "p10": 67.0,
+      "p25": 82.0,
+      "p50": 98.0,
+      "p75": 114.0,
+      "p90": 128.0,
+      "p95": 137.0,
+      "p99": 153.0
+    }
+  },
+  "references": {
+    "contact": 108.14008888888888,
+    "power": 108.34556666666667,
+    "discipline": 108.38894444444445,
+    "speed": 98.0770111111111
+  },
+  "cpd_slope": 0.6,
+  "speed_slope": 0.6,
+  "actual_population": {
+    "AVG": 0.2617103304587368,
+    "OBP": 0.322476,
+    "SLG": 0.40990133966224035,
+    "OPS": 0.7323773396622404,
+    "BB": 0.082306,
+    "K": 0.21176,
+    "HR": 0.027978,
+    "BABIP": 0.3129878635191664
+  },
+  "gates": {
+    "HITTER_CPD_RAW_SCALE_READY": true,
+    "HITTER_CPD_GAMEPLAY_SCALE_READY": true,
+    "HITTER_SPEED_RATIO_READY": true,
+    "HITTER_DISPLAY_GAMEPLAY_CONTRACT_READY": true
+  },
+  "h32_formula_changed": false,
+  "speed_note": "Frozen H3.2.1 baserunning formulas; value proxy includes SB/CS, first-to-third, second-to-home, and DP avoidance."
+}
