@@ -1,0 +1,223 @@
+{
+  "main_head": "44b4bbb9113e351ceb35aac75f02a8ee6eab3723",
+  "v1_publication_head": "e950f00df5b88f3b27ad09b3494e2b8670cb1d5f",
+  "calibration_execution_head": "d5da030e6c5adfc041b3631b0c1fa1bce68d7ba7",
+  "branch": "feature/velocity-scale-v2-calibration",
+  "gate": "VELOCITY_SCALE_V2_READY",
+  "kbo_reference": {
+    "measurement_contract": "KBO/Sports2i PTS",
+    "distribution_file": "data/kbo_velocity_distribution_2025.csv",
+    "provenance_file": "data/kbo_velocity_reference.csv",
+    "n": 119,
+    "mean_kmh": 145.44621848739496,
+    "median_kmh": 145.3,
+    "sd_kmh": 3.7180911339923153,
+    "p10_kmh": 141.36,
+    "p25_kmh": 143.25,
+    "p50_kmh": 145.3,
+    "p75_kmh": 147.4,
+    "p90_kmh": 150.42,
+    "p95_kmh": 151.74
+  },
+  "v1_problem": {
+    "raw_92_kmh": 146.0,
+    "raw_160_kmh": 159.5,
+    "raw_200_kmh": 160.7,
+    "raw_250_kmh": 161.0,
+    "diagnosis": "upper-tail compression too strong for an interpretable elite rating scale"
+  },
+  "velocity_specific_variance_patch": {
+    "base_generation_sd_before": 10.0,
+    "base_generation_sd_after": 5.0,
+    "shared_offset_scale_before": 1.0,
+    "shared_offset_scale_after": 0.6,
+    "seasonal_growth_noise_sd_before": 3.15,
+    "seasonal_growth_noise_sd_after": 1.5,
+    "archetype_adjustments_changed": false,
+    "growth_mean_curve_changed": false,
+    "non_velocity_stat_distributions_changed": false
+  },
+  "before_after_population": {
+    "before": {
+      "start_sd": 14.4924,
+      "age28_sd": 17.7924,
+      "age20_35_mixed_sd": 18.0186
+    },
+    "after": {
+      "start": {
+        "n": 120000,
+        "mean": 80.8645,
+        "sd": 9.9444237563755,
+        "p1": 61.0,
+        "p5": 66.0,
+        "p10": 69.0,
+        "p25": 74.0,
+        "p50": 80.0,
+        "p75": 88.0,
+        "p90": 95.0,
+        "p95": 99.0,
+        "p99": 105.0,
+        "max": 118.0
+      },
+      "age28": {
+        "n": 15000,
+        "mean": 95.65413333333333,
+        "sd": 11.577955181520666,
+        "p1": 71.0,
+        "p5": 78.0,
+        "p10": 81.0,
+        "p25": 87.0,
+        "p50": 95.0,
+        "p75": 103.0,
+        "p90": 111.0,
+        "p95": 116.0,
+        "p99": 123.0,
+        "max": 140.0
+      },
+      "age20_35_mixed": {
+        "n": 240000,
+        "mean": 91.60929583333333,
+        "sd": 12.077755195186725,
+        "p1": 65.0,
+        "p5": 73.0,
+        "p10": 77.0,
+        "p25": 83.0,
+        "p50": 91.0,
+        "p75": 100.0,
+        "p90": 108.0,
+        "p95": 112.0,
+        "p99": 121.0,
+        "max": 146.0,
+        "raw_gt_150_fraction": 0.0,
+        "raw_ge_200_fraction": 0.0
+      }
+    }
+  },
+  "candidate_ranking": [
+    {
+      "model": "soft_mild",
+      "score": 1.4909736616665723,
+      "chosen": true,
+      "prime_mean_kmh": 145.6190949602005,
+      "prime_sd_kmh": 3.2417784177261177,
+      "interpretability_mae_kmh": 0.385524085773208,
+      "raw_250_kmh": 179.9739663093415,
+      "extreme_safe": true
+    },
+    {
+      "model": "piecewise_mild_tail",
+      "score": 1.588202529104893,
+      "chosen": false,
+      "prime_mean_kmh": 145.62315733333332,
+      "prime_sd_kmh": 3.2418274508257863,
+      "interpretability_mae_kmh": 0.4511111111111082,
+      "raw_250_kmh": 169.54,
+      "extreme_safe": true
+    },
+    {
+      "model": "linear_narrow",
+      "score": 21.988202529104893,
+      "chosen": false,
+      "prime_mean_kmh": 145.62315733333332,
+      "prime_sd_kmh": 3.2418274508257863,
+      "interpretability_mae_kmh": 0.7177777777777755,
+      "raw_250_kmh": 188.84,
+      "extreme_safe": false
+    }
+  ],
+  "chosen_mapping": {
+    "model": "soft_mild",
+    "reference_rating": 97.0,
+    "reference_kmh": 146.0,
+    "slope_parameter_kmh_per_rating": 0.29,
+    "compression_scale_ratings": 500.0,
+    "mapping_kmh": {
+      "30": 128.86596119929453,
+      "50": 133.54113345521023,
+      "70": 138.57115749525616,
+      "80": 141.2321083172147,
+      "90": 143.99802761341223,
+      "100": 146.8648111332008,
+      "110": 149.67446393762182,
+      "120": 152.37667304015295,
+      "130": 154.97748592870545,
+      "140": 157.48250460405157,
+      "150": 159.89692585895116,
+      "160": 162.22557726465365,
+      "180": 166.64322469982847,
+      "200": 170.76782752902156,
+      "250": 179.9739663093415
+    },
+    "elite_spacing_kmh": {
+      "130_to_140": 2.505018675346122,
+      "140_to_150": 2.414421254899594,
+      "150_to_160": 2.3286514057024874
+    }
+  },
+  "physical_distribution_fit": {
+    "simulated_age28_mean_kmh": 145.6190949602005,
+    "simulated_age28_sd_kmh": 3.2417784177261177,
+    "kbo_mean_kmh": 145.44621848739496,
+    "kbo_sd_kmh": 3.7180911339923153
+  },
+  "gameplay_contract": {
+    "neutral_effective_kmh": 146.0,
+    "h3_gameplay_velocity_reference": 100.0,
+    "selected_gameplay_points_per_kmh": 1.5,
+    "velocity_only_per_plus_1_kmh": {
+      "contact_percentage_points": -0.16287421512228655,
+      "whiff_percentage_points": 0.16287421512228608,
+      "k_percentage_points": 0.11958333333333335,
+      "avg": -0.002691577222581948,
+      "slg": -0.004645355747084042,
+      "hr_percentage_points": -0.04091666666666666,
+      "bb_percentage_points": 0.01374999999999999
+    },
+    "stuff_neutral": true,
+    "control_neutral": true,
+    "breaking_neutral": true
+  },
+  "max_velocity_model": {
+    "starter": {
+      "n": 7,
+      "expected_max_minus_avg_kmh": 6.642857142857147,
+      "sd_kmh": 1.4152233544063462
+    },
+    "reliever": {
+      "n": 16,
+      "expected_max_minus_avg_kmh": 6.068749999999998,
+      "sd_kmh": 1.4884975646604213
+    },
+    "status": "separate experimental diagnostic"
+  },
+  "effort_contract": {
+    "application_layer": "physical_kmh",
+    "raw_velocity_mutation": false,
+    "canonical_reliever_bonus_kmh": null,
+    "role_bonus_status": "experimental_parameter_only_due_to_insufficient_same_player_role_split_evidence"
+  },
+  "gate_checks": {
+    "kbo_central_distribution_reasonably_matched": true,
+    "raw_rating_practical_range_narrow_interpretable": true,
+    "population_sd_sufficiently_low": true,
+    "160_kmh_does_not_require_raw_200_250": true,
+    "elite_tail_retains_meaningful_spacing": true,
+    "raw_200_250_is_safety_domain": true,
+    "average_velocity_primary_anchor": true,
+    "max_velocity_separate": true,
+    "gameplay_sensitivity_monotonic_non_pathological": true,
+    "bb_direct_effect_negligible": true,
+    "h321_hitter_formula_diff_none": true,
+    "provenance_documented": true,
+    "required_tests_pass": true,
+    "repository_wide_ci_pass": true
+  },
+  "known_limitations": [
+    "The 119-pitcher public KBO distribution is a >=30% regulation-innings snapshot rather than a complete pitch-level export.",
+    "Age-band provenance combines 2025 and 2026 supplementary rows and is diagnostic only.",
+    "The <=22 age comparison is strongly selection-biased because simulated young cohorts include non-established prospects.",
+    "Same-player starter/reliever role-split evidence remains insufficient, so no permanent physical effort bonus is set.",
+    "Velocity-only gameplay calibration does not fit total KBO offense."
+  ],
+  "next_step": "Freeze physical Velocity mapping; in joint pitcher Monte Carlo tune Stuff, Control and Breaking without searching an arbitrary raw Velocity weight."
+}
