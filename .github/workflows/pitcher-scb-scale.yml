@@ -4,17 +4,25 @@ on:
     branches: [feature/pitcher-scb-scale-recenter]
   workflow_dispatch:
 jobs:
-  diagnostic:
+  calibration:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - name: SCB age curve diagnostic
-        run: python -m tools.pitcher_scb_scale.diagnose --n 30000 --json reports/pitcher_scb_before.json --csv reports/pitcher_scb_before.csv
+      - name: Install test dependency
+        run: python -m pip install pytest
+      - name: SCB v3 unit tests
+        run: python -m pytest tests/test_pitcher_scb_v3.py -q
+      - name: SCB final age curve diagnostic
+        run: python -m tools.pitcher_scb_scale.diagnose --n 30000 --json reports/pitcher_scb_after.json --csv reports/pitcher_scb_after.csv
+      - name: Joint v3 Monte Carlo
+        run: python -m tools.pitcher_joint_v3.calibrate --hitters 2000 --pitchers 2000 --candidates 30 --search-pa 100000 --validation-pa 1000000 --top 5 --seeds 5 --diag-pa 300000 --outdir reports
       - uses: actions/upload-artifact@v4
         with:
-          name: pitcher-scb-before
+          name: pitcher-scb-joint-v3-reports
           path: |
-            reports/pitcher_scb_before.json
-            reports/pitcher_scb_before.csv
+            reports/pitcher_scb_after.json
+            reports/pitcher_scb_after.csv
+            reports/pitcher_joint_v3_candidates.csv
+            reports/pitcher_joint_v3_final.json
