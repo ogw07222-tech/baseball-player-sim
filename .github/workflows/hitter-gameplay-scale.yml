@@ -1,0 +1,18 @@
+name: hitter-gameplay-scale
+on:
+  push:
+    branches: [feature/hitter-gameplay-normalization]
+  workflow_dispatch:
+jobs:
+  calibrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Raw hitter distribution
+        run: python -m tools.hitter_gameplay_scale.diagnose --n 30000 --csv reports/hitter_raw_distribution.csv --json reports/hitter_raw_distribution.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitter-raw-distribution
+          path: reports/hitter_raw_distribution.*
