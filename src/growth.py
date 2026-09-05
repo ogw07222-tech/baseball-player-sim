@@ -45,6 +45,21 @@ def _trait_growth_bias(player:Player)->float:
     if has_trait(player.traits,'slow_growth'):return -.45
     return 0.0
 
+def _hitter_cpd_recenter_bonus(stat_name:str,age:int)->float:
+    """Move hitter C/P/D toward a human-readable ~110 prime scale.
+
+    Entry ratings are untouched.  The representation shift is earned only
+    during development, then disappears before prime so the existing aging
+    curve resumes control.  Speed and all non-offensive ratings are exempt.
+    """
+    if stat_name=='contact':
+        return 1.70 if age<=25 else 1.00 if age<=27 else 0.0
+    if stat_name=='power':
+        return 1.85 if age<=25 else 1.10 if age<=27 else 0.0
+    if stat_name=='discipline':
+        return 2.45 if age<=25 else 1.50 if age<=27 else 0.0
+    return 0.0
+
 def _experience_bias(player:Player,stat_name:str,experience:GrowthExperience|None)->float:
     if experience is None:return 0.0
     first=min(1.25,experience.first_team_pa/config.EXPERIENCE_FIRST_PA_REFERENCE)
@@ -61,6 +76,7 @@ def growth_distribution(player:Player,stat_name:str,coach:CoachingStaff|None=Non
     talent_effect=(player.stats.talent-config.GROWTH_TALENT_REFERENCE)*config.GROWTH_TALENT_SCALE
     damping=max(0.0,current-100.)*config.GROWTH_CURRENT_STAT_DAMPING
     mean=_age_bias(player.age)+_profile_bias(player)+talent_effect+_trait_growth_bias(player)-damping
+    mean+=_hitter_cpd_recenter_bonus(stat_name,player.age)
     mean+=_experience_bias(player,stat_name,experience)
     if coach is not None:mean+=coach_growth_mean(coach,stat_name)
     variance=config.GROWTH_BASE_STDDEV*(coach_variance_multiplier(coach) if coach else 1.0)
