@@ -7,10 +7,12 @@ from src.career import CareerEngine
 from src.draft_scoring import (
     CATCHER_EVALUATION_PENDING,
     HITTER_POSITION_AWARE,
+    PITCHER_ROLE_AWARE,
     evaluate_hitter_draft,
     score_hitter_performance,
     score_pitcher_performance,
 )
+from src.pitching import PitchingLine
 from src.player import Player
 from src.records import BattingLine
 from src.rng import RNG
@@ -83,8 +85,13 @@ class DraftPerformanceTests(unittest.TestCase):
         score=score_hitter_performance(line_for_ops_band(2),'C')
         self.assertEqual(score.evaluation_mode,CATCHER_EVALUATION_PENDING)
 
-    def test_pitcher_extension_is_explicitly_pending(self):
-        with self.assertRaises(NotImplementedError):score_pitcher_performance(None)
+    def test_pitcher_extension_uses_common_score_contract(self):
+        line=PitchingLine(G=5,BF=100,outs=60,H=20,HR=2,BB=8,SO=25,ER=8,pitches=350)
+        score=score_pitcher_performance(line,'starter')
+        self.assertEqual(score.evaluation_mode,PITCHER_ROLE_AWARE)
+        self.assertTrue(0.0 <= score.reliability <= 1.0)
+        self.assertTrue(0.0 <= score.position_percentile <= 100.0)
+        self.assertTrue(score.score == score.score)
 
     def test_sample_reliability_shrinks_small_samples(self):
         full=line_for_ops_band(3)

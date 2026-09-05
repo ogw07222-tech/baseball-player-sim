@@ -2,7 +2,7 @@
 
 This module is intentionally outside ``src.hitting``: H3.2.1 gameplay math is
 frozen. Draft scoring consumes observed game results and converts them to a
-league-relative common score that can later be shared with a pitcher scorer.
+league-relative common score shared by hitter and pitcher evaluators.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from .records import BattingLine
 
 CATCHER_EVALUATION_PENDING = "CATCHER_EVALUATION_PENDING"
 HITTER_POSITION_AWARE = "HITTER_POSITION_AWARE"
-PITCHER_PERFORMANCE_SCORE_PENDING = "PITCHER_PERFORMANCE_SCORE_PENDING"
+PITCHER_ROLE_AWARE = "PITCHER_ROLE_AWARE"
 
 
 @dataclass(frozen=True)
@@ -79,8 +79,6 @@ def score_hitter_performance(line: BattingLine, position: str) -> DraftPerforman
     metric_z = _metric_z(line, reliability)
     overall_index = _weighted_index(metric_z, config.OVERALL_HITTER_PERFORMANCE_WEIGHTS)
     if position == "C":
-        # Explicit temporary path. Catcher-specific receiving/framing/blocking/
-        # arm/game-calling evaluation belongs to a separate calibration task.
         weights = config.CATCHER_LEGACY_PERFORMANCE_WEIGHTS
         mode = CATCHER_EVALUATION_PENDING
     else:
@@ -100,9 +98,6 @@ def score_hitter_performance(line: BattingLine, position: str) -> DraftPerforman
 
 
 def scout_projection_score(scouted_talent: float) -> float:
-    # Scouting is deliberately a noisy secondary projection rather than exact
-    # access to true Talent. Compression keeps realized contribution in the
-    # intended 5-15% band instead of allowing noisy projection to dominate.
     return 100.0 + (scouted_talent - 100.0) * 0.20
 
 
@@ -156,6 +151,16 @@ def evaluate_hitter_draft(
     )
 
 
-def score_pitcher_performance(*_args, **_kwargs) -> DraftPerformanceScore:
-    """Future extension point returning the same common score type as hitters."""
-    raise NotImplementedError(PITCHER_PERFORMANCE_SCORE_PENDING)
+def score_pitcher_performance(line, role: str = "starter") -> DraftPerformanceScore:
+    """Map the pitcher foundation onto the shared 100 + 15*index score type."""
+    from .pitching.performance import score_pitcher_performance as _score
+    result = _score(line, role)
+    return DraftPerformanceScore(
+        score=result.score,
+        index=result.index,
+        reliability=result.reliability,
+        overall_percentile=result.percentile,
+        position_percentile=result.percentile,
+        evaluation_mode=PITCHER_ROLE_AWARE,
+        metric_z=result.metric_z,
+    )

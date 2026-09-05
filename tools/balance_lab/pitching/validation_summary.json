@@ -1,0 +1,12 @@
+{
+  "source_main": "d114c3d05e5afd7012b32c27213f240f3a256137",
+  "branch": "feature/pitcher-foundation",
+  "neutral_pa": 500000,
+  "generation_n": {"player": 10000, "npc": 10000},
+  "growth_n": {"player": 10000, "npc": 10000},
+  "neutral": {"AVG": 0.260503, "OBP": 0.320018, "SLG": 0.400059, "OPS": 0.720077, "K_pct": 0.214258, "BB_pct": 0.080480, "HR_pct": 0.027306, "BABIP": 0.313047},
+  "generation": {"player_mean": 79.5452, "player_sd": 8.8677, "npc_mean": 70.0423, "npc_sd": 6.1622},
+  "role": {"starter_ip_per_app": 6.344, "reliever_ip_per_app": 0.982, "starter_k_pct": 0.2120, "reliever_k_pct": 0.2224, "reliever_velocity_bonus": 4.0, "reliever_stuff_bonus": 4.0, "reliever_drain_multiplier": 1.38},
+  "gates": {"neutral_baseline": "PASS", "velocity": "PASS", "stuff": "PASS", "control": "PASS", "breaking": "PASS", "stamina": "PASS", "resilience": "PASS", "role_philosophy": "PASS", "generation": "PASS", "correlation": "PASS", "extreme_safety": "PASS", "growth_compatibility": "PASS"},
+  "experimental_gate": "PASS"
+}
