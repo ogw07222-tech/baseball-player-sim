@@ -108,8 +108,6 @@ def _condition_modifiers(p: Player) -> tuple[float, float]:
 
 def _hitter_snapshot(p: Player) -> HitterSnapshot:
     bats = (p.bats_throws or "R/R").split("/", 1)[0]
-    # Switch hitters are kept on the historical neutral/default side until a
-    # separately validated handedness matchup layer exists.
     handedness = "L" if bats == "L" else "R"
     return HitterSnapshot(
         contact=p.effective_stat("contact"),
@@ -180,21 +178,14 @@ def _run_rbi_values(result: str, rng: RNG) -> tuple[int, int]:
     return 0, 0
 
 def _fork_rng(rng: RNG, namespace: str) -> RNG:
-    """Create a deterministic child stream without consuming career RNG state.
-
-    Balance-Lab H3.2/H3.2.1 intentionally used a separate running stream so
-    adding baserunning did not change subsequent batting outcomes. Production
-    keeps that property while preserving save/load reproducibility of the parent
-    career RNG.
-    """
+    """Create a deterministic child stream without consuming career RNG state."""
     payload = (namespace + "|" + repr(rng.get_state())).encode("utf-8")
     seed = int.from_bytes(hashlib.sha256(payload).digest()[:8], "big")
     return RNG(seed)
 
-def _compat_steal_state(rng: RNG, appearance_index: int, appearances: int) -> GameState:
-    """Validated H3.2 context sampler for the legacy player-only game loop."""
-    progress = appearance_index / max(1, appearances - 1)
-    inning = max(1, min(9, 1 + int(progress * 8)))
+def _compat_steal_state(rng: RNG) -> GameState:
+    """Mirror the validated H3.2 context sampler for legacy career callers."""
+    inning = rng.randint(1, 9)
     x = rng.random()
     outs = 0 if x < .34 else 1 if x < .69 else 2
     score_diff = int(round(max(-6, min(6, rng.gauss(0, 2.25)))))
@@ -214,18 +205,13 @@ def _maybe_compat_steal(
     parent_rng: RNG,
     appearance_index: int,
     appearances: int,
-    running_defense: float,
+    running_defense: float = 100.0,
 ) -> None:
-    """Legacy adapter: only SB/CS is meaningful without a team base-state engine.
-
-    1B->3B, 2B->Home, and DP-avoidance production formulas are available in
-    ``src.hitting.baserunning`` for callers that own real runner/base state.
-    They are deliberately not fabricated here from the hitter's own PA.
-    """
+    """Legacy adapter: apply only validated SB/CS without inventing teammate state."""
     if result not in {"single", "walk", "hit_by_pitch", "reached_on_error"}:
         return
     run_rng = _fork_rng(parent_rng, f"h321-steal:{appearance_index}:{appearances}")
-    state = _compat_steal_state(run_rng, appearance_index, appearances)
+    state = _compat_steal_state(run_rng)
     steal = resolve_steal(p.effective_stat("speed"), state, run_rng, running_defense)
     if not steal.attempted:
         return
@@ -251,7 +237,7 @@ def simulate_player_game(
     state. Callers with a real inning engine should use ``src.hitting.baserunning``
     directly with the actual runner's Speed.
     """
-    del game_state  # API reservation; see docstring.
+    del game_state
     pitcher = PitcherProfile.from_level(opponent_level, rng)
     line.G += 1
     appearances = (
@@ -275,5 +261,5 @@ def simulate_player_game(
             rng,
             index,
             appearances,
-            opponent_level,
+            100.0,
         )
