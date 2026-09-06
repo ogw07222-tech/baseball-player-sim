@@ -67,11 +67,39 @@ jobs:
             reports/hitter_speed_*.csv
             reports/hitter_speed_*.json
             reports/hitter_speed_*.md
-      - name: Publish hitter calibration reports
+  stage-d-pitcher-joint-v4:
+    runs-on: ubuntu-latest
+    needs: stage-c-speed
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install pytest
+      - name: Hitter contract gate
+        run: |
+          python - <<'PY'
+          import json
+          p='reports/hitter_display_gameplay_contract_final.json'
+          d=json.load(open(p))
+          assert d['gate']=='HITTER_DISPLAY_GAMEPLAY_CONTRACT_READY', d
+          PY
+      - name: Frozen-path regression tests
+        run: pytest -q tests/test_hitter_production_normalization.py tests/test_hitter_gameplay_normalization.py tests/test_hitter_speed_ratio.py tests/test_pitcher_scb_scale.py tests/test_physical_velocity.py
+      - name: Pitcher Joint v4 search and validation
+        run: python -m tools.pitcher_joint_v4.calibrate --hitters 2000 --pitchers 2000 --candidates 60 --search-pa 100000 --validation-pa 1000000 --top 5 --seeds 5 --diag-pa 300000 --seed 260907
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pitcher-joint-v4
+          path: |
+            reports/pitcher_joint_v4_*.csv
+            reports/pitcher_joint_v4_*.json
+            reports/pitcher_joint_v4_*.md
+      - name: Publish final calibration reports
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git pull --rebase origin feature/overnight-hitter-pitcher-calibration
-          git add reports/hitter_cpd_* reports/hitter_actual_population_validation.csv reports/hitter_speed_*
-          git diff --cached --quiet || git commit -m "report: publish hitter display-gameplay calibration [skip ci]"
+          git add reports/hitter_cpd_* reports/hitter_actual_population_validation*.csv reports/hitter_speed_* reports/hitter_display_gameplay_contract_final.json reports/pitcher_joint_v4_*
+          git diff --cached --quiet || git commit -m "report: publish hitter contract and pitcher joint v4 calibration [skip ci]"
           git push
