@@ -124,7 +124,7 @@ class FullGameProviderTests(unittest.TestCase):
         high_k = [event for event in result.notable_events if event.startswith("HIGH_K:")]
         pitcher_ids = {line.pitcher_id for line in result.pitcher_lines}
         for event in high_k:
-            _, pitcher_id, strikeouts = event.rsplit(":", 2)
+            pitcher_id, strikeouts = event[len("HIGH_K:"):].rsplit(":", 1)
             self.assertIn(pitcher_id, pitcher_ids)
             self.assertGreaterEqual(int(strikeouts), 10)
 
