@@ -1,0 +1,21 @@
+season,player,team,BF,IP,avg_fastball_kmh,raw_velocity,raw_stuff,raw_control,raw_breaking,gp_velocity,gp_stuff,gp_control,gp_breaking,actual_K_pct,actual_BB_pct,actual_HR_pct,actual_OPP_AVG,actual_OPP_SLG,actual_BABIP,fit_loss,confidence,velocity_source,stat_source
+2025,Cody Ponce,HWA,697,180.2,,,,,,,,,0.361549,0.058824,0.014347,0.195122,,0.299492,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Riley Thompson,NCD,709,172.0,,,,,,,,,0.304654,0.078984,0.025388,0.208270,,0.281623,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Ryan Weiss,HRO,725,178.2,,,,,,,,,0.285517,0.077241,0.017931,0.189836,,0.253898,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Ariel Jurado,KIT,786,197.1,,,,,,,,,0.180662,0.045802,0.021628,0.236000,,0.270728,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Yonny Chirinos,LGK,737,177.0,,,,,,,,,0.185889,0.048847,0.006784,0.246790,,0.300537,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Drew Anderson,SSG,694,171.2,,,,,,,,,0.353026,0.073487,0.018732,0.188180,,0.280519,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Tae In Won,SAM,671,166.2,146.3,98.036628,,,,100.45,,,,0.160954,0.040238,0.029806,0.243789,,0.265504,,velocity_only_scb_withheld,https://sports.news.nate.com/view/20260116n26163,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Chan Kyu Im,LGK,670,160.1,,,,,,,,,0.159701,0.059701,0.013433,0.258730,,0.299611,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Young Pyo Ko,WIZ,685,161.0,,,,,,,,,0.224818,0.043796,0.014599,0.259542,,0.325866,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Dong Ju Moon,HWA,501,121.0,152.3,119.710887,,,,109.45,,,,0.269461,0.061876,0.013972,0.238298,,0.320122,,velocity_only_scb_withheld,https://sports.news.nate.com/view/20260116n26163,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Won Seok Oh,WIZ,565,132.1,,,,,,,,,0.200000,0.092035,0.017699,0.253411,,0.307692,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Adam Oller,KIA,620,149.0,,,,,,,,,0.272581,0.075806,0.012903,0.218150,,0.295455,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Hyeon-jong Yang,KIA,677,153.0,,,,,,,,,0.161004,0.084195,0.017725,0.275806,,0.318637,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Kwang Hyun Kim,SSG,636,144.0,143.2,87.154712,,,,95.80,,,,0.216981,0.078616,0.020440,0.279863,,0.347126,,velocity_only_scb_withheld,https://www.yagoonara.com/en/players/2097/arsenal,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Hyeong Jun So,WIZ,617,147.1,,,,,,,,,0.199352,0.047002,0.009724,0.263605,,0.324619,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Tucker Davidson,LTG,529,123.1,145.0,93.527778,,,,98.50,,,,0.224953,0.090737,0.018904,0.255717,,0.321023,,velocity_only_scb_withheld,https://www.yagoonara.com/en/players/549/arsenal,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Hyun Jin Ryu,HWA,574,139.1,,,,,,,,,0.212544,0.043554,0.020906,0.262295,,0.318072,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Seung Ki Song,LGK,629,144.0,,,,,,,,,0.198728,0.077901,0.023847,0.256897,,0.304545,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Seung Yong Choi,DOO,507,116.1,,,,,,,,,0.140039,0.071006,0.015779,0.256900,,0.288265,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
+2025,Won Joon Choi,DOO,456,107.0,,,,,,,,,0.135965,0.083333,0.039474,0.251196,,0.257396,,missing_velocity,,https://www.baseball-reference.com/register/leader.cgi?id=4e296e3b&type=pitch
