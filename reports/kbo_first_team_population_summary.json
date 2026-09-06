@@ -1,0 +1,16 @@
+{
+  "gate": "KBO_FIRST_TEAM_POPULATION_CONTRACT_NOT_READY",
+  "executed": false,
+  "method": "Production CareerEngine player-season snapshots; retain only first_team.PA > 0; weight by first-team PA",
+  "planned_full_run": {
+    "careers_per_seed": 600,
+    "seeds": 3,
+    "max_seasons": 18,
+    "neutral_pa_per_seed": 1700000,
+    "neutral_pa_total": 5100000,
+    "representative_pitchers": 4000
+  },
+  "pitcher_population_contract": "best available representative age-mixture proxy because no production pitcher first-team BF/IP CareerEngine exists",
+  "execution_blocker": "GitHub-hosted runner not allocated: runner_id=0 and zero executed steps on original attempt and failed-job rerun",
+  "promotion_policy": "Do not mark READY until the workflow actually executes, seed stability passes, zero-PA exclusion is verified, and neutral offense is materially closer to the frozen KBO target than the old mixed-age population."
+}
