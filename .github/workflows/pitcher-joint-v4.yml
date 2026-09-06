@@ -1,0 +1,39 @@
+name: pitcher-joint-v4
+on:
+  push:
+    branches: [feature/overnight-hitter-pitcher-calibration]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  joint-v4:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install pytest
+      - name: Hitter final gate
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('reports/hitter_display_gameplay_contract_final.json'))
+          assert d['gate']=='HITTER_DISPLAY_GAMEPLAY_CONTRACT_READY', d
+          PY
+      - name: Repository regression before calibration
+        run: pytest -q
+      - name: Pitcher Joint v4
+        run: python -m tools.pitcher_joint_v4.calibrate --hitters 2000 --pitchers 2000 --candidates 60 --search-pa 100000 --validation-pa 1000000 --top 5 --seeds 5 --diag-pa 300000 --seed 260907
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pitcher-joint-v4
+          path: reports/pitcher_joint_v4_*
+      - name: Publish reports
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git pull --rebase origin feature/overnight-hitter-pitcher-calibration
+          git add reports/pitcher_joint_v4_*
+          git diff --cached --quiet || git commit -m "report: publish Pitcher Joint v4 calibration [skip ci]"
+          git push
