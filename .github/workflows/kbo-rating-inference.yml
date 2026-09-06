@@ -1,0 +1,59 @@
+name: kbo-rating-inference
+on:
+  push:
+    branches: [feature/kbo-first-team-rating-inference]
+    paths:
+      - 'tools/kbo_rating_inference/**'
+      - 'tests/test_kbo_rating_inference.py'
+      - 'data/kbo_2025_*_stats_seed.csv'
+      - '.github/workflows/kbo-rating-inference.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: python -m unittest -v tests.test_kbo_rating_inference
+      - name: Frozen H3/Velocity/hitter normalization source diff guard
+        run: |
+          git diff --exit-code c6c69ceefb3c4f2f5fbe88a772b4508f842e58dd -- src/hitting/model.py src/hitting/parameters.py src/hitting/baserunning.py src/hitting/normalization.py src/pitching/physical_velocity.py
+  pilot-pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install pandas lxml
+      - name: Collect 2025 real KBO source tables or provenance fallback
+        run: python -m tools.kbo_rating_inference.collect_real --min-pa 100 --min-bf 100
+      - name: Build production first-team PA-weighted pilot population
+        run: python -m tools.kbo_rating_inference.generated_population --careers-per-seed 30 --seeds 2 --max-seasons 12 --neutral-pa-per-seed 30000 --pitchers 300 --seed 261306
+      - name: Pilot Joint v4 first-team rerun
+        run: python -m tools.kbo_rating_inference.joint_v4_first_team --candidates 8 --search-pa 10000 --top 2 --validation-pa 30000 --seeds 2 --diag-pa 15000 --seed 261406
+      - name: Pilot hitter inverse search
+        run: python -m tools.kbo_rating_inference.infer_hitters --candidates 120 --library-pa 400 --refine-pa 700 --seed 261506
+      - name: Pilot pitcher inverse search
+        run: python -m tools.kbo_rating_inference.infer_pitchers --candidates 60 --coarse-pa 350 --refine-pa 700 --seed 261606
+      - name: Alignment and gates
+        run: |
+          python -m tools.kbo_rating_inference.alignment
+          python -m tools.kbo_rating_inference.finalize
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kbo-rating-inference-pilot
+          path: |
+            data/kbo_2025_hitter_stats_source.csv
+            data/kbo_2025_pitcher_stats_source.csv
+            data/kbo_real_hitter_ratings_inferred.csv
+            data/kbo_real_pitcher_ratings_inferred.csv
+            reports/kbo_*.json
+            reports/kbo_*.md
+            reports/kbo_*.csv
+            reports/pitcher_joint_v4_first_team_*
+            reports/hitter_inverse_candidate_library.csv
