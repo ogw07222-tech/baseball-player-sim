@@ -1,0 +1,52 @@
+name: kbo-rating-inference-full
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  full-calibration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - run: pip install pandas lxml
+      - name: Contract tests
+        run: python -m unittest -v tests.test_kbo_rating_inference
+      - name: Frozen production contract guard
+        run: git diff --exit-code c6c69ceefb3c4f2f5fbe88a772b4508f842e58dd -- src/hitting/model.py src/hitting/parameters.py src/hitting/baserunning.py src/hitting/normalization.py src/pitching/physical_velocity.py
+      - name: Collect canonical 2025 real-player source tables
+        run: python -m tools.kbo_rating_inference.collect_real --min-pa 100 --min-bf 100
+      - name: Production first-team representative population
+        run: python -m tools.kbo_rating_inference.generated_population --careers-per-seed 600 --seeds 3 --max-seasons 18 --neutral-pa-per-seed 1700000 --pitchers 4000 --seed 261306
+      - name: Frozen Joint v4 rerun on first-team PA population
+        run: python -m tools.kbo_rating_inference.joint_v4_first_team --candidates 60 --search-pa 100000 --top 5 --validation-pa 1000000 --seeds 5 --diag-pa 300000 --seed 261406
+      - name: Real hitter inverse search
+        run: python -m tools.kbo_rating_inference.infer_hitters --candidates 3000 --library-pa 2500 --refine-pa 8000 --seed 261506
+      - name: Real pitcher measured-velocity + S/C/B inverse search
+        run: python -m tools.kbo_rating_inference.infer_pitchers --candidates 800 --coarse-pa 1500 --refine-pa 6000 --seed 261606
+      - name: Distribution alignment and final gates
+        run: |
+          python -m tools.kbo_rating_inference.alignment
+          python -m tools.kbo_rating_inference.finalize
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kbo-first-team-rating-inference-full
+          path: |
+            data/kbo_2025_hitter_stats_source.csv
+            data/kbo_2025_pitcher_stats_source.csv
+            data/kbo_real_hitter_ratings_inferred.csv
+            data/kbo_real_pitcher_ratings_inferred.csv
+            reports/kbo_*
+            reports/pitcher_joint_v4_first_team_*
+            reports/hitter_inverse_candidate_library.csv
+      - name: Publish reproducible calibration reports
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git pull --rebase origin feature/kbo-first-team-rating-inference
+          git add data/kbo_2025_hitter_stats_source.csv data/kbo_2025_pitcher_stats_source.csv data/kbo_real_hitter_ratings_inferred.csv data/kbo_real_pitcher_ratings_inferred.csv reports/kbo_* reports/pitcher_joint_v4_first_team_* reports/hitter_inverse_candidate_library.csv
+          git diff --cached --quiet || git commit -m "report: publish KBO first-team rating inference [skip ci]"
+          git push
