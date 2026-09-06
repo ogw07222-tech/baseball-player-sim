@@ -376,7 +376,7 @@ class ProductionGameProvider:
                 )
             )
             if acc.stats.SO >= 10 and len(notable) < self.notable_event_limit:
-                notable.append(f"HIGH_K:{acc.pitcher_id}:{acc.stats.SO}")
+                notable.append(f"HIGH_K:{acc.slot.pitcher_id}:{acc.stats.SO}")
 
         user_player_id = (
             f"{user_team}:{user_player.name}"
