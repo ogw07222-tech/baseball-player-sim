@@ -40,7 +40,7 @@ jobs:
       - name: Replace pitcher proxy with role-aware BF usage provider
         run: python -m tools.kbo_rating_inference.pitcher_first_team_usage --pitchers 600 --seed 262006
       - name: Pilot Joint v4 broad first-team rerun
-        run: python -m tools.kbo_rating_inference.joint_v4_first_team --candidates 8 --search-pa 10000 --top 2 --validation-pa 30000 --seeds 2 --diag-pa 15000 --seed 261406
+        run: python -m tools.kbo_rating_inference.joint_v4_broad_runner --candidates 8 --search-pa 10000 --top 2 --validation-pa 30000 --seeds 2 --diag-pa 15000 --seed 261406
       - name: Pilot hitter inverse search on broad spectrum with shrinkage
         run: python -m tools.kbo_rating_inference.infer_hitters_broad --data reports/kbo_hitter_spectrum_source.csv --candidates 120 --library-pa 400 --refine-pa 700 --seed 261506
       - name: Pilot pitcher inverse search on broad spectrum with shrinkage
@@ -64,5 +64,6 @@ jobs:
             reports/kbo_*.md
             reports/kbo_*.csv
             reports/pitcher_joint_v4_first_team_*
+            reports/pitcher_joint_v4_broad_population_*
             reports/hitter_inverse_candidate_library.csv
             reports/pitcher_inverse_candidate_library.csv
