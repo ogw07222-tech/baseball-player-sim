@@ -1,0 +1,8 @@
+{
+  "KBO_BROAD_PLAYER_SPECTRUM_READY": false,
+  "KBO_REAL_PLAYER_INFERENCE_BROAD_READY": false,
+  "KBO_GENERATED_REAL_SPECTRUM_ALIGNMENT_READY": false,
+  "PITCHER_JOINT_CALIBRATION_V4_READY": false,
+  "status": "EXECUTION_NOT_PERFORMED",
+  "reason": "GitHub-hosted workflow jobs are created with zero executed steps; broad-spectrum pipeline has not produced validated metrics yet."
+}
