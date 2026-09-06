@@ -1,1 +1,1 @@
-season,player,team,PA,AVG,OBP,SLG,BB_pct,K_pct,HR_pct,BABIP,SB,CS,raw_contact,raw_power,raw_discipline,raw_speed,gp_contact,gp_power,gp_discipline,gp_speed,fit_loss,fit_confidence,top_alternatives,fit_pitcher_context,source
+season,player,team,PA,AVG,OBP,SLG,BB_pct,K_pct,HR_pct,BABIP,SB,CS,raw_contact,raw_power,raw_discipline,raw_speed,gp_contact,gp_power,gp_discipline,gp_speed,fit_loss,fit_confidence,top_alternatives,fit_pitcher_context,source,performance_bucket,usage_bucket,role,performance_quantile,sample_set,shrinkage_weight
