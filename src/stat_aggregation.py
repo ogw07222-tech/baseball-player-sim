@@ -129,6 +129,15 @@ class HitterCountingStats:
         )
 
 
+_PITCHER_SUPPORT_FIELDS = {
+    "ER": "er_supported",
+    "W": "w_supported",
+    "L": "l_supported",
+    "SV": "sv_supported",
+    "HLD": "hld_supported",
+}
+
+
 @dataclass
 class PitcherCountingStats:
     G: int = 0
@@ -146,10 +155,20 @@ class PitcherCountingStats:
     L: int = 0
     SV: int = 0
     HLD: int = 0
+    er_supported: bool = True
+    w_supported: bool = True
+    l_supported: bool = True
+    sv_supported: bool = True
+    hld_supported: bool = True
 
     def __post_init__(self) -> None:
         for f in fields(self):
-            setattr(self, f.name, _non_negative_int(getattr(self, f.name), f.name))
+            value = getattr(self, f.name)
+            if f.name.endswith("_supported"):
+                if not isinstance(value, bool):
+                    raise TypeError(f"{f.name} must be bool")
+                continue
+            setattr(self, f.name, _non_negative_int(value, f.name))
         self.validate()
 
     def validate(self) -> None:
@@ -160,11 +179,22 @@ class PitcherCountingStats:
 
     def add(self, other: "PitcherCountingStats") -> None:
         for f in fields(self):
-            setattr(self, f.name, getattr(self, f.name) + getattr(other, f.name))
+            if f.name.endswith("_supported"):
+                setattr(self, f.name, bool(getattr(self, f.name) and getattr(other, f.name)))
+            else:
+                setattr(self, f.name, getattr(self, f.name) + getattr(other, f.name))
         self.validate()
 
     def copy(self) -> "PitcherCountingStats":
         return PitcherCountingStats.from_dict(self.as_dict())
+
+    def with_unsupported(self, labels: Iterable[str]) -> "PitcherCountingStats":
+        out = self.copy()
+        for label in labels:
+            support_name = _PITCHER_SUPPORT_FIELDS.get(str(label).upper())
+            if support_name is not None:
+                setattr(out, support_name, False)
+        return out
 
     @property
     def IP(self) -> float:
@@ -175,8 +205,14 @@ class PitcherCountingStats:
         return f"{self.outs_pitched // 3}.{self.outs_pitched % 3}"
 
     @property
-    def ERA(self) -> float:
+    def ERA(self) -> float | None:
+        if not self.er_supported:
+            return None
         return self.ER * 27.0 / self.outs_pitched if self.outs_pitched else 0.0
+
+    @property
+    def era_supported(self) -> bool:
+        return self.er_supported
 
     @property
     def WHIP(self) -> float:
@@ -206,12 +242,21 @@ class PitcherCountingStats:
     def HR_per_9(self) -> float:
         return self.HR * 27.0 / self.outs_pitched if self.outs_pitched else 0.0
 
-    def as_dict(self, include_derived: bool = False) -> dict[str, int | float | str]:
-        payload: dict[str, int | float | str] = {
+    def as_dict(self, include_derived: bool = False) -> dict[str, object]:
+        payload: dict[str, object] = {
             "G": self.G, "GS": self.GS, "BF": self.BF, "OUTS_PITCHED": self.outs_pitched,
-            "H": self.H, "R": self.R, "ER": self.ER, "HR": self.HR, "BB": self.BB,
-            "HBP": self.HBP, "SO": self.SO, "W": self.W, "L": self.L,
-            "SV": self.SV, "HLD": self.HLD,
+            "H": self.H, "R": self.R, "ER": self.ER if self.er_supported else None,
+            "HR": self.HR, "BB": self.BB, "HBP": self.HBP, "SO": self.SO,
+            "W": self.W if self.w_supported else None,
+            "L": self.L if self.l_supported else None,
+            "SV": self.SV if self.sv_supported else None,
+            "HLD": self.HLD if self.hld_supported else None,
+            "ER_SUPPORTED": self.er_supported,
+            "ERA_SUPPORTED": self.er_supported,
+            "W_SUPPORTED": self.w_supported,
+            "L_SUPPORTED": self.l_supported,
+            "SV_SUPPORTED": self.sv_supported,
+            "HLD_SUPPORTED": self.hld_supported,
         }
         if include_derived:
             payload.update(
@@ -223,13 +268,30 @@ class PitcherCountingStats:
 
     @classmethod
     def from_dict(cls, data: Mapping[str, object]) -> "PitcherCountingStats":
+        def count(key: str, *fallbacks: str) -> int:
+            value: object | None = data.get(key)
+            for fallback in fallbacks:
+                if value is None:
+                    value = data.get(fallback)
+            return 0 if value is None else int(value)
+
+        def support(key: str) -> bool:
+            value = data.get(f"{key}_SUPPORTED")
+            if value is None and key == "ER":
+                value = data.get("ERA_SUPPORTED")
+            # Legacy payloads had no provenance metadata. Conservatively keep
+            # the count internally but do not claim exact official support.
+            return bool(value) if value is not None else False
+
         return cls(
-            G=int(data.get("G", 0)), GS=int(data.get("GS", 0)), BF=int(data.get("BF", 0)),
-            outs_pitched=int(data.get("OUTS_PITCHED", data.get("outs_pitched", data.get("outs", 0)))),
-            H=int(data.get("H", 0)), R=int(data.get("R", 0)), ER=int(data.get("ER", 0)),
-            HR=int(data.get("HR", 0)), BB=int(data.get("BB", 0)), HBP=int(data.get("HBP", 0)),
-            SO=int(data.get("SO", 0)), W=int(data.get("W", 0)), L=int(data.get("L", 0)),
-            SV=int(data.get("SV", 0)), HLD=int(data.get("HLD", 0)),
+            G=count("G"), GS=count("GS"), BF=count("BF"),
+            outs_pitched=count("OUTS_PITCHED", "outs_pitched", "outs"),
+            H=count("H"), R=count("R"), ER=count("ER"), HR=count("HR"),
+            BB=count("BB"), HBP=count("HBP"), SO=count("SO"), W=count("W"),
+            L=count("L"), SV=count("SV"), HLD=count("HLD"),
+            er_supported=support("ER"), w_supported=support("W"),
+            l_supported=support("L"), sv_supported=support("SV"),
+            hld_supported=support("HLD"),
         )
 
 
@@ -338,6 +400,8 @@ class GamePerformance:
             raise ValueError("team_result must be W/L/T/None")
         if self.score is not None and (len(self.score) != 2 or min(self.score) < 0):
             raise ValueError("score must be a non-negative (for, against) pair")
+        if self.unsupported_stats:
+            object.__setattr__(self, "pitcher_stats", self.pitcher_stats.with_unsupported(self.unsupported_stats))
 
     @property
     def stat_line(self) -> GameStatLine:
@@ -405,13 +469,17 @@ def pitcher_stats_from_result(source: object, *, started: bool | None = None, de
         HR=int(getattr(source, "HR", 0)), BB=int(getattr(source, "BB", 0)), HBP=int(getattr(source, "HBP", 0)),
         SO=int(getattr(source, "SO", 0)), W=int(decisions.get("W", 0)), L=int(decisions.get("L", 0)),
         SV=int(decisions.get("SV", 0)), HLD=int(decisions.get("HLD", 0)),
+        er_supported=hasattr(source, "ER"), w_supported="W" in decisions,
+        l_supported="L" in decisions, sv_supported="SV" in decisions,
+        hld_supported="HLD" in decisions,
     )
 
 
 def unsupported_pitcher_fields(source: object, *, started: bool | None = None) -> tuple[str, ...]:
     out = [] if started is not None else ["GS"]
-    for label in ("R", "HBP", "W", "L", "SV", "HLD"):
-        if not hasattr(source, label): out.append(label)
+    for label in ("R", "ER", "HBP", "W", "L", "SV", "HLD"):
+        if label in {"W", "L", "SV", "HLD"} or not hasattr(source, label):
+            out.append(label)
     return tuple(out)
 
 
