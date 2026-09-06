@@ -1,0 +1,13 @@
+{
+  "gate": "PITCHER_JOINT_CALIBRATION_V4_NOT_RUN",
+  "reason": "Broad-spectrum pipeline has not executed because GitHub-hosted jobs received zero executable steps.",
+  "velocity": "frozen Velocity v2 physical mapping",
+  "searched_variables": [
+    "w_control_zone",
+    "w_stuff_quality",
+    "w_stuff_contact",
+    "w_breaking_contact",
+    "w_breaking_quality"
+  ],
+  "broad_population_required": true
+}
