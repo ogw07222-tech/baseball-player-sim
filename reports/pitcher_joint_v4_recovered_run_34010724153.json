@@ -1,0 +1,84 @@
+{
+  "status": "RECOVERED_FULL_RUN_AFTER_REPORT_WRITER_FAILURE",
+  "run_id": 34010724153,
+  "input_sha": "76a4368002bd207a8cfdb35cf10870a78472d073",
+  "gate": "PITCHER_JOINT_CALIBRATION_V4_NOT_READY",
+  "search_contract": {
+    "hitters": 2000,
+    "pitchers": 2000,
+    "candidates": 60,
+    "search_pa_per_candidate": 100000,
+    "top": 5,
+    "validation_pa_per_seed": 1000000,
+    "seeds": 5,
+    "semantic_diagnostic_pa": 300000
+  },
+  "best": {
+    "rank": 5,
+    "search_loss": 1.7457030431346823,
+    "loss": 1.6874965741873258,
+    "passed_tolerances": false,
+    "weights": {
+      "w_control_zone": 0.1625073024797727,
+      "w_stuff_quality": 0.5045669577007901,
+      "w_stuff_contact": 0.09824857514191548,
+      "w_breaking_contact": 0.33058095887517397,
+      "w_breaking_quality": 0.14678763924635163
+    },
+    "metrics": {
+      "AVG": 0.24058084180265293,
+      "OBP": 0.2954402,
+      "SLG": 0.365190096535751,
+      "OPS": 0.6606302965357511,
+      "BB%": 0.0722386,
+      "K%": 0.2240494,
+      "HR%": 0.0247964,
+      "1B%": 0.15841180000000002,
+      "2B%": 0.0387684,
+      "3B%": 0.001225,
+      "BABIP": 0.29223845065426224,
+      "HardContact%": 0.0806744957910422
+    },
+    "seed_sd": {
+      "AVG": 0.0003107526367657434,
+      "OBP": 0.0003712688513732516,
+      "SLG": 0.0004325660285432823,
+      "BB%": 0.00022234441751481027,
+      "K%": 0.0004015672297386814,
+      "HR%": 0.00016297558099298188
+    }
+  },
+  "semantic_gates": {
+    "control_owns_bb": false,
+    "control_avg_not_pathological": true,
+    "control_slg_not_pathological": true,
+    "stuff_reduces_hard_contact": true,
+    "stuff_not_universal": true,
+    "breaking_increases_k": true,
+    "breaking_more_k_than_stuff": true,
+    "breaking_not_universal": true
+  },
+  "physical_velocity": {
+    "mean": 144.86002216314156,
+    "sd": 3.3273233758565444,
+    "p10": 140.6917148362235,
+    "p25": 142.32553606237818,
+    "p50": 144.56435643564356,
+    "p75": 147.15079365079364,
+    "p90": 149.3984375,
+    "p95": 150.7678916827853,
+    "p99": 152.90738728951655,
+    "max": 154.97748592870545
+  },
+  "scb_raw_mixed_age": {
+    "stuff": {"mean": 105.5545, "sd": 17.57629169506469, "p95": 135.0, "p99": 149.0},
+    "control": {"mean": 103.7085, "sd": 19.89320305405844, "p95": 136.0, "p99": 151.0},
+    "breaking": {"mean": 103.614, "sd": 18.90999746166033, "p95": 134.0, "p99": 148.0}
+  },
+  "failure": {
+    "calibration_completed": true,
+    "workflow_exit_reason": "report writer attempted to look up an OPS tolerance that is intentionally not defined",
+    "calibration_result_affected": false,
+    "fix_commit": "46f036c2e55341ec85e84cfb120b4c4cd3e2e27f"
+  }
+}
