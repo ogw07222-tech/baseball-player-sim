@@ -34,6 +34,7 @@ class PitcherFirstTeamUsageSnapshot:
     G:int
     GS:int
     usage_weight:float
+    weight:float
     weight_source:str="role_aware_2025_kbo_empirical_proxy"
 
 
@@ -72,8 +73,8 @@ def draw_usage(emp,role_name,rng):
 def build(n,seed,source_path='data/kbo_2025_pitcher_stats_source.csv'):
     source=read(source_path) or read('data/kbo_2025_pitcher_stats_seed.csv');emp=empirical_usage(source);pitchers=v3.build_pitchers(n,seed);roles=assign_roles(pitchers);rng=random.Random(seed^0xA551);out=[]
     for p in pitchers:
-        r=roles[id(p)];bf,ip,g,gs=draw_usage(emp,r,rng);kmh=base_avg_kmh(p.stats.velocity)
-        out.append(PitcherFirstTeamUsageSnapshot(p.age,r,p.stats.velocity,p.stats.stuff,p.stats.control,p.stats.breaking,gameplay_velocity(kmh),kmh,bf,ip,g,gs,float(bf)))
+        r=roles[id(p)];bf,ip,g,gs=draw_usage(emp,r,rng);kmh=base_avg_kmh(p.stats.velocity);w=float(bf)
+        out.append(PitcherFirstTeamUsageSnapshot(p.age,r,p.stats.velocity,p.stats.stuff,p.stats.control,p.stats.breaking,gameplay_velocity(kmh),kmh,bf,ip,g,gs,w,w))
     return out
 
 def main():
