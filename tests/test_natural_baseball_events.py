@@ -169,6 +169,79 @@ class NaturalBaseballEventTests(unittest.TestCase):
         self.assertEqual(engine.state.second_runner.lineup_index, 7)
         self.assertNotIn("away:6:A6", engine.state.runner_ids())
 
+    def test_bases_loaded_zero_out_fc_uses_home_lead_force(self):
+        engine = make_engine()
+        engine.state.first_runner = engine._runner("away", 8)
+        engine.state.second_runner = engine._runner("away", 7)
+        engine.state.third_runner = engine._runner("away", 6)
+        event = engine.resolve_plate_appearance(PlateAppearanceOutcome("fielders_choice"))
+        self.assertEqual(event.runs_scored, 0)
+        self.assertEqual(engine.state.away_score, 0)
+        self.assertEqual(engine.state.outs, 1)
+        self.assertEqual(engine.state.first_runner.lineup_index, 0)
+        self.assertEqual(engine.state.second_runner.lineup_index, 8)
+        self.assertEqual(engine.state.third_runner.lineup_index, 7)
+        self.assertNotIn("away:6:A6", engine.state.runner_ids())
+        engine.state.validate()
+
+    def test_bases_loaded_one_out_fc_uses_home_lead_force(self):
+        engine = make_engine()
+        engine.state.outs = 1
+        engine.state.first_runner = engine._runner("away", 8)
+        engine.state.second_runner = engine._runner("away", 7)
+        engine.state.third_runner = engine._runner("away", 6)
+        event = engine.resolve_plate_appearance(PlateAppearanceOutcome("fielders_choice"))
+        self.assertEqual(event.runs_scored, 0)
+        self.assertEqual(engine.state.away_score, 0)
+        self.assertEqual(engine.state.outs, 2)
+        self.assertEqual(engine.state.first_runner.lineup_index, 0)
+        self.assertEqual(engine.state.second_runner.lineup_index, 8)
+        self.assertEqual(engine.state.third_runner.lineup_index, 7)
+        engine.state.validate()
+
+    def test_bases_loaded_two_out_fc_preserves_inning_ending_semantics(self):
+        engine = make_engine()
+        engine.state.outs = 2
+        engine.state.first_runner = engine._runner("away", 8)
+        engine.state.second_runner = engine._runner("away", 7)
+        engine.state.third_runner = engine._runner("away", 6)
+        event = engine.resolve_plate_appearance(PlateAppearanceOutcome("fielders_choice"))
+        self.assertEqual(event.runs_scored, 0)
+        self.assertEqual(engine.state.away_score, 0)
+        self.assertEqual(engine.state.half, "bottom")
+        self.assertEqual(engine.state.outs, 0)
+        self.assertFalse(engine.state.runner_ids())
+
+    def test_fielders_choice_other_force_states_regression(self):
+        cases = (
+            ((8,), (0,)),
+            ((8, 7), (0, 8)),
+            ((8, 6), (0, 6)),
+            ((7, 6), (0, 6)),
+        )
+        for occupied, expected_after in cases:
+            with self.subTest(occupied=occupied):
+                engine = make_engine()
+                if 8 in occupied:
+                    engine.state.first_runner = engine._runner("away", 8)
+                if 7 in occupied:
+                    engine.state.second_runner = engine._runner("away", 7)
+                if 6 in occupied:
+                    engine.state.third_runner = engine._runner("away", 6)
+                engine.resolve_plate_appearance(PlateAppearanceOutcome("fielders_choice"))
+                self.assertEqual(engine.state.outs, 1)
+                actual = tuple(
+                    runner.lineup_index
+                    for runner in (
+                        engine.state.first_runner,
+                        engine.state.second_runner,
+                        engine.state.third_runner,
+                    )
+                    if runner is not None
+                )
+                self.assertEqual(actual, expected_after)
+                engine.state.validate()
+
     def test_no_duplicate_runner_after_any_resolution(self):
         engine = make_engine()
         engine.state.first_runner = engine._runner("away", 8)
