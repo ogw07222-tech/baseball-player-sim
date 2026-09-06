@@ -2,6 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from . import config
+from .catcher_growth import game_calling_growth_distribution
 from .coaches import CoachingStaff, coach_growth_mean, coach_variance_multiplier
 from .player import Player
 from .rng import RNG
@@ -81,6 +82,10 @@ def apply_season_growth(player:Player,rng:RNG,coach:CoachingStaff|None=None,expe
     for stat_name in GROWABLE_STATS:
         mean,std=growth_distribution(player,stat_name,coach,experience,modifiers)
         delta=int(round(rng.gauss(mean,std)));before=getattr(player.stats,stat_name);after=player.stats.apply_delta(stat_name,delta);deltas[stat_name]=after-before
+    if player.position=='C':
+        base_mean,base_std=growth_distribution(player,'mentality',coach,experience,modifiers)
+        mean,std=game_calling_growth_distribution(player,base_mean,base_std)
+        delta=int(round(rng.gauss(mean,std)));before=player.stats.game_calling;after=player.stats.apply_delta('game_calling',delta);deltas['game_calling']=after-before
     explosion=rng.random()<_explosion_chance(player,modifiers)
     if explosion:
         count=rng.randint(1,min(3,len(GROWABLE_STATS)))
