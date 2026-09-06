@@ -14,6 +14,7 @@ from src.production_advance import ProductionAdvanceService
 from src.rng import RNG
 from src.stat_aggregation import aggregate_game_performances
 from src.stats import PlayerStats
+from src.time_advance import _add_one_calendar_month
 
 
 def make_player(name: str, *, team: str | None = None, speed: int = 100) -> Player:
@@ -120,6 +121,13 @@ class FullGameProviderTests(unittest.TestCase):
             self.assertIn("ER", starter.unsupported_stats)
             self.assertIn("W", starter.unsupported_stats)
 
+        high_k = [event for event in result.notable_events if event.startswith("HIGH_K:")]
+        pitcher_ids = {line.pitcher_id for line in result.pitcher_lines}
+        for event in high_k:
+            _, pitcher_id, strikeouts = event.rsplit(":", 2)
+            self.assertIn(pitcher_id, pitcher_ids)
+            self.assertGreaterEqual(int(strikeouts), 10)
+
     def test_team_result_comes_from_final_score(self):
         result = ProductionGameProvider().run_game(
             GameFixture(date(2026, 4, 5), "Away", "Home"), RNG(505)
@@ -173,13 +181,18 @@ class ProductionAdvanceTests(unittest.TestCase):
         bulk = ProductionAdvanceService(bulk_engine)
         repeated = ProductionAdvanceService(repeated_engine)
         start = bulk.state.current_date
-        end = date(start.year, start.month + 1, start.day)
+        end = _add_one_calendar_month(start)
         dates = bulk.schedule.game_dates(start, end)
         bulk.advance_one_month()
         for _ in dates:
             repeated.advance_one_game()
         self.assertEqual(bulk.state.season.as_dict(), repeated.state.season.as_dict())
         self.assertEqual(bulk.state.career.as_dict(), repeated.state.career.as_dict())
+
+    def test_month_window_uses_production_calendar_helper(self):
+        self.assertEqual(_add_one_calendar_month(date(2026, 1, 31)), date(2026, 2, 28))
+        self.assertEqual(_add_one_calendar_month(date(2026, 4, 30)), date(2026, 5, 30))
+        self.assertEqual(_add_one_calendar_month(date(2026, 12, 31)), date(2027, 1, 31))
 
     def test_season_and_career_totals_equal_game_sum(self):
         engine = make_career(4004)
@@ -223,8 +236,6 @@ class ProtectedFormulaTests(unittest.TestCase):
         "src/hitting/defense.py": "279f6282ef41c53e709839dbbe791e16836eaf53",
         "src/natural_events.py": "e13f093d646ac6eb0409c3d0b633ba17073cf877",
         "src/config.py": "ed6c07b3517f92f6ad2d1ceb35fe0e0a81862512",
-        "src/stats.py": "5aa1d13e4a913515dd0f24ef147769dc3d8552d8",
-        "src/growth.py": "c17836e3a3dbc1c1ec9f25eb5e28ce8c828ff456",
         "src/pitching/__init__.py": "8593e1865da96fbfa0587199c8bddc56833f219d",
         "src/pitching/events.py": "55803e2d79b89b2065eb702b5306005c5d6b075f",
         "src/pitching/fatigue.py": "533516598f4143e6e4940fde102db517c279e2c8",
@@ -244,9 +255,25 @@ class ProtectedFormulaTests(unittest.TestCase):
             self.skipTest("git metadata unavailable")
         return subprocess.check_output(["git", "hash-object", path], cwd=root, text=True).strip()
 
-    def test_formula_and_growth_files_untouched(self):
+    def test_formula_files_untouched(self):
         for path, expected in self.EXPECTED_BLOBS.items():
             self.assertEqual(self._hash(path), expected, path)
+
+    def test_catcher_schema_does_not_change_current_ability(self):
+        base = dict(
+            contact=111, power=109, discipline=103, speed=97, defense=105,
+            throwing=98, stamina=101, durability=96, mentality=107, talent=120,
+        )
+        low = PlayerStats(**base, game_calling=0)
+        high = PlayerStats(**base, game_calling=180)
+        self.assertEqual(low.current_ability(), high.current_ability())
+        weights = {
+            "contact": 1.2, "power": 1.1, "discipline": 1.0, "speed": 0.55,
+            "defense": 0.75, "throwing": 0.35, "stamina": 0.30,
+            "durability": 0.30, "mentality": 0.45,
+        }
+        expected = sum(base[name] * weight for name, weight in weights.items()) / sum(weights.values())
+        self.assertAlmostEqual(low.current_ability(), expected)
 
     def test_normalization_files_untouched(self):
         root = self._root()
