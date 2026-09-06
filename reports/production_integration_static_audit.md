@@ -1,4 +1,4 @@
-# Production Integration Consolidation — Static Audit
+# Production Integration Consolidation — Blocking-Fix Static Audit
 
 ## Scope
 
@@ -6,131 +6,175 @@ Repository: `ogw07222-tech/baseball-player-sim`
 
 Base: `main@1477fc3aecf9224d1b34f77a5d755880c9c88bfe`
 
-Consolidation branch: `feature/production-integration-consolidation`
+Branch: `feature/production-integration-consolidation`
 
-This audit is intentionally separate from runtime validation. GitHub Actions has repeatedly failed before runner allocation (`runner_id=0`, `steps=[]`), so no consolidation-specific test command has executed yet.
+PR: `#33`
 
-## Canonical foundations
+This report distinguishes static/code-review completion from runtime validation. GitHub Actions continues to fail before runner allocation (`runner_id=0`, `steps=[]`), and the current ChatGPT execution container cannot reach GitHub over the network to clone the repository. Runtime gates therefore remain NOT_READY until the checked-in local runner is executed in Codespaces/local.
 
-- PR #11 H3.2.1 production port is already merged into `main` and is not replayed.
-- PR #18 PersistentInningEngine is already merged into `main` and is not replayed.
-- The consolidation diff contains no changes to `src/hitting/model.py`, `src/hitting/parameters.py`, `src/hitting/baserunning.py`, `src/hitting/defense.py`, `src/pitching/`, or `web/`.
+## Canonical foundations / protected behavior
 
-## Finding 1 — inherited-run pitcher R attribution
+- PR #11 H3.2.1 production port remains canonical.
+- PR #18 PersistentInningEngine remains canonical.
+- No PR #33 changes exist under `src/hitting/model.py`, `src/hitting/parameters.py`, `src/hitting/baserunning.py`, `src/hitting/defense.py`, `src/pitching/`, or `web/`.
+- Existing `src/growth.py` / `src/stats.py` changes are catcher-foundation plumbing only: Game Calling storage/growth is added while current-ability weighting and H3 gameplay formulas are unchanged.
 
-Status: **FIXED IN CONSOLIDATION**
+## Blocker A — bases-loaded fielder's-choice lead force
 
-The dynamic pitcher provider can change pitchers during an inning. The original stacked implementation credited `event.runs_scored` to whichever pitcher was active when the run scored. That is incorrect for inherited runners.
+Status: **STATIC FIXED / RUNTIME PENDING**
 
-The consolidation now tracks run responsibility by runner identity. Scoring identities are recovered from exact `BattingLine.R` deltas around each event, and a runner is charged to the pitcher who allowed that runner to reach base. A batter who scores without a prior on-base responsibility entry (for example, the batter on a home run) is charged to the current pitcher.
-
-This changes stat accounting only. It does not change H3.2.1, pitching outcome probability, pitcher raw ratings, or inning/base-running probability math.
-
-Regression helpers were added for:
-
-- scoring-runner identity recovery from run deltas;
-- inherited runner charged to original pitcher while the current batter/run is charged to the reliever.
-
-Runtime execution is still pending.
-
-## Finding 2 — bases-loaded fielder's-choice lead-force mismatch
-
-Status: **OPEN / BLOCKING NATURAL-EVENT READY**
-
-PR #21 documentation says multi-force ground-ball states use the available lead force. Under bases loaded, the lead force is at home.
-
-The currently consolidated `BaseStateResolver.fielders_choice()` instead scores the runner from third when first, second, and third are occupied with fewer than two outs. That behavior does not match the documented lead-force contract.
-
-Expected minimal lead-force behavior for bases loaded:
+`BaseStateResolver.fielders_choice()` now has a targeted bases-loaded, outs<2 path:
 
 - runner from third is retired at home;
 - runner from second advances to third;
 - runner from first advances to second;
 - batter reaches first;
-- one out is recorded;
-- no run scores on that force play.
+- one out is added;
+- no run is scored;
+- runner identities remain unique.
 
-This should be fixed with a targeted partial patch and a deterministic regression test before `NATURAL_EVENTS_INTEGRATION_READY` can be marked READY.
+The existing two-out branch is preserved rather than forcing the same state mutation contract onto an inning-ending play.
 
-No H3 probability retuning is required.
+Deterministic regression coverage now includes:
 
-## Finding 3 — persistent team W/L/T missing from advance state
+- bases loaded / 0 outs;
+- bases loaded / 1 out;
+- bases loaded / 2 outs;
+- runner on first;
+- runners first/second;
+- runners first/third;
+- runners second/third;
+- identity uniqueness / base-state validation.
 
-Status: **OPEN / BLOCKING COMPOSITIONAL ADVANCE READY**
+`NATURAL_EVENTS_INTEGRATION_READY` remains NOT_READY until the targeted tests and natural-event regression execute successfully.
 
-`ProductionGameResult` provides an exact final score and exact per-game W/L/T. `AdvanceSummary` also reports period win/loss/tie deltas.
+## Blocker B — persistent cumulative team W/L/T
 
-However, `AdvancePipelineState` does not currently persist cumulative team W/L/T. It persists player season/career stats and a capped recent-game history only.
+Status: **STATIC FIXED / RUNTIME PENDING**
 
-Therefore the required persistent-state equivalence contract cannot yet prove or preserve:
+`ProductionAdvancePipelineState` persists:
 
-- cumulative team wins;
-- cumulative team losses;
-- cumulative team ties;
+- `team_wins`;
+- `team_losses`;
+- `team_ties`;
+- `team_record_supported`.
 
-across repeated one-game advance versus one week/month advance, especially after recent history is truncated.
+Serialization uses an explicit `team_record` payload. Old advance payloads without that field load as `0-0-0` with `supported=False` rather than fabricating a known historical record.
 
-A production-level team-record state (or equivalent canonical persistent field) is required. It must be optional/backward-compatible for old saves and included in compositional equality tests.
+For new exact production games, the cumulative result is derived from exact final score. A contradictory supplied `team_result` raises rather than silently corrupting the record. Recent-history truncation is independent of cumulative W/L/T.
 
-## Finding 4 — ER / ERA validity metadata is incomplete
+Regression coverage includes W/L/T, cumulative updates, save/load continuation, old-state compatibility, history truncation, and week/month composition tests already present in the consolidation suite.
 
-Status: **OPEN / NON-FABRICATION REVIEW REQUIRED**
+`TIME_ADVANCE_INTEGRATION_READY` and `COMPOSITIONAL_ADVANCE_READY` remain NOT_READY until runtime execution proves state equivalence.
 
-The full-game provider correctly marks `ER`, `W`, `L`, `SV`, and `HLD` unsupported where exact provenance/rules are unavailable.
+## Blocker C — ER / ERA support validity
 
-The generic aggregation container nevertheless stores `ER=0` by default and exposes an `ERA` property whenever outs exist. Generic `unsupported_pitcher_fields()` also does not currently include `ER` when the source lacks it.
+Status: **STATIC FIXED / RUNTIME PENDING**
 
-This creates a risk that an unsupported ER/ERA could be presented as a real zero rather than “not supported / not valid”.
+`PitcherCountingStats` now carries explicit support metadata for:
 
-Before production UI/provider promotion, the aggregate contract should carry explicit validity/support metadata for ER-derived outputs or omit ERA where ER provenance is unavailable. Do not invent ER from runs.
+- ER / ERA;
+- W;
+- L;
+- SV;
+- HLD.
 
-## GitHub Actions execution status
+Semantics:
 
-Current classification:
+- supported ER=0 remains a real zero and can derive ERA=0.00;
+- unsupported ER serializes as `None` and ERA is `None`;
+- support flags are serialized explicitly;
+- aggregation combines support conservatively, so any unsupported ER source makes aggregate ER/ERA unsupported;
+- legacy payloads with an ER count but no provenance metadata retain the internal count but default to unsupported;
+- production pitcher game lines mark ER/W/L/SV/HLD unsupported when the provider lacks exact official provenance.
 
-`GITHUB_ACTIONS_EXECUTION = NOT_RUN_INFRASTRUCTURE_LIMIT`
+No earned-run scoring logic was invented.
 
-Observed behavior on consolidation runs:
+`STAT_AGGREGATION_INTEGRATION_READY` remains NOT_READY until the regression suite executes.
 
-- `runner_id=0`
-- `steps=[]`
-- no runner name
-- no test/import/build command executed
+## Inherited-run responsibility
 
-This is infrastructure non-execution, not a code assertion failure.
+Status: **STATIC FIXED / RUNTIME PENDING**
 
-## Current static gate impact
+The dynamic pitcher provider retains identity-based run responsibility:
 
-- `H32_CANONICAL_BEHAVIOR_PRESERVED = READY` — protected H3 files remain byte-identical to latest main.
-- `PERSISTENT_INNING_CANONICAL_PRESERVED = READY_STATIC / NOT_RUN_RUNTIME`.
-- `NATURAL_EVENTS_INTEGRATION_READY = NOT_READY` — bases-loaded FC lead-force mismatch remains.
-- `STAT_AGGREGATION_INTEGRATION_READY = NOT_READY` — ER/ERA validity contract still needs explicit resolution and runtime regression.
-- `TIME_ADVANCE_INTEGRATION_READY = NOT_READY` — cumulative team W/L/T is not persistent.
-- `FULL_GAME_PROVIDER_INTEGRATION_READY = NOT_READY` — runtime sanity unavailable; inherited-run R fix is unexecuted.
-- `PITCHER_DYNAMIC_ROLE_READY = READY_STATIC / SOURCE_VALIDATED`.
-- `PITCHER_ROTATION_READY = READY_STATIC / SOURCE_VALIDATED`.
-- `PITCHER_CONSECUTIVE_FATIGUE_READY = READY_STATIC / SOURCE_VALIDATED`.
-- `PITCHER_BULLPEN_USAGE_READY = NOT_READY` — consolidated full-game runtime unavailable.
-- `CATCHER_ABILITY_SCHEMA_READY = READY_STATIC`.
-- `CATCHER_GENERATION_READY = NOT_READY` — consolidation generation regression unavailable.
-- `CATCHER_GROWTH_FOUNDATION_READY = NOT_READY` — consolidation regression unavailable.
-- `CATCHER_SAVE_COMPATIBILITY_READY = NOT_READY` — consolidation save regression unavailable.
-- `SAVE_COMPATIBILITY_READY = NOT_READY` — runtime regression unavailable.
-- `COMPOSITIONAL_ADVANCE_READY = NOT_READY` — team record missing from persistent state and runtime regression unavailable.
-- `FULL_REGRESSION_READY = NOT_READY`.
-- `PRODUCTION_INTEGRATION_CONSOLIDATION_READY = NOT_READY`.
+- an inherited runner who reached against Pitcher A remains charged to Pitcher A after Pitcher B enters;
+- a new runner allowed by Pitcher B is charged to Pitcher B if that runner later scores.
 
-## Required next execution
+The implementation adjusts pitcher R accounting only and does not alter gameplay outcome probabilities.
 
-Once a Codespaces/local runner is available, run:
+## Test discovery / runner
+
+Canonical runner:
 
 ```bash
 bash tools/run_production_integration_checks.sh
 ```
 
-Before marking the consolidation READY, also add targeted tests for:
+The runner now includes `tests.test_pr33_blocking_fixes` in the targeted phase and then executes full unittest discovery plus the existing heavy sanity scripts and web test/build.
 
-1. bases-loaded fielder's-choice lead force;
-2. inherited-run pitcher responsibility in an actual mid-inning substitution scenario;
-3. cumulative team W/L/T persistence and week/month compositional equivalence;
-4. ER/ERA unsupported-state propagation.
+Planned runtime coverage:
+
+1. compile/import;
+2. persistent inning;
+3. natural events / FC blocker;
+4. stat aggregation / ER validity;
+5. full-game provider;
+6. inherited-run responsibility;
+7. dynamic pitcher usage;
+8. catcher foundation;
+9. team-record persistence / save compatibility;
+10. deterministic composition;
+11. full Python suite;
+12. 100k+ natural-event sanity;
+13. 10k full-game sanity;
+14. 500-season pitcher-usage sanity;
+15. 200k catcher-generation sanity;
+16. web tests;
+17. web build.
+
+## GitHub Actions status
+
+`GITHUB_ACTIONS_EXECUTION = NOT_RUN_INFRASTRUCTURE_LIMIT`
+
+Latest observed PR #33 workflow still has:
+
+- `runner_id=0`;
+- empty runner name;
+- `steps=[]`;
+- no Python, sanity, web test, or build command executed.
+
+This is infrastructure non-execution, not assertion evidence.
+
+## Current gates
+
+| Gate | Status |
+|---|---|
+| H32_CANONICAL_BEHAVIOR_PRESERVED | READY_STATIC |
+| PERSISTENT_INNING_CANONICAL_PRESERVED | READY_STATIC / NOT_RUN_RUNTIME |
+| NATURAL_EVENTS_INTEGRATION_READY | NOT_READY — static blocker fixed, runtime pending |
+| STAT_AGGREGATION_INTEGRATION_READY | NOT_READY — static blocker fixed, runtime pending |
+| TIME_ADVANCE_INTEGRATION_READY | NOT_READY — static blocker fixed, runtime pending |
+| FULL_GAME_PROVIDER_INTEGRATION_READY | NOT_READY — runtime pending |
+| PITCHER_DYNAMIC_ROLE_READY | READY_STATIC / SOURCE_VALIDATED |
+| PITCHER_ROTATION_READY | READY_STATIC / SOURCE_VALIDATED |
+| PITCHER_CONSECUTIVE_FATIGUE_READY | READY_STATIC / SOURCE_VALIDATED |
+| PITCHER_BULLPEN_USAGE_READY | NOT_READY — consolidated runtime pending |
+| CATCHER_ABILITY_SCHEMA_READY | READY_STATIC |
+| CATCHER_GENERATION_READY | NOT_READY — consolidation runtime pending |
+| CATCHER_GROWTH_FOUNDATION_READY | NOT_READY — consolidation runtime pending |
+| CATCHER_SAVE_COMPATIBILITY_READY | NOT_READY — consolidation runtime pending |
+| TEAM_RECORD_PERSISTENCE_READY | NOT_READY — static fixed, runtime pending |
+| ER_ERA_VALIDITY_READY | NOT_READY — static fixed, runtime pending |
+| SAVE_COMPATIBILITY_READY | NOT_READY — runtime pending |
+| COMPOSITIONAL_ADVANCE_READY | NOT_READY — static fixed, runtime pending |
+| FULL_REGRESSION_READY | NOT_READY |
+| PRODUCTION_INTEGRATION_CONSOLIDATION_READY | NOT_READY |
+
+`CATCHER_GAMEPLAY_INTEGRATION = NOT_RUN`.
+
+`PITCHER_GAMEPLAY_FATIGUE_EFFECT = NOT_RUN`.
+
+## Merge recommendation
+
+Keep PR #33 as Draft. The three static blockers are now represented in code/tests, but the consolidation must not be promoted to merge-ready until `bash tools/run_production_integration_checks.sh` executes successfully in Codespaces/local and the runtime-dependent gates are updated from evidence.
