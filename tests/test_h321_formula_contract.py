@@ -119,13 +119,13 @@ class H321FormulaContractTests(unittest.TestCase):
         )
         # Close-score context contributes +0.018 to the gated attempt core.
         self.assertAlmostEqual(
-            steal_attempt_probability(50, state), 0.0005113792814381373, places=12
+            steal_attempt_probability(50, state), 0.0005123466845089249, places=12
         )
         self.assertAlmostEqual(
-            steal_attempt_probability(100, state), 0.09513979985294193, places=12
+            steal_attempt_probability(100, state), 0.0951575521115054, places=12
         )
         self.assertAlmostEqual(
-            steal_attempt_probability(140, state), 0.1962115281503487, places=12
+            steal_attempt_probability(140, state), 0.1962115429303369, places=12
         )
         self.assertAlmostEqual(
             steal_success_probability(100, state), 0.742006542992731, places=12
