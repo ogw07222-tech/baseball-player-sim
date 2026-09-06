@@ -1,0 +1,29 @@
+name: pitcher-v4-population-mix
+on:
+  push:
+    branches: [feature/overnight-hitter-pitcher-calibration]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Mixed-age hitter vs neutral pitcher
+        run: python -m tools.pitcher_joint_v4.population_mix_diagnostic
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pitcher-v4-population-mix
+          path: reports/pitcher_joint_v4_population_mix.json
+      - name: Publish diagnostic
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git pull --rebase origin feature/overnight-hitter-pitcher-calibration
+          git add reports/pitcher_joint_v4_population_mix.json
+          git diff --cached --quiet || git commit -m "report: publish Pitcher v4 population-mix diagnostic [skip ci]"
+          git push
