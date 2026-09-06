@@ -13,9 +13,12 @@ on:
       - 'src/time_advance.py'
       - 'src/inning.py'
       - 'src/natural_events.py'
+      - 'src/persistence.py'
       - 'tests/test_production_game_provider.py'
+      - 'tests/test_production_game_provider_contracts.py'
       - 'tools/production_game_provider_sanity.py'
       - '.github/workflows/production-game-provider-sanity.yml'
+
   workflow_dispatch:
 
 jobs:
@@ -28,12 +31,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Compile
+        run: python -m compileall -q src tests tools
       - name: Production provider tests
-        run: python -m unittest tests.test_production_game_provider -v
+        run: >-
+          python -m unittest
+          tests.test_production_game_provider
+          tests.test_production_game_provider_contracts -v
+      - name: Full repository unit tests
+        run: python -m unittest discover -s tests -v
       - name: 10k full-game Monte Carlo and benchmark
-        run: python tools/production_game_provider_sanity.py --games 10000 --seed 20260906 --output production-game-provider-sanity.json
+        run: >-
+          python tools/production_game_provider_sanity.py
+          --games 10000 --seed 20260906
+          --output production-game-provider-sanity.json
       - name: Upload sanity report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: production-game-provider-sanity
           path: production-game-provider-sanity.json
+          if-no-files-found: warn
