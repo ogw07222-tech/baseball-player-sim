@@ -51,13 +51,35 @@ class ProductionAdvancePipelineState(AdvancePipelineState):
     team_ties: int = 0
     team_record_supported: bool = False
 
+    @staticmethod
+    def _result_from_score(score: tuple[int, int] | None) -> str | None:
+        if score is None:
+            return None
+        runs_for, runs_against = score
+        if runs_for > runs_against:
+            return "W"
+        if runs_for < runs_against:
+            return "L"
+        return "T"
+
     def add_game(self, game: GamePerformance) -> None:
         super().add_game(game)
-        if game.team_result == "W":
+        score_result = self._result_from_score(game.score)
+        if score_result is not None:
+            if game.team_result is not None and game.team_result != score_result:
+                raise ValueError("team_result must match exact final score")
+            result = score_result
+        else:
+            result = game.team_result
+            # A no-score legacy/test provider can still contribute its stated
+            # result, but it cannot make the cumulative record exact-supported.
+            self.team_record_supported = False
+
+        if result == "W":
             self.team_wins += 1
-        elif game.team_result == "L":
+        elif result == "L":
             self.team_losses += 1
-        elif game.team_result == "T":
+        elif result == "T":
             self.team_ties += 1
         else:
             self.team_record_supported = False
