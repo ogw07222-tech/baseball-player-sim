@@ -1,10 +1,11 @@
 name: kbo-rating-inference
 on:
   push:
-    branches: [feature/kbo-first-team-rating-inference]
+    branches: [feature/kbo-first-team-rating-inference, feature/kbo-broad-player-spectrum]
     paths:
       - 'tools/kbo_rating_inference/**'
       - 'tests/test_kbo_rating_inference.py'
+      - 'tests/test_kbo_broad_spectrum.py'
       - 'data/kbo_2025_*_stats_seed.csv'
       - '.github/workflows/kbo-rating-inference.yml'
   workflow_dispatch:
@@ -18,7 +19,7 @@ jobs:
         with: {fetch-depth: 0}
       - uses: actions/setup-python@v5
         with: {python-version: '3.12'}
-      - run: python -m unittest -v tests.test_kbo_rating_inference
+      - run: python -m unittest -v tests.test_kbo_rating_inference tests.test_kbo_broad_spectrum
       - name: Frozen H3/Velocity/hitter normalization source diff guard
         run: |
           git diff --exit-code c6c69ceefb3c4f2f5fbe88a772b4508f842e58dd -- src/hitting/model.py src/hitting/parameters.py src/hitting/baserunning.py src/hitting/normalization.py src/pitching/physical_velocity.py
@@ -32,21 +33,28 @@ jobs:
       - run: pip install pandas lxml
       - name: Collect 2025 real KBO source tables or provenance fallback
         run: python -m tools.kbo_rating_inference.collect_real --min-pa 100 --min-bf 100
-      - name: Build production first-team PA-weighted pilot population
+      - name: Build broad real-player performance spectrum
+        run: python -m tools.kbo_rating_inference.broad_spectrum
+      - name: Build production first-team PA-weighted pilot hitter population
         run: python -m tools.kbo_rating_inference.generated_population --careers-per-seed 30 --seeds 2 --max-seasons 12 --neutral-pa-per-seed 30000 --pitchers 300 --seed 261306
-      - name: Pilot Joint v4 first-team rerun
+      - name: Replace pitcher proxy with role-aware BF usage provider
+        run: python -m tools.kbo_rating_inference.pitcher_first_team_usage --pitchers 600 --seed 262006
+      - name: Pilot Joint v4 broad first-team rerun
         run: python -m tools.kbo_rating_inference.joint_v4_first_team --candidates 8 --search-pa 10000 --top 2 --validation-pa 30000 --seeds 2 --diag-pa 15000 --seed 261406
-      - name: Pilot hitter inverse search
-        run: python -m tools.kbo_rating_inference.infer_hitters --candidates 120 --library-pa 400 --refine-pa 700 --seed 261506
-      - name: Pilot pitcher inverse search
-        run: python -m tools.kbo_rating_inference.infer_pitchers --candidates 60 --coarse-pa 350 --refine-pa 700 --seed 261606
+      - name: Pilot hitter inverse search on broad spectrum
+        run: python -m tools.kbo_rating_inference.infer_hitters --data reports/kbo_hitter_spectrum_source.csv --candidates 120 --library-pa 400 --refine-pa 700 --seed 261506
+      - name: Pilot pitcher inverse search on broad spectrum
+        run: python -m tools.kbo_rating_inference.infer_pitchers --data reports/kbo_pitcher_spectrum_source.csv --candidates 60 --coarse-pa 350 --refine-pa 700 --seed 261606
+      - name: Reattach bucket labels and summarize broad spectrum
+        run: python -m tools.kbo_rating_inference.broad_spectrum
       - name: Alignment and gates
         run: |
           python -m tools.kbo_rating_inference.alignment
+          python -m tools.kbo_rating_inference.spectrum_validation
           python -m tools.kbo_rating_inference.finalize
       - uses: actions/upload-artifact@v4
         with:
-          name: kbo-rating-inference-pilot
+          name: kbo-rating-inference-broad-pilot
           path: |
             data/kbo_2025_hitter_stats_source.csv
             data/kbo_2025_pitcher_stats_source.csv
@@ -57,3 +65,4 @@ jobs:
             reports/kbo_*.csv
             reports/pitcher_joint_v4_first_team_*
             reports/hitter_inverse_candidate_library.csv
+            reports/pitcher_inverse_candidate_library.csv
