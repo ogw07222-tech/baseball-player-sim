@@ -44,8 +44,11 @@ def main():
     best=data.get('best',{});metrics=best.get('metrics',{})
     target=v3.KBO_TARGETS;tol=v3.TOLERANCES
     residual=[]
+    # OPS is a reported target but intentionally has no standalone tolerance;
+    # the frozen objective is defined by the component metrics in TOLERANCES.
     for k,t in target.items():
-        if k in metrics:residual.append({'metric':k,'actual':metrics[k],'target':t,'residual':metrics[k]-t,'tolerance':tol[k],'normalized_residual':(metrics[k]-t)/tol[k]})
+        if k in metrics and k in tol:
+            residual.append({'metric':k,'actual':metrics[k],'target':t,'residual':metrics[k]-t,'tolerance':tol[k],'normalized_residual':(metrics[k]-t)/tol[k]})
     if residual:
         with open(out/'pitcher_joint_v4_residuals.csv','w',newline='') as f:w=csv.DictWriter(f,fieldnames=list(residual[0]));w.writeheader();w.writerows(residual)
     summary=['# Pitcher Joint Calibration v4','',f"Gate: `{data['gate']}`",'', 'v4 reuses the frozen Velocity v2 physical path, physical caps, SCB raw scale and frozen 2025 KBO target/tolerances. Hitter profiles are converted through the approved raw→gameplay normalization before H3. Failed coefficients remain calibration-only.','', '## Best candidate',f"`{json.dumps(best.get('weights',{}),sort_keys=True)}`",'', '## Metrics']
