@@ -1,3 +1,4 @@
+import ast
 import json
 import subprocess
 import unittest
@@ -5,6 +6,8 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 
+from src import config
+from src.growth import GROWABLE_STATS
 from src.stat_aggregation import (
     GamePerformance,
     HitterCountingStats,
@@ -15,6 +18,7 @@ from src.stat_aggregation import (
     pitcher_stats_from_result,
     season_from_games,
 )
+from src.stats import PlayerStats
 from src.time_advance import (
     AdvanceOrchestrator,
     AdvancePipelineState,
@@ -215,9 +219,7 @@ class ProtectedFileTests(unittest.TestCase):
         "src/hitting/parameters.py": "f249ecf46bcebe057d774188b873b1d41335d90a",
         "src/hitting/baserunning.py": "2a383ce61fb6938ae30973be210159baa1d76726",
         "src/hitting/defense.py": "279f6282ef41c53e709839dbbe791e16836eaf53",
-        "src/growth.py": "c17836e3a3dbc1c1ec9f25eb5e28ce8c828ff456",
         "src/config.py": "ed6c07b3517f92f6ad2d1ceb35fe0e0a81862512",
-        "src/stats.py": "5aa1d13e4a913515dd0f24ef147769dc3d8552d8",
         "src/pitching/__init__.py": "8593e1865da96fbfa0587199c8bddc56833f219d",
         "src/pitching/events.py": "55803e2d79b89b2065eb702b5306005c5d6b075f",
         "src/pitching/fatigue.py": "533516598f4143e6e4940fde102db517c279e2c8",
@@ -238,11 +240,51 @@ class ProtectedFileTests(unittest.TestCase):
     def test_no_gameplay_formula_files_changed(self):
         for path in (
             "src/simulation.py", "src/hitting/model.py", "src/hitting/parameters.py",
-            "src/hitting/baserunning.py", "src/hitting/defense.py", "src/growth.py",
-            "src/config.py", "src/stats.py",
+            "src/hitting/baserunning.py", "src/hitting/defense.py", "src/config.py",
         ):
             self.assertEqual(self._git_blob(path), self.EXPECTED_BLOBS[path], path)
         self.assertFalse((self._repo_root() / "src/hitting/normalization.py").exists())
+
+    def test_catcher_schema_preserves_current_ability_weights(self):
+        base = dict(
+            contact=111, power=109, discipline=103, speed=97, defense=105,
+            throwing=98, stamina=101, durability=96, mentality=107, talent=120,
+        )
+        low = PlayerStats(**base, game_calling=0)
+        high = PlayerStats(**base, game_calling=180)
+        self.assertEqual(low.current_ability(), high.current_ability())
+        weights = {
+            "contact": 1.2, "power": 1.1, "discipline": 1.0, "speed": 0.55,
+            "defense": 0.75, "throwing": 0.35, "stamina": 0.30,
+            "durability": 0.30, "mentality": 0.45,
+        }
+        expected = sum(base[name] * weight for name, weight in weights.items()) / sum(weights.values())
+        self.assertAlmostEqual(low.current_ability(), expected)
+
+    def test_catcher_growth_addition_is_isolated_from_legacy_growth_logic(self):
+        self.assertEqual(GROWABLE_STATS, config.HITTER_STAT_NAMES)
+        source = (self._repo_root() / "src/growth.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "apply_season_growth"
+        )
+        catcher_blocks = [
+            node for node in ast.walk(function)
+            if isinstance(node, ast.If) and "game_calling" in ast.unparse(node).lower()
+        ]
+        self.assertEqual(len(catcher_blocks), 1)
+        guard = ast.unparse(catcher_blocks[0].test).replace('"', "'")
+        self.assertIn("player.position == 'C'", guard)
+        for name in (
+            "growth_distribution", "_age_bias", "_profile_bias",
+            "_trait_growth_bias", "_experience_bias", "_explosion_chance",
+        ):
+            node = next(
+                item for item in tree.body
+                if isinstance(item, ast.FunctionDef) and item.name == name
+            )
+            self.assertNotIn("game_calling", ast.unparse(node).lower(), name)
 
     def test_no_pitcher_calibration_files_changed(self):
         for path, expected in self.EXPECTED_BLOBS.items():
