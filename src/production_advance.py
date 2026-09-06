@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import date, timedelta
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 
 from . import config
 from .career import CareerEngine
@@ -31,6 +31,97 @@ from .time_advance import (
     AdvanceSummary,
     ScheduleProvider,
 )
+
+
+@dataclass
+class ProductionAdvancePipelineState(AdvancePipelineState):
+    """Production advance state with persistent cumulative team record.
+
+    PR #26's generic foundation intentionally stored only player aggregation.
+    Production consolidation additionally needs exact team W/L/T to compose and
+    persist across one-game, week, and month advance.
+
+    ``team_record_supported`` is false when loading an older advance payload or
+    attaching the production service after games were already completed without
+    a persisted team record. New careers started through this service are exact.
+    """
+
+    team_wins: int = 0
+    team_losses: int = 0
+    team_ties: int = 0
+    team_record_supported: bool = False
+
+    def add_game(self, game: GamePerformance) -> None:
+        super().add_game(game)
+        if game.team_result == "W":
+            self.team_wins += 1
+        elif game.team_result == "L":
+            self.team_losses += 1
+        elif game.team_result == "T":
+            self.team_ties += 1
+        else:
+            self.team_record_supported = False
+
+    @property
+    def team_record(self) -> dict[str, int | bool]:
+        return {
+            "wins": self.team_wins,
+            "losses": self.team_losses,
+            "ties": self.team_ties,
+            "supported": self.team_record_supported,
+        }
+
+    def as_dict(self) -> dict[str, object]:
+        payload = super().as_dict()
+        payload["team_record"] = dict(self.team_record)
+        return payload
+
+    @classmethod
+    def from_advance_state(
+        cls,
+        state: AdvancePipelineState,
+        *,
+        team_record_supported: bool = False,
+    ) -> "ProductionAdvancePipelineState":
+        return cls(
+            current_date=state.current_date,
+            season=state.season,
+            career=state.career,
+            completed_seasons=list(state.completed_seasons),
+            recent_games=list(state.recent_games),
+            history_limit=state.history_limit,
+            team_record_supported=team_record_supported,
+        )
+
+    @classmethod
+    def from_dict(
+        cls,
+        data: Mapping[str, object],
+        *,
+        default_date: date | None = None,
+    ) -> "ProductionAdvancePipelineState":
+        base = AdvancePipelineState.from_dict(data, default_date=default_date)
+        raw = data.get("team_record")
+        if isinstance(raw, Mapping):
+            wins = int(raw.get("wins", 0))
+            losses = int(raw.get("losses", 0))
+            ties = int(raw.get("ties", 0))
+            supported = bool(raw.get("supported", True))
+        else:
+            wins = losses = ties = 0
+            supported = False
+        return cls(
+            current_date=base.current_date,
+            season=base.season,
+            career=base.career,
+            completed_seasons=list(base.completed_seasons),
+            recent_games=list(base.recent_games),
+            history_limit=base.history_limit,
+            team_wins=wins,
+            team_losses=losses,
+            team_ties=ties,
+            team_record_supported=supported,
+        )
 
 
 @dataclass(frozen=True)
@@ -257,10 +348,12 @@ class ProductionAdvanceService:
         )
         engine.advance_state = state
 
-    def _state_for_engine(self, games_completed: int) -> AdvancePipelineState:
+    def _state_for_engine(self, games_completed: int) -> ProductionAdvancePipelineState:
         existing = getattr(self.engine, "advance_state", None)
-        if isinstance(existing, AdvancePipelineState):
+        if isinstance(existing, ProductionAdvancePipelineState):
             return existing
+        if isinstance(existing, AdvancePipelineState):
+            return ProductionAdvancePipelineState.from_advance_state(existing)
 
         session = self.engine.start_pro_season()
         current_date = (
@@ -271,15 +364,19 @@ class ProductionAdvanceService:
         season = season_stats_from_record(session.record)
         records = list(self.engine.player.seasons) + [session.record]
         career = career_stats_from_records(records)
-        return AdvancePipelineState(
+        return ProductionAdvancePipelineState(
             current_date=current_date,
             season=season,
             career=career,
+            team_record_supported=games_completed == 0,
         )
 
     @property
-    def state(self) -> AdvancePipelineState:
-        return self.orchestrator.state
+    def state(self) -> ProductionAdvancePipelineState:
+        state = self.orchestrator.state
+        if not isinstance(state, ProductionAdvancePipelineState):
+            raise AssertionError("production orchestrator lost production advance state")
+        return state
 
     def advance_one_game(self) -> AdvanceSummary:
         return self.orchestrator.advance_one_game()
