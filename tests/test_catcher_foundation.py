@@ -1,3 +1,4 @@
+import ast
 import math
 from pathlib import Path
 import statistics
@@ -92,11 +93,29 @@ class CatcherAbilityFoundationTests(unittest.TestCase):
             if target.exists():
                 self.assertNotIn("game_calling", target.read_text(encoding="utf-8").lower())
 
-    def test_no_pitching_formula_changes(self):
+    def test_game_calling_not_used_by_pitching_outcome_math(self):
+        targets = {
+            "outcome_probabilities",
+            "simulate_batter_faced",
+            "simulate_outing",
+            "effective_stats",
+            "outing_pitch_cap",
+        }
+        found = set()
         pitching = Path("src/pitching")
-        if pitching.exists():
-            for target in pitching.glob("*.py"):
-                self.assertNotIn("game_calling", target.read_text(encoding="utf-8").lower())
+        if not pitching.exists():
+            return
+        for path in pitching.glob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in targets:
+                    found.add(node.name)
+                    self.assertNotIn(
+                        "game_calling",
+                        ast.unparse(node).lower(),
+                        f"{path}:{node.name} must not apply catcher Game Calling to pitching math",
+                    )
+        self.assertTrue({"outcome_probabilities", "effective_stats"}.issubset(found))
 
     def test_no_inning_engine_changes(self):
         for path in ("src/inning.py", "src/game_provider.py", "src/stat_aggregation.py", "src/time_advance.py"):
