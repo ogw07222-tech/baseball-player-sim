@@ -56,6 +56,7 @@ def _hitter_row(seed: int, idx: int, row: WeightedSeason) -> dict[str, object]:
     gp = normalize_hitter(row.contact, row.power, row.discipline, row.speed)
     return {
         "seed": seed, "snapshot_id": idx, "age": row.age, "first_team_PA": row.pa,
+        "bats_throws": row.bats_throws,
         "raw_contact": row.contact, "raw_power": row.power, "raw_discipline": row.discipline, "raw_speed": row.speed,
         "gp_contact": gp.contact, "gp_power": gp.power, "gp_discipline": gp.discipline, "gp_speed": gp.speed,
     }
@@ -80,8 +81,6 @@ def representative_pitchers(n: int, seed: int) -> list[dict[str, object]]:
     pitchers = v3.build_pitchers(n, seed)
     rows = []
     for i, p in enumerate(pitchers):
-        # No production pitcher career/roster engine exists yet. Keep an explicit
-        # representative age-mixture weight rather than pretending it is BF/IP.
         weight = 1.0
         physical = base_avg_kmh(p.stats.velocity)
         rows.append({
@@ -130,7 +129,6 @@ def main() -> None:
         rows = [_hitter_row(seed, i, row) for i, row in enumerate(seasons)]
         all_hitter_rows.extend(rows)
         raw_dist = _distribution(rows, ("raw_contact", "raw_power", "raw_discipline", "raw_speed"), "first_team_PA")
-        # shorten keys for report readability
         raw_dist = {k.removeprefix("raw_"): v for k, v in raw_dist.items()}
         gp_dist = _distribution(rows, ("gp_contact", "gp_power", "gp_discipline", "gp_speed"), "first_team_PA")
         gp_dist = {k.removeprefix("gp_"): v for k, v in gp_dist.items()}
