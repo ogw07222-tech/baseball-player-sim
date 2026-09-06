@@ -376,7 +376,17 @@ class BaseStateResolver:
         self.state.outs += 1
         if first is not None and second is not None:
             if third is not None and outs_before < 2:
-                scored.append(third)
+                # With the bases loaded, the available lead force is at home.
+                # Retire the runner from third, then advance the other forced
+                # runners exactly one base. No run scores on this choice.
+                self.state.third_runner = second
+                self.state.second_runner = first
+                self.state.first_runner = batter
+                return BaseResolution(
+                    resolved_result="fielders_choice",
+                    outs_added=1,
+                    third_out_is_force=False,
+                )
             self.state.third_runner = None
             self.state.second_runner = first
             self.state.first_runner = batter
