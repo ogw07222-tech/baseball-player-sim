@@ -1,0 +1,49 @@
+{
+  "n": 10000,
+  "seed": 20260905,
+  "base_thresholds": {
+    "round1": 105.0,
+    "round2_3": 97.0,
+    "round4_7": 86.8,
+    "round8_11": 76.2
+  },
+  "frozen_ranges": {
+    "1R": [
+      8,
+      15
+    ],
+    "2-3R": [
+      12,
+      20
+    ],
+    "4-7R": [
+      25,
+      35
+    ],
+    "8-11R": [
+      20,
+      30
+    ],
+    "undrafted": [
+      10,
+      25
+    ]
+  },
+  "best_minimal_uniform_shift": {
+    "delta": 0.0,
+    "thresholds": {
+      "round1": 105.0,
+      "round2_3": 97.0,
+      "round4_7": 86.8,
+      "round8_11": 76.2
+    },
+    "draft_pct": {
+      "1R": 14.12,
+      "2-3R": 15.84,
+      "4-7R": 30.64,
+      "8-11R": 29.23,
+      "undrafted": 10.17
+    }
+  },
+  "gate": "DRAFT_THRESHOLD_RECALIBRATION_READY"
+}
