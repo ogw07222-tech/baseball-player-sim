@@ -33,6 +33,17 @@ class PitcherGameLine:
     stats: PitcherCountingStats
     unsupported_stats: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        # The provider may keep internal zero-valued counters for unsupported
+        # official statistics, but downstream consumers must never mistake those
+        # placeholders for exact data.
+        if self.unsupported_stats:
+            object.__setattr__(
+                self,
+                "stats",
+                self.stats.with_unsupported(self.unsupported_stats),
+            )
+
 
 @dataclass(frozen=True)
 class ProductionGameResult:
