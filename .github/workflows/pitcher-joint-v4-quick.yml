@@ -1,0 +1,29 @@
+name: pitcher-joint-v4-quick
+on:
+  push:
+    branches: [feature/overnight-hitter-pitcher-calibration]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  quick:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Quick v4 structural diagnostic
+        run: python -m tools.pitcher_joint_v4.quick_diagnostic
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pitcher-joint-v4-quick
+          path: reports/v4_quick/*
+      - name: Publish quick diagnostic
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git pull --rebase origin feature/overnight-hitter-pitcher-calibration
+          git add reports/v4_quick
+          git diff --cached --quiet || git commit -m "report: publish Pitcher v4 quick diagnostic [skip ci]"
+          git push
