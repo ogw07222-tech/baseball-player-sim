@@ -33,6 +33,8 @@ class PlayerStats:
     durability: int
     mentality: int
     talent: int
+    # Catcher-only skill. Non-catchers retain the safe legacy-compatible 0.
+    game_calling: int = 0
 
     def __post_init__(self) -> None:
         for field in fields(self):
@@ -47,16 +49,21 @@ class PlayerStats:
 
     @classmethod
     def from_dict(cls, data: dict[str, int]) -> "PlayerStats":
-        return cls(**{name: int(data[name]) for name in config.STAT_NAMES})
+        values = {name: int(data[name]) for name in config.STAT_NAMES}
+        values["game_calling"] = int(data.get("game_calling", 0))
+        return cls(**values)
 
     def apply_delta(self, stat_name: str, delta: int) -> int:
-        if stat_name not in config.STAT_NAMES:
+        valid_names = {field.name for field in fields(self)}
+        if stat_name not in valid_names:
             raise KeyError(f"unknown stat: {stat_name}")
         new_value = max(config.STAT_MIN, getattr(self, stat_name) + int(delta))
         setattr(self, stat_name, new_value)
         return new_value
 
     def current_ability(self) -> float:
+        # Game Calling is intentionally excluded: this foundation must not alter
+        # existing hitter/draft/current-ability calibration before gameplay work.
         weights = {
             "contact": 1.2, "power": 1.1, "discipline": 1.0, "speed": 0.55,
             "defense": 0.75, "throwing": 0.35, "stamina": 0.30,
@@ -93,6 +100,7 @@ def generate_random_stats(rng: RNG, position: str = "SS") -> PlayerStats:
 
     Individual stats are still sampled first; current ability is never sampled
     directly. A shared prospect offset creates the intended correlated spread.
+    Catcher-only Game Calling is populated by the catcher adapter in Player.random.
     """
     return _generate_cohort_stats(
         rng,
