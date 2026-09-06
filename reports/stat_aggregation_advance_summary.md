@@ -13,11 +13,9 @@ pitcher, normalization, or persistent-inning branch.
 
 ## 3. Implementation HEAD
 
-`5517bb2ed86db87a3ed6a660688ccef24cf6174b`
+`92725bc242db37fa0ca9f465804b162cf7139451`
 
-This is the code/tests/documentation implementation HEAD immediately before
-this summary-only publication commit. The Draft PR head is the authoritative
-final branch HEAD.
+This is the complete five-file implementation/report HEAD used by Draft PR #26 and CI run #416 attempts 1-2 before the CI-status amendment commit.
 
 ## 4. Changed files
 
@@ -144,8 +142,8 @@ Local foundation suite before GitHub publication:
   no `.git` metadata
 - Python compile PASS
 
-CI checkout contains Git metadata, so the two protected-file hash tests execute
-there.
+CI checkout contains Git metadata, so the two protected-file hash tests are
+expected to execute there.
 
 Coverage includes:
 
@@ -160,9 +158,23 @@ Coverage includes:
 
 ## 13. CI
 
-Pending Draft PR workflow at initial publication. The PR workflow result will be
-reported in the PR and this summary can be amended by a report-only follow-up if
-needed.
+Draft PR #26 triggered workflow `tests` run #416 at implementation HEAD
+`92725bc242db37fa0ca9f465804b162cf7139451`.
+
+- attempt 1: unit-tests FAIL before checkout, web-tests FAIL before checkout
+- attempt 2 (manual rerun): same result
+- both job attempts reported `steps=[]` and `runner_id=0`; no job log blob was created
+- an unrelated concurrent repository PR (#25, run #418) also failed immediately at workflow start
+
+This is classified as `CI_INFRASTRUCTURE_BLOCKED`, not a code-test failure. The
+repository-wide CI PASS gate cannot be claimed until GitHub Actions runners
+execute the workflow.
+
+Local foundation validation remains:
+- 19 tests executed
+- 17 PASS
+- 2 Git-hash safety tests SKIP only because the scratch workspace has no `.git`
+- Python compile PASS
 
 ## 14. Known limitations
 
@@ -182,6 +194,11 @@ After a canonical team game/inning provider lands, implement a thin
 `GameAdvanceProvider` adapter that converts that provider's real game outputs to
 `GamePerformance`. Do not modify aggregation formulas.
 
-Gate target:
+Gate status:
 
-`STAT_AGGREGATION_ADVANCE_FOUNDATION_READY`
+`STAT_AGGREGATION_ADVANCE_FOUNDATION_NOT_READY`
+
+Reason: all foundation implementation gates checked locally and the GitHub diff
+guard pass, but the explicit repository-wide CI PASS requirement is blocked by
+GitHub Actions infrastructure before any step runs. No main merge is recommended
+until a normal runner execution passes.
