@@ -10,7 +10,7 @@
 
 ## 3. Final HEAD
 
-Authoritative final HEAD is the head SHA of the Draft PR / branch after this report commit. The exact SHA is intentionally not self-embedded because changing this file changes the commit SHA; completion metadata records it externally.
+Authoritative final HEAD is the head SHA of Draft PR #30 / branch after this report commit. The exact SHA is intentionally not self-embedded because changing this file changes the commit SHA; completion metadata records it externally.
 
 ## 4. Changed files
 
@@ -132,11 +132,11 @@ New required test coverage includes:
 - `test_no_pitching_formula_changes`
 - `test_no_inning_engine_changes`
 
-Existing repository test suites are left unchanged and are expected to run through the normal GitHub Actions workflow.
+Existing repository test suites are unchanged.
 
 ## 14. CI
 
-Draft PR CI is the authoritative executable regression evidence. At report authoring time the branch had not yet completed PR-triggered GitHub Actions; final workflow/status is recorded in the PR and completion response rather than guessed here.
+Draft PR #30 triggered workflow run `34020179414`. Both `unit-tests` and `web-tests` ended before runner startup with zero executed steps and `runner_id = 0`. Therefore the workflow conclusion is `failure`, but there is no code/test failure trace and no executable CI regression evidence from this run. This matches the repository's current runner-startup failure mode seen on parallel work; the PR remains Draft.
 
 ## 15. Known limitations
 
@@ -145,10 +145,11 @@ Draft PR CI is the authoritative executable regression evidence. At report autho
 - Game Calling is not yet calibrated against real catcher outcomes.
 - Full mature/prime distribution and peak-age tuning remain a separate validation task.
 - Catcher archetypes are generation identities only; no gameplay effect is attached.
+- GitHub Actions is currently unable to provide executable regression evidence because jobs are failing before runner startup.
 
 ## 16. Next step
 
-After this foundation is reviewed, run a separate Catcher Gameplay Calibration / Integration task covering Defense -> receiving/blocking/WP-PB, Throwing -> attempt deterrence + CS success, and Game Calling -> decision-quality/mistake-risk modulation without mutating pitcher raw ratings.
+After this foundation is reviewed and executable CI is available, run the full regression suite and then use a separate Catcher Gameplay Calibration / Integration task covering Defense -> receiving/blocking/WP-PB, Throwing -> attempt deterrence + CS success, and Game Calling -> decision-quality/mistake-risk modulation without mutating pitcher raw ratings.
 
 ## Gates
 
