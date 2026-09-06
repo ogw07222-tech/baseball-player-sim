@@ -1,0 +1,39 @@
+name: production-game-provider-sanity
+
+on:
+  push:
+    branches:
+      - feature/production-game-provider-integration
+  pull_request:
+    paths:
+      - 'src/game_provider.py'
+      - 'src/game_result.py'
+      - 'src/production_advance.py'
+      - 'src/stat_aggregation.py'
+      - 'src/time_advance.py'
+      - 'src/inning.py'
+      - 'src/natural_events.py'
+      - 'tests/test_production_game_provider.py'
+      - 'tools/production_game_provider_sanity.py'
+      - '.github/workflows/production-game-provider-sanity.yml'
+  workflow_dispatch:
+
+jobs:
+  full-game-sanity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Production provider tests
+        run: python -m unittest tests.test_production_game_provider -v
+      - name: 10k full-game Monte Carlo and benchmark
+        run: python tools/production_game_provider_sanity.py --games 10000 --seed 20260906 --output production-game-provider-sanity.json
+      - name: Upload sanity report
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-game-provider-sanity
+          path: production-game-provider-sanity.json
