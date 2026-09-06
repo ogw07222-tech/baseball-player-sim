@@ -8,6 +8,7 @@ python -m compileall -q src tests tools
 python -m unittest \
   tests.test_persistent_inning \
   tests.test_natural_baseball_events \
+  tests.test_pr33_blocking_fixes \
   tests.test_stat_aggregation_advance \
   tests.test_production_game_provider \
   tests.test_production_game_provider_contracts \
