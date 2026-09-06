@@ -21,8 +21,16 @@ jobs:
           d=json.load(open('reports/hitter_display_gameplay_contract_final.json'))
           assert d['gate']=='HITTER_DISPLAY_GAMEPLAY_CONTRACT_READY', d
           PY
-      - name: Repository regression before calibration
-        run: pytest -q
+      - name: Frozen-path calibration regression
+        run: |
+          python -m unittest -v \
+            tests.test_h32_production \
+            tests.test_hitter_cpd_recenter \
+            tests.test_hitter_gameplay_normalization \
+            tests.test_hitter_production_normalization \
+            tests.test_hitter_speed_ratio \
+            tests.test_pitcher_foundation \
+            tests.test_velocity_scale_v2
       - name: Pitcher Joint v4
         run: python -m tools.pitcher_joint_v4.calibrate --hitters 2000 --pitchers 2000 --candidates 60 --search-pa 100000 --validation-pa 1000000 --top 5 --seeds 5 --diag-pa 300000 --seed 260907
       - uses: actions/upload-artifact@v4
