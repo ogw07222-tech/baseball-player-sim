@@ -10,7 +10,10 @@ from src.career import CareerEngine
 from src.persistence import load_game, save_game
 from src.pitcher_usage_game_provider import DynamicPitcherGameProvider
 from src.player import Player
-from src.production_advance import ProductionAdvanceService
+from src.production_advance import (
+    ProductionAdvancePipelineState,
+    ProductionAdvanceService,
+)
 from src.rng import RNG
 from src.stats import PlayerStats
 
@@ -55,7 +58,12 @@ def _career(seed: int) -> CareerEngine:
 class ProductionIntegrationConsolidationTests(unittest.TestCase):
     def test_canonical_advance_uses_dynamic_pitcher_provider(self):
         service = ProductionAdvanceService(_career(1))
-        self.assertIsInstance(service.game_provider.game_provider, DynamicPitcherGameProvider)
+        self.assertIsInstance(
+            service.game_provider.game_provider,
+            DynamicPitcherGameProvider,
+        )
+        self.assertIsInstance(service.state, ProductionAdvancePipelineState)
+        self.assertTrue(service.state.team_record_supported)
 
     def test_week_advance_is_exact_composition(self):
         bulk_engine = _career(20260906)
@@ -70,6 +78,12 @@ class ProductionIntegrationConsolidationTests(unittest.TestCase):
         for _ in dates:
             repeated.advance_one_game()
         self.assertEqual(bulk.state.as_dict(), repeated.state.as_dict())
+        self.assertEqual(bulk.state.team_record, repeated.state.team_record)
+        self.assertEqual(
+            bulk.state.team_wins + bulk.state.team_losses + bulk.state.team_ties,
+            len(dates),
+        )
+        self.assertTrue(bulk.state.team_record_supported)
         self.assertEqual(
             bulk_engine.pitcher_usage_state.as_dict(),
             repeated_engine.pitcher_usage_state.as_dict(),
@@ -87,15 +101,62 @@ class ProductionIntegrationConsolidationTests(unittest.TestCase):
         start = bulk.state.current_date
         # Production schedule begins 2026-04-01; one calendar month from the
         # initial cursor covers the canonical April window.
-        expected_dates = bulk.schedule.game_dates(start, start.replace(month=4, day=30))
+        expected_dates = bulk.schedule.game_dates(
+            start,
+            start.replace(month=4, day=30),
+        )
         bulk.advance_one_month()
         for _ in expected_dates:
             repeated.advance_one_game()
         self.assertEqual(bulk.state.as_dict(), repeated.state.as_dict())
+        self.assertEqual(bulk.state.team_record, repeated.state.team_record)
+        self.assertEqual(
+            bulk.state.team_wins + bulk.state.team_losses + bulk.state.team_ties,
+            len(expected_dates),
+        )
+        self.assertTrue(bulk.state.team_record_supported)
         self.assertEqual(
             bulk_engine.pitcher_usage_state.as_dict(),
             repeated_engine.pitcher_usage_state.as_dict(),
         )
+
+    def test_production_team_record_save_roundtrip(self):
+        engine = _career(404)
+        service = ProductionAdvanceService(engine)
+        service.advance_one_week()
+        expected = dict(service.state.team_record)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "team-record.json"
+            save_game(path, engine)
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(payload["advance_state"]["team_record"], expected)
+            loaded = load_game(path)
+            self.assertIsInstance(
+                loaded.advance_state,
+                ProductionAdvancePipelineState,
+            )
+            self.assertEqual(loaded.advance_state.team_record, expected)
+
+    def test_old_advance_state_without_team_record_loads_as_unsupported(self):
+        engine = _career(405)
+        service = ProductionAdvanceService(engine)
+        service.advance_one_game()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "current.json"
+            save_game(path, engine)
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["advance_state"].pop("team_record", None)
+            old_path = Path(tmp) / "legacy-advance.json"
+            old_path.write_text(json.dumps(payload), encoding="utf-8")
+            loaded = load_game(old_path)
+            self.assertIsInstance(
+                loaded.advance_state,
+                ProductionAdvancePipelineState,
+            )
+            self.assertFalse(loaded.advance_state.team_record_supported)
+            self.assertEqual(loaded.advance_state.team_wins, 0)
+            self.assertEqual(loaded.advance_state.team_losses, 0)
+            self.assertEqual(loaded.advance_state.team_ties, 0)
 
     def test_optional_save_state_and_game_calling_are_backward_compatible(self):
         engine = _career(77)
