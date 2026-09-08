@@ -94,15 +94,19 @@ class PitcherUsageManager:
     def __init__(self,state:PitcherUsageLeagueState|None=None)->None:self.state=state or PitcherUsageLeagueState()
     def ensure_team(self,team:str,members:Sequence[PitcherUsageMember])->TeamPitcherUsageState:
         ts=self.state.team(team)
+        active_ids={m.pitcher_id for m in members}
         if not ts.pitchers:
             roles=initial_roles(members); ts.pitchers={m.pitcher_id:PitcherSeasonUsageState(m.pitcher_id,roles[m.pitcher_id]) for m in members}; ts.rotation=[m.pitcher_id for m in members if roles[m.pitcher_id]==PitcherRole.STARTER.value]
         else:
             for m in members:
                 if m.pitcher_id not in ts.pitchers:ts.pitchers[m.pitcher_id]=PitcherSeasonUsageState(m.pitcher_id,PitcherRole.MIDDLE_RELIEF.value)
-            self._sync_rotation(ts)
+            self._sync_rotation(ts,active_ids)
         return ts
-    def _sync_rotation(self,ts:TeamPitcherUsageState)->None:
-        starters=[pid for pid,s in ts.pitchers.items() if s.current_role==PitcherRole.STARTER.value]; kept=[pid for pid in ts.rotation if pid in starters]; ts.rotation=kept+sorted(pid for pid in starters if pid not in kept); ts.rotation_index=(ts.rotation_index%len(ts.rotation)) if ts.rotation else 0
+    def _sync_rotation(self,ts:TeamPitcherUsageState,active_ids:set[str]|None=None)->None:
+        starters=[pid for pid,s in ts.pitchers.items() if s.current_role==PitcherRole.STARTER.value and (active_ids is None or pid in active_ids)]
+        kept=[pid for pid in ts.rotation if pid in starters]
+        ts.rotation=kept+sorted(pid for pid in starters if pid not in kept)
+        ts.rotation_index=(ts.rotation_index%len(ts.rotation)) if ts.rotation else 0
     def refresh_to(self,s:PitcherSeasonUsageState,on_date:date,resilience:float=100)->None:
         if s.last_recovery_date is None:s.last_recovery_date=on_date
         days=max(0,(on_date-s.last_recovery_date).days)
@@ -125,12 +129,12 @@ class PitcherUsageManager:
         if s.last_start_date and (on_date-s.last_start_date).days<STARTER_REST_DAYS+1:return False
         return self.availability(s,on_date,m.resilience)!=PitcherAvailability.UNAVAILABLE
     def select_starter(self,team:str,members:Sequence[PitcherUsageMember],on_date:date)->tuple[str,str|None]:
-        ts=self.ensure_team(team,members); mm={m.pitcher_id:m for m in members}; self._sync_rotation(ts)
+        ts=self.ensure_team(team,members); mm={m.pitcher_id:m for m in members}; active_ids=set(mm); self._sync_rotation(ts,active_ids)
         if not ts.rotation:raise RuntimeError("no starter in rotation")
         for off in range(len(ts.rotation)):
             i=(ts.rotation_index+off)%len(ts.rotation); pid=ts.rotation[i]
             if self.starter_eligible(ts.pitchers[pid],mm[pid],on_date):ts.rotation_index=(i+1)%len(ts.rotation); return pid,None
-        c=[pid for pid,s in ts.pitchers.items() if s.current_role in {PitcherRole.SWINGMAN.value,PitcherRole.LONG_RELIEF.value}]
+        c=[pid for pid,s in ts.pitchers.items() if pid in active_ids and s.current_role in {PitcherRole.SWINGMAN.value,PitcherRole.LONG_RELIEF.value}]
         for pid in sorted(c,key=lambda x:(-ts.pitchers[x].days_since_last_appearance,x)):
             if self.availability(ts.pitchers[pid],on_date,mm[pid].resilience)!=PitcherAvailability.UNAVAILABLE:return pid,"SPOT_START"
         pid=max(ts.rotation,key=lambda x:(ts.pitchers[x].days_since_last_appearance,x)); return pid,"ROTATION_EXHAUSTED"
@@ -155,9 +159,9 @@ class PitcherUsageManager:
         else:order={"middle_relief":4,"long_relief":3,"swingman":2.8,"setup":2.5,"closer":1.5}
         return order.get(role,0.)
     def select_reliever(self,team:str,members:Sequence[PitcherUsageMember],on_date:date,inning:int,score_margin:int,used_ids:Iterable[str])->tuple[str|None,str|None]:
-        ts=self.ensure_team(team,members); mm={m.pitcher_id:m for m in members}; used=set(used_ids); c=[]; emergency=[]
+        ts=self.ensure_team(team,members); mm={m.pitcher_id:m for m in members}; active_ids=set(mm); used=set(used_ids); c=[]; emergency=[]
         for pid,s in ts.pitchers.items():
-            if pid in used or s.current_role==PitcherRole.STARTER.value:continue
+            if pid not in active_ids or pid in used or s.current_role==PitcherRole.STARTER.value:continue
             av=self.availability(s,on_date,mm[pid].resilience); stress=s.fatigue_load+s.recovery_debt; fit=self._role_fit(s.current_role,inning,score_margin)
             if av==PitcherAvailability.UNAVAILABLE:emergency.append((stress-fit*2,pid));continue
             pen={PitcherAvailability.AVAILABLE:0.,PitcherAvailability.LIMITED:1.5,PitcherAvailability.TIRED:3.}[av]; c.append((fit-pen-stress/100,pid))
@@ -190,17 +194,17 @@ class PitcherUsageManager:
     def evaluate_roles(self,team:str,members:Sequence[PitcherUsageMember],on_date:date,*,force:bool=False)->tuple[tuple[str,str,str],...]:
         ts=self.ensure_team(team,members)
         if not force and ts.last_role_evaluation_date and (on_date-ts.last_role_evaluation_date).days<ROLE_EVALUATION_INTERVAL_DAYS:return ()
-        ts.last_role_evaluation_date=on_date;mm={m.pitcher_id:m for m in members};dem=[];pro=[]
-        for s in ts.pitchers.values():
-            if not s.can_change_role(on_date):continue
+        ts.last_role_evaluation_date=on_date;mm={m.pitcher_id:m for m in members};active_ids=set(mm);dem=[];pro=[]
+        for pid,s in ts.pitchers.items():
+            if pid not in active_ids or not s.can_change_role(on_date):continue
             if s.current_role==PitcherRole.STARTER.value:
                 rs=[o for o in self._recent(s) if o.started]
-                if len(rs)>=3 and (self.performance_signal(s,True)<=-.45 or sum(o.outs<15 for o in rs)/len(rs)>=.80):dem.append((self.starter_candidate_score(s,mm[s.pitcher_id]),s))
+                if len(rs)>=3 and (self.performance_signal(s,True)<=-.45 or sum(o.outs<15 for o in rs)/len(rs)>=.80):dem.append((self.starter_candidate_score(s,mm[pid]),s))
             else:
                 rr=[o for o in self._recent(s) if not o.started];bf=sum(o.BF for o in rr)
-                if (len(rr)>=4 or bf>=20) and mm[s.pitcher_id].stamina>=88 and self.performance_signal(s,False)>=.35:pro.append((self.starter_candidate_score(s,mm[s.pitcher_id]),s))
+                if (len(rr)>=4 or bf>=20) and mm[pid].stamina>=88 and self.performance_signal(s,False)>=.35:pro.append((self.starter_candidate_score(s,mm[pid]),s))
         if not dem or not pro:return ()
         dem.sort(key=lambda x:(x[0],x[1].pitcher_id));pro.sort(key=lambda x:(-x[0],x[1].pitcher_id));cur,down=dem[0];rep,up=pro[0]
         if rep<cur+.28:return ()
-        old=up.current_role;down.previous_role=down.current_role;down.current_role=PitcherRole.LONG_RELIEF.value;down.role_changed_at=on_date;down.role_change_appearances=0;down.role_change_count+=1;up.previous_role=old;up.current_role=PitcherRole.STARTER.value;up.role_changed_at=on_date;up.role_change_appearances=0;up.role_change_count+=1;ts.role_switches+=2;self._sync_rotation(ts)
+        old=up.current_role;down.previous_role=down.current_role;down.current_role=PitcherRole.LONG_RELIEF.value;down.role_changed_at=on_date;down.role_change_appearances=0;down.role_change_count+=1;up.previous_role=old;up.current_role=PitcherRole.STARTER.value;up.role_changed_at=on_date;up.role_change_appearances=0;up.role_change_count+=1;ts.role_switches+=2;self._sync_rotation(ts,active_ids)
         return ((down.pitcher_id,PitcherRole.STARTER.value,PitcherRole.LONG_RELIEF.value),(up.pitcher_id,old,PitcherRole.STARTER.value))
