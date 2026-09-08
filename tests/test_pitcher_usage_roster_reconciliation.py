@@ -4,8 +4,8 @@ from datetime import date, timedelta
 from src.pitcher_usage import PitcherUsageManager, PitcherUsageMember
 
 
-def members():
-    return [PitcherUsageMember(f"p{i}", 100.0, 100.0) for i in range(12)]
+def members(prefix="p"):
+    return [PitcherUsageMember(f"{prefix}{i}", 100.0, 100.0) for i in range(12)]
 
 
 class PitcherUsageRosterReconciliationTests(unittest.TestCase):
@@ -40,6 +40,44 @@ class PitcherUsageRosterReconciliationTests(unittest.TestCase):
         self.assertNotEqual(picked, stale)
         self.assertIn(stale, team.pitchers)
 
+    def test_empty_rotation_rebuilds_from_current_active_members(self):
+        mgr = PitcherUsageManager()
+        old = members("old")
+        team = mgr.ensure_team("T", old)
+        old_rotation = tuple(team.rotation)
+        current = members("new")
+
+        picked, _ = mgr.select_starter("T", current, date(2026, 4, 1))
+        active_ids = {m.pitcher_id for m in current}
+
+        self.assertIn(picked, active_ids)
+        self.assertEqual(len(team.rotation), 5)
+        self.assertTrue(set(team.rotation).issubset(active_ids))
+        self.assertTrue(set(team.rotation).isdisjoint(old_rotation))
+        self.assertEqual(len(team.rotation), len(set(team.rotation)))
+        self.assertGreaterEqual(team.rotation_index, 0)
+        self.assertLess(team.rotation_index, len(team.rotation))
+
+    def test_partial_rotation_preserves_active_starters_and_fills_missing_slots(self):
+        mgr = PitcherUsageManager()
+        ms = members()
+        team = mgr.ensure_team("T", ms)
+        original = tuple(team.rotation)
+        retained = original[:2]
+        removed = set(original[2:])
+        active = [m for m in ms if m.pitcher_id not in removed]
+
+        mgr.ensure_team("T", active)
+        first = tuple(team.rotation)
+        mgr.ensure_team("T", active)
+        second = tuple(team.rotation)
+
+        self.assertEqual(first[:2], retained)
+        self.assertEqual(first, second)
+        self.assertEqual(len(first), 5)
+        self.assertEqual(len(first), len(set(first)))
+        self.assertTrue(set(first).issubset({m.pitcher_id for m in active}))
+
     def test_returning_pitcher_preserves_usage_state(self):
         mgr = PitcherUsageManager()
         ms = members()
@@ -61,6 +99,18 @@ class PitcherUsageRosterReconciliationTests(unittest.TestCase):
         self.assertEqual(after, before)
         self.assertIn(returning.pitcher_id, team.rotation)
 
+    def test_rotation_only_contains_active_unique_ids(self):
+        mgr = PitcherUsageManager()
+        old = members("old")
+        team = mgr.ensure_team("T", old)
+        current = members("new")
+
+        mgr.ensure_team("T", current)
+        active_ids = {m.pitcher_id for m in current}
+
+        self.assertTrue(set(team.rotation).issubset(active_ids))
+        self.assertEqual(len(team.rotation), len(set(team.rotation)))
+
     def test_rotation_index_remains_valid_after_active_roster_pruning(self):
         mgr = PitcherUsageManager()
         ms = members()
@@ -75,6 +125,19 @@ class PitcherUsageRosterReconciliationTests(unittest.TestCase):
         self.assertGreaterEqual(team.rotation_index, 0)
         self.assertLess(team.rotation_index, len(team.rotation))
         self.assertTrue(set(team.rotation).isdisjoint(removed))
+
+    def test_rotation_index_remains_valid_after_full_rotation_rebuild(self):
+        mgr = PitcherUsageManager()
+        old = members("old")
+        team = mgr.ensure_team("T", old)
+        team.rotation_index = 99
+        current = members("new")
+
+        mgr.ensure_team("T", current)
+
+        self.assertTrue(team.rotation)
+        self.assertGreaterEqual(team.rotation_index, 0)
+        self.assertLess(team.rotation_index, len(team.rotation))
 
     def test_stale_swingman_is_not_used_as_spot_starter(self):
         mgr = PitcherUsageManager()
