@@ -1,72 +1,84 @@
 # 07 - Integration & GitHub
 
 WORKSTREAM: 07 - Integration & GitHub
-UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@4b90f565ea9f846e9450340bf0ade77eff0c44d8
-STATE: DONE
-CURRENT_TASK: PR #38 / #39 sequential production integration
-RESULT: PASS — PR #38 merged first; PR #39 reconciled onto post-#38 main, revalidated, and merged; production integration regression GREEN
+UPDATED_AT: 2026-09-11
+SOURCE_OF_TRUTH: main@c390c788ca8e459942f45f37b0fdc0c85db7fa14
+STATE: REVIEW
+CURRENT_TASK: P0 Web ↔ Python Production Vertical Slice
+RESULT: PASS for local/CI vertical slice and main integration; production deployment remains OPEN pending external transactional durable storage and deployment wiring
 
 ## LAST_COMPLETED
-- Validated PR #38 `feature/production-season-lifecycle-v1@fcffdba5670e4322d4542967fcd24d51a046271b` and merged it first as `4aba1adcd60acb98558145e42dca2cfc45423388`.
-- Post-#38 main workflow run #619 completed SUCCESS.
-- Rechecked PR #39 after #38 merge; GitHub reported the expected conflict in shared `src/career.py`.
-- Resolved #39 against post-#38 main with merge-resolution head `f8ad51e8ff44f8079ad3bd57b23311c2e84b67e5`, preserving #38 lifecycle finalization and adding only #39 observational hooks.
-- Fresh PR #39 workflow run #621 completed SUCCESS: full Python unit suite, Auto career smoke, Balance smoke, draft calibration gate, web build, and web tests all passed.
-- PR #39 merged as `b97a4aca7ebc339de71e178f88a75faa68df7764`.
-- Post-#39 main workflow run #622 completed SUCCESS across both test jobs and all required gates.
-- Subsequent main changes through `4b90f565ea9f846e9450340bf0ade77eff0c44d8` are unrelated CI/docs integration changes; merged #38/#39 code remains present.
+- Implemented the P0 browser-to-authoritative-Python vertical slice on `feature/p0-web-python-vertical-slice`.
+- Extracted canonical `serialize_game(engine)` / `deserialize_game(payload)` boundaries from path-oriented persistence without changing save schema semantics.
+- Added FastAPI `/api/v1/session`, `/api/v1/career`, `/api/v1/state`, `/api/v1/advance`, and `/api/v1/save` routes.
+- Added transactional SQLite local/CI session storage with revision compare-and-swap and idempotency replay records.
+- Added `HttpBackendPresentationGateway` and switched the production web entrypoint to `ProductionPresentationProvider`; `MockGameDataProvider` is no longer production bootstrap authority.
+- Added Vite `/api` proxy for localhost:5173 -> FastAPI localhost:8000 development topology.
+- Initial feature run #634 completed GREEN.
+- Updated the branch onto latest pre-merge main `67f752a375a708d9d9834f09c6954aced4b950f9` with no P0 file conflicts; integrated head `062cf30ae4c964268187bb13df2206ccc61f7734` passed PR run #641 GREEN.
+- PR #42 was marked ready and merged as `c390c788ca8e459942f45f37b0fdc0c85db7fa14`.
+- Post-merge main run #642 completed GREEN across API vertical-slice tests, related production integration tests, full Python suite, Auto career smoke, Balance smoke, draft calibration gate, web build, and web tests.
 
 ## CURRENT_FINDINGS
-- Integration order #38 -> #39 was retained because #38 owns Growth/Career lifecycle finalization while #39 observes authoritative draft/roster/appearance transitions.
-- The only direct changed-file overlap between #38 and #39 was `src/career.py`.
-- Conflict resolution preserved `SeasonFinalizationResult`, `finalize_completed_pro_season()`, and #38 `finish_pro_season()` semantics.
-- #39 observational hooks for draft/pro entry, call-up, first-team debut, demotion, and roster transitions were layered without changing roster probabilities or lifecycle RNG semantics.
-- Append-only `career_history`, save/load compatibility, deterministic RNG-free narrative rendering, and dedupe tests are present on current main.
-- No gameplay probability, rating scale, growth coefficient, event effect, fatigue/injury/form formula, or test threshold was retuned.
-- Code integration main `b97a4aca7ebc339de71e178f88a75faa68df7764` passed run #622; current main `4b90f565ea9f846e9450340bf0ade77eff0c44d8` still contains the same #38/#39 code tree for affected files.
+- Authoritative flow is React -> GameDataProvider -> ProductionPresentationProvider -> HttpBackendPresentationGateway -> FastAPI -> CareerEngine -> ProductionAdvanceService -> canonical serialized save -> transactional store -> Dashboard + Season DTO -> React.
+- `POST /api/v1/career` reuses canonical `CareerEngine.evaluate_draft()` for the initial playable PRO transition rather than inventing HTTP-layer roster/draft semantics.
+- `POST /api/v1/advance` P0 scope accepts `command=next_game` only; week/month/season breadth is intentionally deferred.
+- Mutation transaction checks idempotency before execution, compares expected revision, runs simulation at most once per committed idempotency key, atomically persists revision+1, and returns DTOs for the committed revision.
+- Same idempotency key + same request replays the stored response without a second game. Reusing a key with a different request returns `SIMULATION_CONFLICT`. Stale revision returns `REVISION_CONFLICT` 409.
+- API integration tests verify create -> state, refresh/restart recovery from the same SQLite file, consistent state reads, next_game revision 1 -> 2, persisted `CareerEngine.current_session.games_completed == 1`, idempotent replay, stale-revision rejection, deterministic save/load resume, and manual-save revision checks.
+- SQLite is explicitly local/CI only. Under Vercel/production mode without an external durable adapter, the API fails closed with `SAVE_FAILED` rather than treating function-local filesystem as authority.
+- No gameplay, rating, growth, event, catcher, KBO-rule, or probability formula was changed by PR #42.
 
 ## BLOCKERS
-- None for PR #38 / #39 production integration.
+- Production/serverless deployment requires a real external transactional durable-store adapter/configuration. Function-local SQLite/filesystem is intentionally rejected as production authority.
+- Same-origin Vercel FastAPI routing/root deployment layout has not yet been production-validated.
 
 ## OPEN_ITEMS
-- 05 long-run lifecycle equivalence/distribution validation remains an independent non-blocking validation item from PR #38.
-- Future contract/FA/trade/posting/service-time systems remain outside these PR scopes.
-- Career-history presentation in Web UI remains a future 06-facing integration task if exposed to players.
+- Select and implement the external transactional durable store while preserving the `SessionStore` revision/idempotency contract.
+- Wire/validate FastAPI in the final deployment topology and use secure production cookie settings.
+- Run real browser process E2E against Vite :5173 + FastAPI :8000 when a local/Codespaces checkout is available; current evidence is GitHub Actions FastAPI TestClient + web gateway/build tests.
+- Extend advance breadth to week/month/season only after `next_game` deployment correctness is established.
 
 ## DEPENDENCIES
-- 03: Production Season Lifecycle Bridge v1 is merged and is the lifecycle production contract.
-- 04: Career Spine v1 is merged as an observational layer over authoritative 03 transitions.
-- 05: may run long-run lifecycle/career-history regression validation without retuning production semantics.
-- 06: may consume career-history data later; no frontend change was required for these backend integrations.
+- 06: frontend may treat `/api/v1` and `HttpBackendPresentationGateway` as the production transport boundary; no frontend domain simulation should be added.
+- 05: production balance remains unchanged; no retuning is required from this transport milestone.
+- Deployment infrastructure: external transactional durable storage is required before Vercel production authority can be enabled.
 
 ## NEXT_ACTION
-- Treat current main as the integration baseline for subsequent CareerEngine/lifecycle work; run 05 long-run validation separately if prioritized.
+- Implement the external durable `SessionStore` adapter and same-origin FastAPI deployment wiring, then run deployed next_game idempotency/revision smoke validation before enabling broader advance commands.
 
 ## RELATED_PRS
-- #38 merged
-- #39 merged
+- #42 merged: P0 Web ↔ Python production vertical slice
+- #37 merged: production presentation contract/provider foundation
 
 ## RELATED_BRANCHES
 - main
-- feature/production-season-lifecycle-v1
-- feature/career-spine-v1
+- feature/p0-web-python-vertical-slice
 
 ## GATES
-- PR38_TARGETED_LIFECYCLE = PASS
-- PR38_SAVE_LOAD_BOUNDARY = PASS
-- PR38_HEADLESS_EQUIVALENCE = PASS
-- PR38_FULL_PYTHON_SUITE = PASS
-- PR38_MAIN_CI = PASS
-- PR39_CONFLICT_RESOLUTION = PASS
-- PR39_APPEND_ONLY_HISTORY = PASS
-- PR39_DEDUPE = PASS
-- PR39_SAVE_LOAD = PASS
-- PR39_RNG_FREE_NARRATIVE = PASS
-- PR39_ZERO_SIMULATION_MUTATION = PASS
-- PR39_FULL_PYTHON_SUITE = PASS
-- WEB_BUILD_TESTS = PASS
+- SERIALIZATION_BOUNDARY = PASS
+- SESSION_DISCOVERY = PASS
+- CREATE_CAREER = PASS
+- ATOMIC_STATE_SNAPSHOT = PASS
+- NEXT_GAME_E2E = PASS
+- REVISION_CAS = PASS
+- IDEMPOTENCY_REPLAY = PASS
+- STALE_REVISION_409 = PASS
+- REFRESH_RESTORE = PASS
+- BACKEND_RESTART_PERSISTENCE = PASS
+- DETERMINISTIC_RESUME = PASS
+- MOCK_NOT_PRODUCTION_AUTHORITY = PASS
+- API_INTEGRATION_TESTS = PASS
+- RELATED_PRODUCTION_TESTS = PASS
+- PYTHON_UNIT_SUITE = PASS
 - AUTO_CAREER_SMOKE = PASS
 - BALANCE_SMOKE = PASS
 - DRAFT_CALIBRATION_GATE = PASS
+- WEB_BUILD = PASS
+- WEB_TESTS = PASS
+- PR42_LATEST_MAIN_REVALIDATION = PASS
+- PR42_MERGED = PASS
 - MAIN_CI_GREEN = PASS
+- EXTERNAL_DURABLE_STORE = OPEN
+- VERCEL_PRODUCTION_WIRING = OPEN
+- DEPLOYED_BROWSER_E2E = OPEN
