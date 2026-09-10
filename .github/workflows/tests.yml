@@ -37,7 +37,7 @@ jobs:
       - name: Compile
         run: python -m compileall -q index.py src tests tools/draft_calibration.py tools/deployed_p0_smoke.py
       - name: External durable store tests
-        run: python -m unittest tests.test_postgres_session_store tests.test_api_production_config -v
+        run: python -m unittest tests.test_postgres_migration tests.test_postgres_session_store tests.test_api_production_config -v
       - name: Vercel FastAPI entrypoint smoke
         env:
           BASEBALL_SIM_PRODUCTION: '1'
