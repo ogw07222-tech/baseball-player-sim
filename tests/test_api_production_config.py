@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -35,9 +37,11 @@ class ProductionConfigurationTests(unittest.TestCase):
         self.assertIsInstance(store, SQLiteSessionStore)
 
     def test_production_cookie_is_opaque_persistent_secure_httponly(self):
-        with clean_env(VERCEL="1"):
-            with TestClient(create_app(SQLiteSessionStore(":memory:"))) as client:
-                response = client.get("/api/v1/session")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = SQLiteSessionStore(Path(temp_dir) / "cookie-test.sqlite3")
+            with clean_env(VERCEL="1"):
+                with TestClient(create_app(store)) as client:
+                    response = client.get("/api/v1/session")
         self.assertEqual(response.status_code, 200)
         cookie = response.headers["set-cookie"]
         self.assertIn(f"{COOKIE_NAME}=", cookie)
