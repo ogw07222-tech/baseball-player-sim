@@ -2,41 +2,42 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@e642fa2545bdc05ad8cc2b363b7bd199173409b1
-STATE: REVIEW
-CURRENT_TASK: PR #36 completed; main CI green; PR #37 integration revalidation/unblock
-RESULT: PASS for PR #36 and MAIN_CI_GREEN; PR #37 OPEN pending stale-base update and fresh integration CI
+SOURCE_OF_TRUTH: main@e0ee4e9a12d8bc806c30dcdd58ea2acb88029932
+STATE: DONE
+CURRENT_TASK: PR #37 latest-main revalidation and production UI integration
+RESULT: PASS — PR #37 merged after fresh latest-main validation; post-merge main CI GREEN
 
 ## LAST_COMPLETED
-- PR #36 merged to main with the minimal `game_calling` CLI presentation label fix.
-- Main workflow run #566 completed GREEN on `e642fa2545bdc05ad8cc2b363b7bd199173409b1`.
-- Python full unit suite, exact Auto career smoke, Balance smoke, draft calibration gate, web build, and web tests all passed on that main SHA.
-- PR #37 repository-wide smoke blocker was cleared and its PR description was updated with the current integration state.
+- Updated `ui/production-presentation-milestone` onto `main@9aa458735721570581f4968060590acf3fc9c957` with merge commit `1cbddd67df717b8f4800189c87f168fcf0c4e127`.
+- Stale-base update preserved the 11 PR #37 `web/src/**` changes without feature additions; no conflicting file paths were found against intervening main changes.
+- Fresh PR workflow run #578 completed GREEN: Python full unit suite, exact Auto career smoke, Balance smoke, draft calibration gate, artifact upload, web build, and web tests all passed.
+- PR #37 was marked ready for review and merged as `1edad331045f554b03777a6254dab02f024f063b`.
+- Latest post-merge main `e0ee4e9a12d8bc806c30dcdd58ea2acb88029932` includes PR #37 plus a subsequent docs-only workstream update; workflow run #586 completed GREEN across both jobs and all required gates.
 
 ## CURRENT_FINDINGS
-- PR #36 changed only `src/main.py` presentation mapping; gameplay, ratings, growth, events, catcher gameplay, tests, and workflow logic were not changed.
-- MAIN_CI_GREEN is confirmed on the post-#36 production main SHA.
-- PR #37 is open, draft, and GitHub reports it mergeable, but its head `812a0f8b34fa34c03a4787cf218bd74fc8febfaa` is 5 commits behind latest validated main and 12 commits ahead of the merge base.
-- PR #37's previous web build/tests and Python unit suite were green; its prior repository-wide failure was the now-fixed Auto career smoke blocker.
+- PR #37 integration introduced only its existing Web UI production-presentation milestone changes; no gameplay, rating, growth, event, catcher gameplay, test, or workflow logic was modified during stale-base resolution.
+- Production DTO/type compatibility is validated by the PR web build/tests and adapter coverage on the latest-main-integrated head.
+- Main remains repository-wide GREEN after PR #37 integration.
+- PR #37 intentionally provides the transport-agnostic `ProductionPresentationProvider` / `BackendPresentationGateway` contract; a concrete browser-to-Python transport remains a separate production-wiring task, not a blocker to PR #37's completed milestone.
 
 ## BLOCKERS
-- PR #37 requires update/rebase onto latest main and one fresh integration CI run before merge recommendation is upgraded to PASS.
+- None for PR #37 integration or current main CI.
 
 ## OPEN_ITEMS
-- Update/rebase `ui/production-presentation-milestone` onto latest main without unrelated changes.
-- Run one fresh PR integration CI cycle.
-- If green, mark PR #37 ready for review and proceed with merge review.
+- Implement and validate a concrete `BackendPresentationGateway` transport before the browser can consume Python presentation DTOs directly in live production.
+- Perform Vercel deployment only when that concrete browser integration requires user-visible verification.
 
 ## DEPENDENCIES
-- 06: repository-wide blocker is cleared; PR #37 is unblocked for revalidation, but not yet final-merge PASS until fresh CI on latest main.
-- 05: production validation remains an independent readiness input.
+- 06: PR #37 is merged; Web UI milestone is unblocked and integrated into production main.
+- 05: balance/production validation remains an independent readiness input for future simulation changes.
+- Future browser-live production wiring depends on a concrete backend transport contract implementation.
 
 ## NEXT_ACTION
-- Rebase/update PR #37 onto latest main, avoid any extra feature changes, and use a single fresh Actions run as final integration evidence.
+- Begin the separate concrete browser-to-Python presentation transport integration task, keeping PR #37's merged DTO/provider contracts as the frontend boundary; avoid Vercel deployment until local/integration validation is complete.
 
 ## RELATED_PRS
 - #36 merged
-- #37 open/draft, mergeable, revalidation required
+- #37 merged
 
 ## RELATED_BRANCHES
 - main
@@ -49,7 +50,11 @@ RESULT: PASS for PR #36 and MAIN_CI_GREEN; PR #37 OPEN pending stale-base update
 - PYTHON_UNIT_SUITE = PASS
 - WEB_TESTS = PASS
 - AUTO_CAREER_SMOKE = PASS
+- BALANCE_SMOKE = PASS
+- DRAFT_CALIBRATION_GATE = PASS
+- PR37_DTO_TYPE_COMPATIBILITY = PASS
+- PR37_LATEST_MAIN_REVALIDATION = PASS
+- PR37_MERGE_READY = PASS
+- PR37_MERGED = PASS
 - MAIN_CI_GREEN = PASS
-- PR37_REPOSITORY_BLOCKER_CLEARED = PASS
-- PR37_LATEST_MAIN_REVALIDATION = OPEN
-- PR37_MERGE_READY = OPEN
+- PRODUCTION_UI_TRANSPORT = OPEN
