@@ -2,10 +2,11 @@
 
 WORKSTREAM: 03 - Growth & Career
 UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@9aa458735721570581f4968060590acf3fc9c957
+SOURCE_OF_TRUTH: main@f19bf424c910bfa66bf05cc20d20a930f27f8c88
+IMPLEMENTATION_BASE: main@9aa458735721570581f4968060590acf3fc9c957
 STATE: IMPLEMENTED_AWAITING_LONG_RUN_VALIDATION
 CURRENT_TASK: Production Season Lifecycle Bridge v1 implementation
-RESULT: IMPLEMENTATION_PASS_CI_PENDING_FINAL_GATE
+RESULT: IMPLEMENTATION_PASS
 
 ## LAST_COMPLETED
 - Implemented the approved Production Season Lifecycle Bridge v1 on `feature/production-season-lifecycle-v1`.
@@ -13,7 +14,8 @@ RESULT: IMPLEMENTATION_PASS_CI_PENDING_FINAL_GATE
 - Refactored `finish_pro_season()` to delegate lifecycle-owned finalization to the same primitive.
 - Added explicit `ProductionAdvanceService.finalize_season()` and `start_next_season()` boundary operations.
 - Added lifecycle/save-load/idempotency/headless-equivalence regression tests.
-- PR #38 opened against main.
+- PR #38 remains open against main and is currently mergeable.
+- Rechecked latest main after implementation; intervening main work does not replace the lifecycle primitive or Growth/Career backend contract.
 
 ## IMPLEMENTATION_CONTRACT
 ### Finalization primitive
@@ -38,19 +40,20 @@ On success it performs exactly once:
 Retirement remains caller-controlled and is not implicitly evaluated by finalization.
 
 ### Idempotency and persistence
-- No new persisted lifecycle marker was required.
-- Pre-finalization identity is represented by an existing finished `current_session`.
-- Successful finalization clears `current_session`, so a repeated call rejects before any RNG-consuming work.
-- A game-144 save preserves the finished session and is finalizable after load.
-- Production finalization removes stale `advance_state`; a finalized save therefore cannot replay the completed production-season aggregate as the next season.
-- SAVE_VERSION remains unchanged; existing save versions remain supported through existing persistence defaults.
+- No new persisted lifecycle marker is used.
+- A finished `current_session` is the pre-finalization state.
+- Successful finalization clears `current_session`; repeated finalization rejects before RNG-consuming work.
+- A game-144 save preserves the finished session and remains finalizable after load.
+- Production finalization removes stale `advance_state`.
+- Finalized save/load does not replay growth or awards.
+- SAVE_VERSION is unchanged; existing supported saves remain backward compatible.
 
 ### Production advance bridge
-- `ProductionAdvanceService.season_complete` exposes the explicit boundary.
+- `ProductionAdvanceService.season_complete` exposes the boundary.
 - `finalize_season()` invokes only the canonical CareerEngine finalization primitive.
-- `start_next_season()` explicitly creates the next ProSeasonSession, rebuilds the schedule from incremented engine.year, and attaches a fresh production advance state.
-- Service construction does not finalize a completed season.
-- Existing gameplay probability/formula providers are unchanged.
+- `start_next_season()` explicitly creates the next ProSeasonSession, rebuilds the schedule using the incremented engine year, and creates fresh production advance state.
+- Service construction does not finalize a season.
+- Read-only state access does not intentionally consume lifecycle RNG.
 
 ### Result contract
 `SeasonFinalizationResult` exposes:
@@ -63,7 +66,7 @@ Retirement remains caller-controlled and is not implicitly evaluated by finaliza
 - awards
 - `as_dict()` for validation/UI-adapter consumption
 
-## TEST_COVERAGE_ADDED
+## TEST_COVERAGE
 `tests/test_season_lifecycle_bridge.py` covers:
 - finalize before completion rejected with zero RNG consumption
 - completed season finalizes exactly once
@@ -79,16 +82,18 @@ Retirement remains caller-controlled and is not implicitly evaluated by finaliza
 ## CI_STATUS
 PR: #38
 BRANCH: feature/production-season-lifecycle-v1
-IMPLEMENTATION_HEAD_BEFORE_STATUS_UPDATE: 411529269b042708bb45fadbedb181f4b8067a6e
-WORKFLOW: tests run #585
+IMPLEMENTATION_HEAD: 411529269b042708bb45fadbedb181f4b8067a6e
+STATUS_HEAD_BEFORE_THIS_UPDATE: 0141428a353b3077e50ddf05fa3002456f80b4bd
+- tests workflow #585 on implementation head: SUCCESS
+- tests workflow #589 on status-updated head: SUCCESS
 - Python compile: PASS
-- full unit-tests step: PASS
+- full unit test suite: PASS
 - auto career smoke: PASS
 - balance smoke: PASS
+- high-school/draft calibration gate: PASS
 - web build/tests: PASS
-- high-school/draft calibration gate: still running at status-update time
 
-Local clone/full-suite-before-push could not be performed because the execution environment could not resolve github.com. Validation therefore used one PR CI checkpoint after the bounded implementation push.
+Local clone/full-suite-before-push was unavailable because the execution environment could not resolve github.com; GitHub PR CI supplied the full-suite checkpoint.
 
 ## UNCHANGED / OUT_OF_SCOPE
 - gameplay probabilities
@@ -100,11 +105,11 @@ Local clone/full-suite-before-push could not be performed because the execution 
 
 ## REMAINING_OPEN_ITEMS
 - 05 long-run lifecycle equivalence/distribution validation.
-- 07 integration review and merge decision for PR #38.
-- Realistic FARM/FIRST playing-time opportunity redesign remains separate.
-- Persistent injury-development consequences remain separate.
-- Contract/FA/trade/posting/service-time foundation remains separate.
-- Pitcher-usage offseason reset semantics should be reviewed by 01/07 when multi-season production play is integrated; this batch intentionally did not alter gameplay usage formulas/state policy.
+- 07 integration review and merge decision for PR #38 against current main.
+- Realistic FARM/FIRST playing-time opportunity redesign.
+- Persistent injury-development consequences.
+- Contract/FA/trade/posting/service-time foundation.
+- Future multi-season pitcher-usage offseason reset semantics require 01/07 review; this batch did not alter gameplay usage formulas/state policy.
 
 ## MONTE_CARLO_HANDOFF_FOR_05
 Validation only; no tuning.
@@ -116,21 +121,21 @@ Required checks:
 - matched-seed save/load interruptions at random game-143/game-144/post-finalize boundaries produce identical terminal state
 - deterministic replay mismatch rate = 0
 - compare old headless vs canonical lifecycle distributions for debut age, peak age, peak ability, retirement age, career PA, FARM PA, injuries, awards
-- distribution deltas should be approximately zero because no tuning/formula changes were made
+- material distribution deltas should not appear because no progression tuning/formula changes were made
 
 ## DEPENDENCIES
 - 05: long-run deterministic/distribution validation.
 - 07: PR #38 integration review, current-main compatibility, merge/CI.
-- 01: no formula work; only review future pitcher-usage offseason state semantics if needed.
-- 02: no rating/Talent changes.
-- 04: no event catalog changes; existing pending-event contract reused.
+- 01: no gameplay formula change; future pitcher-usage offseason state review only.
+- 02: no rating/Talent change.
+- 04: no event catalog change; existing pending-event contract reused.
 - 06: optional later consumption of SeasonFinalizationResult; no blocking UI work.
-- 08: no blocking data requirement for this v1 implementation.
+- 08: no blocking data requirement for v1.
 
 ## NEXT_ACTION
-- Confirm PR #38 final CI conclusion.
-- Hand PR #38 to 05 for long-run validation and 07 for integration review.
-- Do not tune growth/retirement/roster coefficients in this batch.
+- Hand PR #38 to 05 for long-run lifecycle validation.
+- Hand PR #38 to 07 for final integration/rebase/merge against latest main.
+- Do not tune growth, retirement, roster, gameplay, or rating coefficients in this batch.
 
 ## RELATED_PRS
 - #38 Growth/Career: Production Season Lifecycle Bridge v1
@@ -146,7 +151,8 @@ Required checks:
 - SAVE_LOAD_IDEMPOTENCY_REGRESSION = PASS
 - HEADLESS_FINALIZATION_EQUIVALENCE = PASS
 - FULL_UNIT_SUITE = PASS
-- FINAL_CI = OPEN
+- FINAL_CI = PASS
+- CURRENT_MAIN_INTEGRATION = OPEN
 - LONG_RUN_LIFECYCLE_VALIDATION = OPEN
 - REALISTIC_PLAYING_TIME_OPPORTUNITY = OPEN
 - PERSISTENT_INJURY_DEVELOPMENT = OPEN
