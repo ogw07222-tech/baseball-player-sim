@@ -2,6 +2,8 @@
 
 This directory contains calibration inputs and derived simulation datasets used by Baseball Player Career Simulator.
 
+For the dataset-by-dataset KBO provenance matrix, unresolved-source inventory, redistribution review status, and future ingestion checklist, see [`PROVENANCE.md`](PROVENANCE.md).
+
 ## What is original to this project
 
 The following values are project-generated outputs rather than official KBO ratings:
