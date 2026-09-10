@@ -46,6 +46,7 @@ jobs:
     permissions:
       contents: read
     env:
+      PYTHONPATH: .
       SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || 'full_game' }}
       SEED: ${{ github.event_name == 'workflow_dispatch' && inputs.seed || '20260906' }}
       GAMES: ${{ github.event_name == 'workflow_dispatch' && inputs.games || '10000' }}
