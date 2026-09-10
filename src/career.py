@@ -1,5 +1,6 @@
 """Career finalization facade; season/draft flow lives in career_core."""
 from __future__ import annotations
+from dataclasses import dataclass
 from typing import Any
 from . import config
 from .career_core import CareerEngineBase, TournamentResult, DraftResult, ProSeasonSession, EventDecider
@@ -8,6 +9,36 @@ from .coaches import CoachingStaff, generate_batting_coach, generate_fielding_co
 from .growth import GrowthExperience, GrowthResult, apply_season_growth
 from .records import SeasonRecord
 from .traits import TRAIT_CATALOG, has_trait, traits_conflict
+
+
+@dataclass(frozen=True)
+class SeasonFinalizationResult:
+    completed_year:int
+    next_year:int
+    age_before:int
+    age_after:int
+    record:SeasonRecord
+    growth:GrowthResult
+    awards:tuple[str,...]
+
+    def as_dict(self)->dict[str,object]:
+        return {
+            'completed_year':self.completed_year,
+            'next_year':self.next_year,
+            'age_before':self.age_before,
+            'age_after':self.age_after,
+            'record':self.record.as_dict(),
+            'growth':{
+                'age_before':self.growth.age_before,
+                'age_after':self.growth.age_after,
+                'deltas':dict(self.growth.deltas),
+                'explosion':self.growth.explosion,
+                'ability_before':self.growth.ability_before,
+                'ability_after':self.growth.ability_after,
+            },
+            'awards':list(self.awards),
+        }
+
 
 class CareerEngine(CareerSeasonMixin, CareerEngineBase):
     def _determine_awards(self,record:SeasonRecord)->list[str]:
@@ -42,15 +73,29 @@ class CareerEngine(CareerSeasonMixin, CareerEngineBase):
             if changes:
                 self.team_coaches[team]=CoachingStaff(batting,fielding);entry={'year':self.year,'team':team,'changes':changes};self.coach_history.append(entry)
                 if team==self.player.team:self.player.event_history.append({'year':self.year,'age':self.player.age,'game_number':144,'season_phase':'offseason','event_id':'coach_change','event_name':'코칭스태프 교체','rarity':'system','category':'coach','choice':'none','chosen_option':'none','choice_risk':'none','outcome':'change','result':','.join(changes),'outcome_quality':0,'stat_changes':{},'temporary_effects':{},'trait_changes':[],'injury_changes':'none'})
+    def finalize_completed_pro_season(self)->SeasonFinalizationResult:
+        if self.phase!='PRO':raise RuntimeError('career is not in professional phase')
+        s=self.current_session
+        if s is None:raise RuntimeError('no active professional season to finalize')
+        if not s.finished:raise RuntimeError('professional season is not complete')
+        if s.has_pending_event:raise RuntimeError('cannot finalize professional season with a pending event')
+        completed_year=self.year;age_before=self.player.age
+        awards=self._determine_awards(s.record);s.record.awards.extend(awards)
+        for award in awards:self.player.awards.append({'year':self.year,'award':award,'level':'KBO'})
+        self.player.seasons.append(s.record)
+        exp=GrowthExperience(s.record.first_team.PA,s.record.farm.PA)
+        growth=apply_season_growth(self.player,self.rng,self.current_coaching_staff(),exp,s.growth_modifiers)
+        self._maybe_change_trait();self._maybe_replace_coaches();self.year+=1;self.current_session=None
+        self.player.clear_season_modifiers();self.player.form='normal';self.player.form_games_remaining=0;self.player.fatigue=max(0.,self.player.fatigue*.25)
+        return SeasonFinalizationResult(completed_year,self.year,age_before,self.player.age,s.record,growth,tuple(awards))
     def finish_pro_season(self,event_decider:EventDecider|None=None)->tuple[SeasonRecord,GrowthResult]:
         s=self.start_pro_season()
         if s.has_pending_event:self.resolve_pending_event(event_decider=event_decider)
         while not s.finished:
             self.advance_to_season_end(event_decider=event_decider,interactive=False)
             if s.has_pending_event:self.resolve_pending_event(event_decider=event_decider)
-        awards=self._determine_awards(s.record);s.record.awards.extend(awards)
-        for award in awards:self.player.awards.append({'year':self.year,'award':award,'level':'KBO'})
-        self.player.seasons.append(s.record);exp=GrowthExperience(s.record.first_team.PA,s.record.farm.PA);growth=apply_season_growth(self.player,self.rng,self.current_coaching_staff(),exp,s.growth_modifiers);self._maybe_change_trait();self._maybe_replace_coaches();self.year+=1;self.current_session=None;self.player.clear_season_modifiers();self.player.form='normal';self.player.form_games_remaining=0;self.player.fatigue=max(0.,self.player.fatigue*.25);return s.record,growth
+        if s.has_pending_event:self.resolve_pending_event(event_decider=event_decider)
+        finalized=self.finalize_completed_pro_season();return finalized.record,finalized.growth
     def should_retire(self)->bool:
         if self.player.age>=config.RETIREMENT_HARD_AGE:return True
         recent=self.player.seasons[-2:];pa=sum(s.first_team.PA for s in recent);ability=self.player.stats.current_ability();chance=0.
