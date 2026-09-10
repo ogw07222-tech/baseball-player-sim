@@ -23,7 +23,7 @@ jobs:
         run: npm install --package-lock-only --ignore-scripts
       - name: Commit lockfile
         run: |
-          if git diff --quiet -- web/package-lock.json; then
+          if [ -z "$(git status --porcelain -- web/package-lock.json)" ]; then
             echo "No lockfile changes"
             exit 0
           fi
@@ -32,4 +32,3 @@ jobs:
           git add web/package-lock.json
           git commit -m "build: add web npm lockfile [skip ci]"
           git push
-# generation trigger
