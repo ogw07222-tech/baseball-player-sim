@@ -33,11 +33,6 @@ on:
         required: true
         default: '200000'
         type: string
-  push:
-    branches:
-      - main
-    paths:
-      - '.github/workflows/heavy-validation.yml'
 
 jobs:
   heavy-validation:
@@ -47,11 +42,11 @@ jobs:
       contents: read
     env:
       PYTHONPATH: .
-      SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || 'full_game' }}
-      SEED: ${{ github.event_name == 'workflow_dispatch' && inputs.seed || '20260906' }}
-      GAMES: ${{ github.event_name == 'workflow_dispatch' && inputs.games || '10000' }}
-      SEASONS: ${{ github.event_name == 'workflow_dispatch' && inputs.seasons || '500' }}
-      SAMPLES: ${{ github.event_name == 'workflow_dispatch' && inputs.samples || '200000' }}
+      SUITE: ${{ inputs.suite }}
+      SEED: ${{ inputs.seed }}
+      GAMES: ${{ inputs.games }}
+      SEASONS: ${{ inputs.seasons }}
+      SAMPLES: ${{ inputs.samples }}
     steps:
       - name: Checkout exact source
         uses: actions/checkout@v4
