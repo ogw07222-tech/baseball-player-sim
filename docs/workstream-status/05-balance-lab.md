@@ -2,49 +2,48 @@
 
 WORKSTREAM: 05 - Balance Lab
 UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@61da59b90d6239442e30a58a9b7c085211b85339
-STATE: ACTIVE
-CURRENT_TASK: Latest main production integration validation
+SOURCE_OF_TRUTH: main@e0ee4e9a12d8bc806c30dcdd58ea2acb88029932
+STATE: BLOCKED
+CURRENT_TASK: Heavy Production Sanity Gate completion
 RESULT: OPEN
 
 ## LAST_COMPLETED
-- Latest production-code validation evidence is GitHub Actions run 34472217585 on `e642fa2545bdc05ad8cc2b363b7bd199173409b1`: Python compile PASS, 253/253 unit tests PASS, Auto career smoke PASS, Balance smoke PASS, 10k-player/10k-NPC/10k-draft calibration gate PASS, and web build/tests PASS.
-- Current main `61da59b90d6239442e30a58a9b7c085211b85339` is eight commits ahead of `e642fa2`; the compare contains documentation/workstream-status files only and no `src/`, `tests/`, or `tools/` changes. Therefore the validated production implementation is unchanged across that interval.
-- The 253-test run includes PR #33 regressions for persistent inning state, natural baseball events, stat aggregation, production full-game provider/contracts, pitcher usage/rotation reconciliation, catcher foundation, week/month compositional equivalence, save/load continuation, deterministic seed behavior, score/base/out invariants, and non-negative/probability-safety checks.
-- Natural-event 100k sanity embedded in the suite completed with seed `20260906`: 1,248 games, 100,023 events, 97,802 PA, 0 invariant test failures.
-- Catcher generation distribution test completed with 100,000 catchers and archetype-diversity coverage with 20,000 catchers; all configured distribution/tail guards passed.
+- Production implementation regression evidence remains green: 253/253 Python unit tests PASS, Auto career smoke PASS, Balance smoke PASS, natural-event 100k sanity PASS, catcher unit-generation gates PASS, and web tests/build PASS on the unchanged production implementation lineage after PR #33/#36.
+- Current main `e0ee4e9a12d8bc806c30dcdd58ea2acb88029932` was re-checked before/after heavy work. Compared with `9aa458735721570581f4968060590acf3fc9c957`, changes are documentation and web presentation only; no `src/`, `tests/`, or `tools/` gameplay-validation code changed.
+- Heavy pitcher-usage logic was reconstructed locally from the exact main source and executed with seed `20260906`, 500 seasons × 144 games. Core result: avg starter IP/start 5.8677; mean role switches/team-season 8.792; unavailable-use violations 0; mean bullpen-exhaustion events 0.002/season.
+- Validation-only extended pitcher aggregation over the same 500 seasons found starter-IP/start season-average median 5.8773, SD 0.1800, P90 6.0972, P95 6.1667, P99 6.2477, min 5.1968, max 6.4074. Relief appearances/pitcher-season mean 39.318, median 34, SD 31.761, P90 82, P95 101, P99 109, max 116. 4-day-use events occurred in 35/500 seasons; bullpen exhaustion occurred in 1/500 seasons; unavailable-use violation seasons 0/500.
+- Heavy catcher-generation logic was reconstructed locally from the exact main generation/config/catcher source and executed with seed `20260906`, 200,000 catcher samples. Defense mean 83.032, SD 17.328, P10/50/90/95/99 = 61/83/105/111/123, min/max 1/162, 170+ = 0. Throwing mean 92.466, SD 18.312, P10/50/90/95/99 = 69/92/116/123/135, min/max 16/174, 170+ = 3, 200+ = 0. Game Calling mean 85.707, SD 15.200, P10/50/90/95/99 = 66/86/105/111/121, min/max 13/157, 170+/200+ = 0. Invalid values = 0.
+- Catcher archetype share: defensive 21.99%, strong_arm 17.87%, game_manager 19.99%, balanced 25.05%, offensive 15.10%. Correlations: defense-throwing 0.204, defense-game_calling 0.271, throwing-game_calling 0.173; no covariance collapse detected.
 
 ## CURRENT_FINDINGS
-- `PR33_UNIT_REGRESSION` is strongly green on the production implementation carried by current main.
-- The previous `game_calling` CLI presentation blocker is resolved by merged PR #36; Auto career smoke passes. PR #36 changed only the CLI stat-label mapping and did not alter gameplay formulas.
-- Natural-event observed summary at seed `20260906`: SF 1.110/600 PA, GDP 8.245/600 PA, XBT 35.901/600 PA, tag-up success 20.98%, first-to-home-on-double success 60.34%; no obvious event-distribution collapse was detected by the existing 100k gate.
-- Full-game provider structural contracts are green: game completion, non-negative score, batting/pitching counting consistency, lineup/state behavior, extra-inning/walkoff handling, and deterministic same-seed behavior all pass unit coverage.
-- Week/month advance equals repeated-game advance in both production-provider and aggregation regression coverage; save/load continuation and pitcher-usage state round trips also pass.
-- Existing heavy runner still defines production-specific runs of 10,000 full games, 500 pitcher-usage seasons, and 200,000 catcher generations, but those heavy outputs are not persisted under `reports/` and were not executed by this chat because the available local sandbox cannot resolve `github.com`; large GitHub Actions compute was intentionally not triggered.
-- Existing `production_game_provider_sanity.py` and `pitcher_usage_sanity.py` do not expose all requested SD/percentile/tail fields, so a full long-run distribution verdict requires local/Codespaces execution plus one-off analysis or validation-instrumentation enhancement without gameplay tuning.
+- `PR33_UNIT_REGRESSION = PASS` remains supported.
+- Pitcher workload/rotation heavy evidence shows no unavailable-use invariant violations and very rare bullpen exhaustion. Distribution tails are broad, not collapsed. However relief-appearance tails are wide (P95 101, P99 109, max 116 appearances/pitcher-season); this is a balance observation, not a tuning action or automatic FAIL without a matched real-KBO baseline.
+- Catcher heavy distribution is healthy under current structural guards: no invalid/negative values, no 200+ values, essentially no 170+ tail except 3 throwing samples in 200k, expected archetype proportions, and weak-to-moderate inter-rating correlations rather than identity/collapse.
+- The required canonical `production_game_provider_sanity.py --games 10000` command could not be executed in this chat's local sandbox because `github.com` DNS resolution is blocked and the full repository dependency graph cannot be obtained through local git. GitHub Actions was intentionally not used as a heavy-compute workaround.
+- Because the mandatory 10,000-game full-game provider run is still missing, `PRODUCTION_SANITY` and `PRODUCTION_READINESS` cannot be honestly closed to PASS.
 
 ## BLOCKERS
-- Heavy production-specific evidence is still missing for current main's unchanged production implementation: 10,000-game full-game distribution and safety-cap summary, 500-season pitcher workload/role distribution, and dedicated 200,000-catcher percentile report.
-- Requested long-run percentile/tail coverage for score, innings, relief workload, consecutive-day usage, bullpen exhaustion, and role-switch frequency is not fully emitted by current sanity scripts.
+- Canonical 10,000-game full-game provider heavy run is not executed on a real current-main checkout.
+- The locally reconstructed pitcher/catcher runs are strong validation evidence but are not a substitute for executing the repository commands verbatim in a full checkout/Codespaces environment.
 
 ## OPEN_ITEMS
-- Run `tools/production_game_provider_sanity.py --games 10000 --seed 20260906` locally/Codespaces and capture completion rate, cap hits, scoring/inning/PA distributions and tails.
-- Run `tools/pitcher_usage_sanity.py --seasons 500 --seed 20260906` locally/Codespaces and capture starter IP/start, relief workload, consecutive-day usage, unavailable-use violations, bullpen exhaustion, role-switch frequency and distribution tails.
-- Run `tools/catcher_generation_sanity.py --samples 200000 --seed 20260906` locally/Codespaces and retain mean/SD/P10/P50/P90/P95/P99/min/max/tail counts.
-- Add one-off validation analysis for requested median/SD/percentiles where current sanity scripts only emit aggregate means; do not tune gameplay parameters.
+- In Codespaces/local current-main checkout, execute: `python tools/production_game_provider_sanity.py --games 10000 --seed 20260906 --output reports/integration-local/full-game.json`.
+- Re-run the canonical `python tools/pitcher_usage_sanity.py --seasons 500 --seed 20260906` and `python tools/catcher_generation_sanity.py --samples 200000 --seed 20260906` in the same checkout to confirm equivalence with the reconstructed local results.
+- For full-game output, record completion rate, cap/safety hits, runs/game, innings, PA/game, score/state/counting violations, deterministic replay, and requested P10/P50/P90/P95/P99/min/max/tail summaries.
+- If full-game canonical run is clean and reconstructed-vs-canonical pitcher/catcher results match, close `PRODUCTION_SANITY` and `PRODUCTION_READINESS` to PASS; otherwise route the defect by owner without tuning here.
 
 ## DEPENDENCIES
-- 07: only if heavy runs expose an integration/runtime defect or if persistent report plumbing is added.
-- 01: only if heavy validation exposes gameplay-formula defects.
-- 02: only if catcher/player rating distributions fail after heavy execution.
-- 08: only for real KBO baseline comparison and matched-sample interpretation.
+- 07: if the full-game command fails due runtime/integration/tooling rather than simulation behavior.
+- 01: if the 10k full-game run exposes gameplay/state/counting defects.
+- 02: only if canonical catcher generation diverges or distribution guards fail.
+- 08: for matched KBO interpretation of workload tails such as 100+ relief appearances.
 
 ## NEXT_ACTION
-- Execute the existing heavy production integration sanity set in local/Codespaces against current main; because current main has no production-code changes after `e642fa2`, use the current checkout and record its exact HEAD, then compute missing percentile/tail summaries and close `PRODUCTION_SANITY` without parameter tuning.
+- Run the three canonical heavy commands verbatim in Codespaces/local on current main, prioritizing the still-missing 10k full-game provider run; compare pitcher/catcher outputs to the reconstructed evidence above and then close the gate.
 
 ## RELATED_PRS
 - #33 merged
-- #36 merged (CLI presentation fix; smoke PASS)
+- #36 merged
 
 ## RELATED_BRANCHES
 - main
