@@ -1,13 +1,13 @@
-"""Persistent inning/base-state orchestration for production H3.2.1.
+"""Persistent inning/base-state orchestration with natural baseball events.
 
-This module is deliberately an orchestration layer. It does not own or retune
-hitting/baserunning probabilities. Plate appearances come from
-``src.simulation.simulate_plate_appearance_outcome`` and state-sensitive
-baserunning decisions delegate to the validated adapters in
-``src.hitting.baserunning``.
+H3.2.1 hitting and baserunning probability files remain frozen. This module
+interprets validated PA outcomes against persistent runner identity/base state
+and delegates new minimal natural-event probability contracts to
+``src.natural_events``.
 """
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
 from typing import Literal, Sequence
 
@@ -19,7 +19,13 @@ from .hitting.baserunning import (
     apply_second_to_home_to_state,
     apply_steal_to_state,
 )
-from .hitting.model import PlateAppearanceOutcome
+from .hitting.model import BattedBall, PlateAppearanceOutcome
+from .natural_events import (
+    PitchMiscEvent,
+    first_to_home_on_double_probability,
+    ground_out_advance_probability,
+    tag_up_probability,
+)
 from .player import Player
 from .records import BattingLine
 from .rng import RNG
@@ -72,7 +78,11 @@ class InningState:
 
     @property
     def batting_order_index(self) -> int:
-        return self.away_batting_order_index if self.half == "top" else self.home_batting_order_index
+        return (
+            self.away_batting_order_index
+            if self.half == "top"
+            else self.home_batting_order_index
+        )
 
     @batting_order_index.setter
     def batting_order_index(self, value: int) -> None:
@@ -94,7 +104,6 @@ class InningState:
         )
 
     def to_h32_game_state(self) -> GameState:
-        """Boolean H3.2.1 formula-state view from the batting team's perspective."""
         score_diff = (
             self.away_score - self.home_score
             if self.half == "top"
@@ -128,7 +137,7 @@ class InningState:
 
 @dataclass(frozen=True)
 class PlayEvent:
-    kind: Literal["plate_appearance", "steal"]
+    kind: Literal["plate_appearance", "steal", "pitch_misc"]
     inning: int
     half: Half
     batter_id: str | None = None
@@ -137,6 +146,7 @@ class PlayEvent:
     outs_added: int = 0
     steal_attempted: bool = False
     steal_success: bool = False
+    misc_event: str | None = None
 
 
 @dataclass(frozen=True)
@@ -156,12 +166,26 @@ class BaseResolution:
     outs_added: int = 0
     dp_completed: bool = False
     dp_avoided: bool = False
+    sacrifice_fly: bool = False
+    tag_up_attempts: int = 0
+    tag_up_successes: int = 0
+    first_to_home_on_double_attempted: bool = False
+    first_to_home_on_double_success: bool = False
+    ground_advance_attempts: int = 0
+    ground_advance_successes: int = 0
+    third_out_is_force: bool = False
 
 
 class BaseStateResolver:
-    """Identity-aware movement that reuses the frozen H3.2.1 state adapters."""
+    """Identity-aware state resolver; probability math lives elsewhere."""
 
-    def __init__(self, state: InningState, rng: RNG, line_for_runner, recovery: float = 100.0) -> None:
+    def __init__(
+        self,
+        state: InningState,
+        rng: RNG,
+        line_for_runner,
+        recovery: float = 100.0,
+    ) -> None:
         self.state = state
         self.rng = rng
         self.line_for_runner = line_for_runner
@@ -178,7 +202,6 @@ class BaseStateResolver:
                 line.second_to_home += 1
 
     def force_batter_to_first(self, batter: RunnerState) -> BaseResolution:
-        """Walk/HBP/ROE minimum forced-advancement policy."""
         scored: list[RunnerState] = []
         first = self.state.first_runner
         second = self.state.second_runner
@@ -193,7 +216,6 @@ class BaseStateResolver:
         return BaseResolution(tuple(scored))
 
     def single(self, batter: RunnerState) -> BaseResolution:
-        """Single: failed extra-base attempts fall back to the next safe base."""
         scored: list[RunnerState] = []
         first = self.state.first_runner
         second = self.state.second_runner
@@ -206,7 +228,9 @@ class BaseStateResolver:
         if second is not None:
             formula_state = self.state.to_h32_game_state()
             formula_state.second_occupied = True
-            transition = apply_second_to_home_to_state(second.speed, formula_state, self.rng, self.recovery)
+            transition = apply_second_to_home_to_state(
+                second.speed, formula_state, self.rng, self.recovery
+            )
             self._record_xbt_attempt(second, transition.success, "second_to_home")
             if transition.success:
                 scored.append(second)
@@ -217,7 +241,9 @@ class BaseStateResolver:
             if self.state.third_runner is None:
                 formula_state = self.state.to_h32_game_state()
                 formula_state.first_occupied = True
-                transition = apply_first_to_third_to_state(first.speed, formula_state, self.rng, self.recovery)
+                transition = apply_first_to_third_to_state(
+                    first.speed, formula_state, self.rng, self.recovery
+                )
                 self._record_xbt_attempt(first, transition.success, "first_to_third")
                 if transition.success:
                     self.state.third_runner = first
@@ -229,24 +255,51 @@ class BaseStateResolver:
         self.state.first_runner = batter
         return BaseResolution(tuple(scored))
 
-    def double(self, batter: RunnerState) -> BaseResolution:
-        """Unsupported 1B->Home on a double uses a conservative deterministic fallback."""
-        scored = tuple(
+    def double(
+        self,
+        batter: RunnerState,
+        ball: BattedBall | None = None,
+    ) -> BaseResolution:
+        scored = [
             runner
             for runner in (self.state.third_runner, self.state.second_runner)
             if runner is not None
-        )
+        ]
         first = self.state.first_runner
         self.state.clear_bases()
+
+        attempted = False
+        success = False
         if first is not None:
-            self.state.third_runner = first
+            if ball is None:
+                self.state.third_runner = first
+            else:
+                attempted = True
+                probability = first_to_home_on_double_probability(
+                    first.speed, self.recovery, ball.depth
+                )
+                success = self.rng.random() < probability
+                self._record_xbt_attempt(first, success, "first_to_home_on_double")
+                if success:
+                    scored.append(first)
+                else:
+                    self.state.third_runner = first
+
         self.state.second_runner = batter
-        return BaseResolution(scored)
+        return BaseResolution(
+            tuple(scored),
+            first_to_home_on_double_attempted=attempted,
+            first_to_home_on_double_success=success,
+        )
 
     def triple(self, batter: RunnerState) -> BaseResolution:
         scored = tuple(
             runner
-            for runner in (self.state.third_runner, self.state.second_runner, self.state.first_runner)
+            for runner in (
+                self.state.third_runner,
+                self.state.second_runner,
+                self.state.first_runner,
+            )
             if runner is not None
         )
         self.state.clear_bases()
@@ -256,38 +309,203 @@ class BaseStateResolver:
     def home_run(self) -> BaseResolution:
         scored = tuple(
             runner
-            for runner in (self.state.third_runner, self.state.second_runner, self.state.first_runner)
+            for runner in (
+                self.state.third_runner,
+                self.state.second_runner,
+                self.state.first_runner,
+            )
             if runner is not None
         )
         self.state.clear_bases()
         return BaseResolution(scored)
 
-    def ground_ball_out(self, batter: RunnerState) -> BaseResolution:
-        if self.state.outs >= 2 or self.state.first_runner is None:
-            self.state.outs += 1
+    def fly_ball_out(self, ball: BattedBall) -> BaseResolution:
+        """Caught fly-ball out with natural tag-up resolution."""
+        outs_before = self.state.outs
+        self.state.outs += 1
+        if outs_before >= 2:
             return BaseResolution(resolved_result="out", outs_added=1)
 
-        formula_state = self.state.to_h32_game_state()
-        transition = apply_double_play_to_state(batter.speed, formula_state, self.rng)
-        if not transition.attempted:
-            self.state.outs += 1
-            return BaseResolution(resolved_result="out", outs_added=1)
+        attempts = 0
+        successes = 0
+        scored: list[RunnerState] = []
+        sacrifice_fly = False
 
-        self.state.outs = formula_state.outs
-        self.state.first_runner = None
-        if transition.success:
+        third = self.state.third_runner
+        if third is not None:
+            attempts += 1
+            success = self.rng.random() < tag_up_probability(
+                third.speed, self.recovery, ball.depth, from_base=3
+            )
+            self._record_xbt_attempt(third, success, "tag_up")
+            if success:
+                successes += 1
+                sacrifice_fly = True
+                scored.append(third)
+                self.state.third_runner = None
+
+        second = self.state.second_runner
+        if second is not None and self.state.third_runner is None:
+            attempts += 1
+            success = self.rng.random() < tag_up_probability(
+                second.speed, self.recovery, ball.depth, from_base=2
+            )
+            self._record_xbt_attempt(second, success, "tag_up")
+            if success:
+                successes += 1
+                self.state.second_runner = None
+                self.state.third_runner = second
+
+        return BaseResolution(
+            tuple(scored),
+            resolved_result="sacrifice_fly" if sacrifice_fly else "out",
+            outs_added=1,
+            sacrifice_fly=sacrifice_fly,
+            tag_up_attempts=attempts,
+            tag_up_successes=successes,
+        )
+
+    def fielders_choice(self, batter: RunnerState) -> BaseResolution:
+        """Minimal force hierarchy without inventing fielding-decision AI."""
+        scored: list[RunnerState] = []
+        outs_before = self.state.outs
+        first = self.state.first_runner
+        second = self.state.second_runner
+        third = self.state.third_runner
+
+        self.state.outs += 1
+        if first is not None and second is not None:
+            if third is not None and outs_before < 2:
+                # With the bases loaded, the available lead force is at home.
+                # Retire the runner from third, then advance the other forced
+                # runners exactly one base. No run scores on this choice.
+                self.state.third_runner = second
+                self.state.second_runner = first
+                self.state.first_runner = batter
+                return BaseResolution(
+                    resolved_result="fielders_choice",
+                    outs_added=1,
+                    third_out_is_force=False,
+                )
+            self.state.third_runner = None
+            self.state.second_runner = first
+            self.state.first_runner = batter
+        elif first is not None:
+            self.state.first_runner = batter
+        elif second is not None:
+            self.state.second_runner = None
+            self.state.first_runner = batter
+        elif third is not None:
+            self.state.third_runner = None
+            self.state.first_runner = batter
+        else:
             return BaseResolution(
                 resolved_result="out",
-                outs_added=transition.outs_added,
-                dp_completed=True,
+                outs_added=1,
+                third_out_is_force=outs_before == 2,
             )
 
-        self.state.first_runner = batter
         return BaseResolution(
+            tuple(scored),
             resolved_result="fielders_choice",
-            outs_added=transition.outs_added,
-            dp_avoided=True,
+            outs_added=1,
+            third_out_is_force=outs_before == 2,
         )
+
+    def ground_ball_out(
+        self,
+        batter: RunnerState,
+        ball: BattedBall | None = None,
+    ) -> BaseResolution:
+        outs_before = self.state.outs
+        if outs_before >= 2:
+            self.state.outs += 1
+            return BaseResolution(
+                resolved_result="out",
+                outs_added=1,
+                third_out_is_force=self.state.first_runner is not None,
+            )
+
+        if self.state.first_runner is not None and self.state.second_runner is not None:
+            return self.fielders_choice(batter)
+
+        if self.state.first_runner is not None:
+            formula_state = self.state.to_h32_game_state()
+            transition = apply_double_play_to_state(batter.speed, formula_state, self.rng)
+            if not transition.attempted:
+                self.state.outs += 1
+                return BaseResolution(resolved_result="out", outs_added=1)
+
+            self.state.outs = formula_state.outs
+            self.state.first_runner = None
+            if transition.success:
+                return BaseResolution(
+                    resolved_result="out",
+                    outs_added=transition.outs_added,
+                    dp_completed=True,
+                    third_out_is_force=self.state.outs >= 3,
+                )
+
+            self.state.first_runner = batter
+            return BaseResolution(
+                resolved_result="fielders_choice",
+                outs_added=transition.outs_added,
+                dp_avoided=True,
+            )
+
+        self.state.outs += 1
+        attempts = 0
+        successes = 0
+        scored: list[RunnerState] = []
+
+        third = self.state.third_runner
+        if third is not None:
+            attempts += 1
+            success = self.rng.random() < ground_out_advance_probability(
+                third.speed, self.recovery, from_base=3
+            )
+            self._record_xbt_attempt(third, success, "ground_out")
+            if success:
+                successes += 1
+                scored.append(third)
+                self.state.third_runner = None
+
+        second = self.state.second_runner
+        if second is not None and self.state.third_runner is None:
+            attempts += 1
+            success = self.rng.random() < ground_out_advance_probability(
+                second.speed, self.recovery, from_base=2
+            )
+            self._record_xbt_attempt(second, success, "ground_out")
+            if success:
+                successes += 1
+                self.state.second_runner = None
+                self.state.third_runner = second
+
+        return BaseResolution(
+            tuple(scored),
+            resolved_result="out",
+            outs_added=1,
+            ground_advance_attempts=attempts,
+            ground_advance_successes=successes,
+        )
+
+    def pitch_misc(self, event: PitchMiscEvent) -> BaseResolution:
+        """Advance occupied runners one base after an externally supplied WP/PB."""
+        if event == PitchMiscEvent.NONE:
+            return BaseResolution(resolved_result=PitchMiscEvent.NONE.value)
+
+        scored: list[RunnerState] = []
+        first = self.state.first_runner
+        second = self.state.second_runner
+        third = self.state.third_runner
+
+        if third is not None:
+            scored.append(third)
+        self.state.third_runner = second
+        self.state.second_runner = first
+        self.state.first_runner = None
+        return BaseResolution(tuple(scored), resolved_result=event.value)
 
 
 class PersistentInningEngine:
@@ -330,6 +548,7 @@ class PersistentInningEngine:
         self.away_lines = tuple(BattingLine(G=1) for _ in range(9))
         self.home_lines = tuple(BattingLine(G=1) for _ in range(9))
         self.event_count = 0
+        self.natural_event_counts: Counter[str] = Counter()
 
     def _lineup(self, side: Side) -> tuple[Player, ...]:
         return self.away_lineup if side == "away" else self.home_lineup
@@ -354,16 +573,24 @@ class PersistentInningEngine:
         return self.home_defense if self.state.half == "top" else self.away_defense
 
     def _running_defense_level(self) -> float:
-        return self.home_running_defense if self.state.half == "top" else self.away_running_defense
+        return (
+            self.home_running_defense
+            if self.state.half == "top"
+            else self.away_running_defense
+        )
 
     def _recovery_level(self) -> float:
         return self.home_recovery if self.state.half == "top" else self.away_recovery
 
     def _advance_batting_order(self, side: Side) -> None:
         if side == "away":
-            self.state.away_batting_order_index = (self.state.away_batting_order_index + 1) % 9
+            self.state.away_batting_order_index = (
+                self.state.away_batting_order_index + 1
+            ) % 9
         else:
-            self.state.home_batting_order_index = (self.state.home_batting_order_index + 1) % 9
+            self.state.home_batting_order_index = (
+                self.state.home_batting_order_index + 1
+            ) % 9
 
     def _add_team_run(self, side: Side) -> None:
         if side == "home":
@@ -410,7 +637,6 @@ class PersistentInningEngine:
         self.state.half = "top"
 
     def attempt_steal_between_plate_appearances(self) -> PlayEvent | None:
-        """Try the validated 1B->2B steal against actual occupied bases."""
         if self.state.game_over or self.state.first_runner is None:
             return None
 
@@ -451,8 +677,35 @@ class PersistentInningEngine:
         self.state.validate()
         return event
 
+    def resolve_pitch_misc_event(self, event: PitchMiscEvent) -> PlayEvent | None:
+        """Resolve an externally supplied WP/PB; disabled unless caller supplies one."""
+        if event == PitchMiscEvent.NONE:
+            return None
+        if self.state.game_over:
+            raise RuntimeError("cannot resolve a pitch misc event after game over")
+
+        event_inning, event_half = self.state.inning, self.state.half
+        resolver = BaseStateResolver(
+            self.state, self.rng, self.line_for_runner, self._recovery_level()
+        )
+        resolution = resolver.pitch_misc(event)
+        runs_scored = self._score_runners(resolution.scored_runners)
+        self.natural_event_counts[event.value] += 1
+        self.event_count += 1
+
+        if self._walkoff_reached():
+            self.state.game_over = True
+        self.state.validate()
+        return PlayEvent(
+            kind="pitch_misc",
+            inning=event_inning,
+            half=event_half,
+            result=event.value,
+            runs_scored=runs_scored,
+            misc_event=event.value,
+        )
+
     def resolve_plate_appearance(self, outcome: PlateAppearanceOutcome) -> PlayEvent:
-        """Apply one already-simulated PA result to the persistent state."""
         if self.state.game_over:
             raise RuntimeError("cannot resolve a PA after game over")
 
@@ -462,7 +715,9 @@ class PersistentInningEngine:
         batter_line = self.line_for_runner(batter)
         self.state.current_batter = batter.player
         self.state.current_pitcher = self._current_pitcher()
-        resolver = BaseStateResolver(self.state, self.rng, self.line_for_runner, self._recovery_level())
+        resolver = BaseStateResolver(
+            self.state, self.rng, self.line_for_runner, self._recovery_level()
+        )
 
         result = outcome.result
         runs_scored = 0
@@ -482,8 +737,12 @@ class PersistentInningEngine:
             runs_scored = self._score_runners(resolution.scored_runners)
             batter_line.record_pa("single", rbi=runs_scored)
         elif result == "double":
-            resolution = resolver.double(batter)
+            resolution = resolver.double(batter, outcome.batted_ball)
             runs_scored = self._score_runners(resolution.scored_runners)
+            if resolution.first_to_home_on_double_attempted:
+                self.natural_event_counts["first_to_home_on_double_attempts"] += 1
+                if resolution.first_to_home_on_double_success:
+                    self.natural_event_counts["first_to_home_on_double_successes"] += 1
             batter_line.record_pa("double", rbi=runs_scored)
         elif result == "triple":
             resolution = resolver.triple(batter)
@@ -499,23 +758,45 @@ class PersistentInningEngine:
             self.state.outs += 1
             batter_line.record_pa("strikeout")
         elif result == "out":
-            is_ground_ball = outcome.batted_ball is not None and outcome.batted_ball.ball_type == "ground_ball"
-            if is_ground_ball:
-                resolution = resolver.ground_ball_out(batter)
+            ball = outcome.batted_ball
+            if ball is not None and ball.ball_type == "ground_ball":
+                resolution = resolver.ground_ball_out(batter, ball)
                 resolved_result = resolution.resolved_result or "out"
-                batter_line.record_pa(resolved_result)
+                runs_scored = self._score_runners(resolution.scored_runners)
+                batter_line.record_pa(resolved_result, rbi=runs_scored)
                 if resolution.dp_completed:
                     batter_line.GDP += 1
                 elif resolution.dp_avoided:
                     batter_line.DP_avoided += 1
+                self.natural_event_counts["ground_advance_attempts"] += (
+                    resolution.ground_advance_attempts
+                )
+                self.natural_event_counts["ground_advance_successes"] += (
+                    resolution.ground_advance_successes
+                )
+                if resolved_result == "fielders_choice":
+                    self.natural_event_counts["fielders_choice"] += 1
+            elif ball is not None and ball.ball_type == "fly_ball":
+                resolution = resolver.fly_ball_out(ball)
+                resolved_result = resolution.resolved_result or "out"
+                runs_scored = self._score_runners(resolution.scored_runners)
+                if resolution.sacrifice_fly:
+                    batter_line.record_pa("sacrifice_fly", rbi=runs_scored)
+                    self.natural_event_counts["sacrifice_fly"] += 1
+                else:
+                    batter_line.record_pa("out")
+                self.natural_event_counts["tag_up_attempts"] += resolution.tag_up_attempts
+                self.natural_event_counts["tag_up_successes"] += resolution.tag_up_successes
             else:
                 self.state.outs += 1
                 batter_line.record_pa("out")
         elif result == "fielders_choice":
-            if self.state.first_runner is not None:
-                self.state.first_runner = batter
-            self.state.outs += 1
-            batter_line.record_pa("fielders_choice")
+            resolution = resolver.fielders_choice(batter)
+            resolved_result = resolution.resolved_result or "fielders_choice"
+            runs_scored = self._score_runners(resolution.scored_runners)
+            batter_line.record_pa(resolved_result, rbi=runs_scored)
+            if resolved_result == "fielders_choice":
+                self.natural_event_counts["fielders_choice"] += 1
         else:
             raise ValueError(f"unsupported persistent PA result: {result}")
 
@@ -561,7 +842,7 @@ class PersistentInningEngine:
         return self.resolve_plate_appearance(outcome)
 
     def step(self) -> PlayEvent:
-        """Advance one baseball event: steal attempt if made, otherwise one PA."""
+        """Advance one enabled event. WP/PB remain externally supplied/disabled."""
         steal_event = self.attempt_steal_between_plate_appearances()
         if steal_event is not None:
             return steal_event

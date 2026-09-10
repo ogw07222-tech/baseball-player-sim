@@ -29,6 +29,8 @@ class BattingLine:
     XBT_attempts: int = 0
     first_to_third: int = 0
     second_to_home: int = 0
+    # Natural-event extension. Optional zero-default preserves old saves.
+    SF: int = 0
 
     @property
     def singles(self) -> int:
@@ -61,6 +63,9 @@ class BattingLine:
         if result == "hit_by_pitch":
             self.HBP += 1
             return
+        if result == "sacrifice_fly":
+            self.SF += 1
+            return
         self.AB += 1
         if result == "strikeout":
             self.SO += 1
@@ -87,7 +92,7 @@ class BattingLine:
             "G", "PA", "AB", "H", "doubles", "triples", "HR", "BB", "SO",
             "HBP", "SB", "CS", "R", "RBI", "ROE", "GDP", "SB_attempts",
             "DP_avoided", "XBT", "XBT_attempts", "first_to_third",
-            "second_to_home",
+            "second_to_home", "SF",
         ):
             setattr(self, name, getattr(self, name) + getattr(other, name))
 
@@ -102,6 +107,7 @@ class BattingLine:
             "XBT_attempts": self.XBT_attempts,
             "first_to_third": self.first_to_third,
             "second_to_home": self.second_to_home,
+            "SF": self.SF,
         }
 
     @classmethod
@@ -122,6 +128,7 @@ class BattingLine:
             XBT_attempts=int(data.get("XBT_attempts", 0)),
             first_to_third=int(data.get("first_to_third", 0)),
             second_to_home=int(data.get("second_to_home", 0)),
+            SF=int(data.get("SF", 0)),
         )
 
 
