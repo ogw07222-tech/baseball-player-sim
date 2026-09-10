@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/**
+      - fix/**
   pull_request:
 
 jobs:
@@ -34,6 +35,11 @@ jobs:
           python-version: '3.12'
       - name: Install API dependencies
         run: pip install -r requirements-api.txt
+      - name: Validate Vercel Python packaging
+        run: |
+          python -m unittest tests.test_python_dependency_contract -v
+          pip install uv
+          uv lock --dry-run --python 3.12
       - name: Compile
         run: python -m compileall -q index.py src tests tools/draft_calibration.py tools/deployed_p0_smoke.py
       - name: External durable store tests
