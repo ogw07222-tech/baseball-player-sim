@@ -4,7 +4,7 @@ import { SeasonScreen } from './screens/SeasonScreen'
 import { NewCareerPage } from './screens/NewCareerPage'
 import { DraftDayPage } from './screens/DraftDayPage'
 import { CareerScreen, LeagueScreen, NewsScreen, RecordsScreen, TeamScreen } from './screens/PlayableOverviewScreens'
-import type { DashboardViewModel, SeasonViewModel } from './types/viewModels'
+import type { DashboardViewModel, SeasonProgressViewModel, SeasonViewModel } from './types/viewModels'
 import type { NewCareerRequest } from './types/newCareer'
 import type { AdvanceCommand, GameDataProvider } from './services/GameDataProvider'
 import { MockGameDataProvider } from './mock/mockGameDataProvider'
@@ -16,6 +16,19 @@ type Screen = 'player' | 'season' | 'career' | 'team' | 'league' | 'records' | '
 const navItems: { key:Screen; label:string; icon:string }[] = [
   {key:'player',label:'선수',icon:'⌂'},{key:'season',label:'시즌',icon:'▣'},{key:'career',label:'커리어',icon:'♜'},{key:'team',label:'팀',icon:'◉'},{key:'league',label:'리그',icon:'◇'},{key:'records',label:'기록',icon:'⌁'},{key:'news',label:'뉴스',icon:'▤'},
 ]
+
+function mergeSeasonMeta(dashboard:DashboardViewModel|null, season:SeasonViewModel|null):SeasonProgressViewModel|null {
+  if(!dashboard && !season) return null
+  const dashboardSeason = dashboard?.season
+  const seasonView = season?.season
+  return {
+    year: dashboardSeason?.year ?? seasonView?.year ?? null,
+    game: dashboardSeason?.game ?? seasonView?.game ?? null,
+    totalGames: dashboardSeason?.totalGames ?? seasonView?.totalGames ?? null,
+    date: dashboardSeason?.date ?? seasonView?.date ?? null,
+    progress: dashboardSeason?.progress ?? seasonView?.progress ?? null,
+  }
+}
 
 export function App({ provider: injectedProvider }: { provider?:GameDataProvider }) {
   const provider = useMemo(()=>injectedProvider ?? new MockGameDataProvider(),[injectedProvider])
@@ -70,7 +83,8 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
     return <DraftDayPage data={draftData} onStartProCareer={()=>{window.location.hash=''; setEventRoute(''); setScreen('player')}}/>
   }
 
-  const seasonMeta = dashboard?.season ?? season?.season
+  const seasonMeta = mergeSeasonMeta(dashboard,season)
+  const progress = seasonMeta?.progress ?? 0
   const content = !dashboard || !season ? <LoadingState/> : screen==='player'
     ? <PlayerDashboard data={dashboard} onAdvance={advance}/>
     : screen==='season'
@@ -94,10 +108,10 @@ export function App({ provider: injectedProvider }: { provider?:GameDataProvider
     </aside>
     <div className="app-content">
       <header className="top-header">
-        <div><strong>{seasonMeta?.year ?? '—'} SEASON</strong><div className="season-progress"><span style={{width:`${seasonMeta?.progress ?? 0}%`}}/></div></div>
-        <div className="game-count">GAME {seasonMeta?.game ?? '—'} / {seasonMeta?.totalGames ?? '—'} <small>{seasonMeta?.progress ?? 0}%</small></div>
+        <div><strong>{seasonMeta?.year ?? '—'} SEASON</strong><div className="season-progress" aria-label={`시즌 진행률 ${progress}%`}><span style={{width:`${Math.max(0,Math.min(100,progress))}%`}}/></div></div>
+        <div className="game-count">GAME {seasonMeta?.game ?? '—'} / {seasonMeta?.totalGames ?? '—'} <small>{seasonMeta?.progress === null || seasonMeta?.progress === undefined ? '—' : `${seasonMeta.progress}%`}</small></div>
         <div className="header-spacer"/>
-        <div className="current-date">{seasonMeta?.date ?? '시즌 데이터 로딩 중'}<small>다음 경기를 진행하세요.</small></div>
+        <div className="current-date">{seasonMeta?.date ?? '시즌 날짜 정보 없음'}<small>다음 경기를 진행하세요.</small></div>
         <button className="icon-button" aria-label="검색">⌕</button><button className="icon-button" aria-label="설정">⚙</button>
       </header>
       <main>{error?<ErrorState onRetry={()=>void load()}/>:content}</main>
