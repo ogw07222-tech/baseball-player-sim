@@ -25,7 +25,7 @@ export function CareerScreen({ data }: { data:DashboardViewModel }) {
       </div></Panel>
     </div>
     <div className="overview-grid overview-grid-2">
-      <Panel title="현재 능력치 (Raw rating)"><div className="overview-kv">{data.abilities.map(ability=><div key={ability.key}><span>{ability.label}</span><strong>{ability.rating}</strong><small>{ability.delta===0?'변화 없음':`${ability.delta>0?'+':''}${ability.delta}`}</small></div>)}</div></Panel>
+      <Panel title="현재 능력치" action={<small>Raw rating</small>}><div className="overview-kv">{data.abilities.map(ability=><div key={ability.key}><span>{ability.label}</span><strong>{ability.rating}</strong><small>{ability.delta===0?'변화 없음':`${ability.delta>0?'+':''}${ability.delta}`}</small></div>)}</div></Panel>
       <Panel title="특성"><div className="trait-list">{data.traits.length?data.traits.map(trait=><div className={`trait ${trait.tone}`} key={trait.name}><strong>{trait.name}</strong><span>{trait.category}</span></div>):<Empty>현재 적용 중인 특성이 없습니다.</Empty>}</div></Panel>
     </div>
     <Panel title="커리어 타임라인">{data.seasonStory.length?<div className="overview-timeline">{data.seasonStory.map((event,index)=><div key={`${event.date}-${index}`}><time>{event.date}</time><span className={`story-dot ${event.category.toLowerCase()}`}/><div><strong>{event.title}</strong><p>{event.detail}</p></div></div>)}</div>:<Empty>현재 시즌에 기록된 스토리가 없습니다.</Empty>}</Panel>
