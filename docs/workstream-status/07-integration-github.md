@@ -2,22 +2,23 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@e0ee4e9a12d8bc806c30dcdd58ea2acb88029932
+SOURCE_OF_TRUTH: main@2f9a0c7a3c14ca462e4be3d95db3ad4a28635d56
 STATE: DONE
 CURRENT_TASK: PR #37 latest-main revalidation and production UI integration
-RESULT: PASS — PR #37 merged after fresh latest-main validation; post-merge main CI GREEN
+RESULT: PASS — PR #37 remains merged; latest production main revalidated GREEN
 
 ## LAST_COMPLETED
 - Updated `ui/production-presentation-milestone` onto `main@9aa458735721570581f4968060590acf3fc9c957` with merge commit `1cbddd67df717b8f4800189c87f168fcf0c4e127`.
 - Stale-base update preserved the 11 PR #37 `web/src/**` changes without feature additions; no conflicting file paths were found against intervening main changes.
 - Fresh PR workflow run #578 completed GREEN: Python full unit suite, exact Auto career smoke, Balance smoke, draft calibration gate, artifact upload, web build, and web tests all passed.
 - PR #37 was marked ready for review and merged as `1edad331045f554b03777a6254dab02f024f063b`.
-- Latest post-merge main `e0ee4e9a12d8bc806c30dcdd58ea2acb88029932` includes PR #37 plus a subsequent docs-only workstream update; workflow run #586 completed GREEN across both jobs and all required gates.
+- Subsequent production-main validation remained GREEN. Latest validated main before this status-only update is `2f9a0c7a3c14ca462e4be3d95db3ad4a28635d56`; workflow run #596 completed successfully with Python full unit suite, Auto career smoke, Balance smoke, draft calibration gate, web build, and web tests all PASS.
 
 ## CURRENT_FINDINGS
+- PR #37 is closed/merged, not an active stale-base PR. Its merged head remains `1cbddd67df717b8f4800189c87f168fcf0c4e127`, base-at-validation was `9aa458735721570581f4968060590acf3fc9c957`, and merge commit is `1edad331045f554b03777a6254dab02f024f063b`.
 - PR #37 integration introduced only its existing Web UI production-presentation milestone changes; no gameplay, rating, growth, event, catcher gameplay, test, or workflow logic was modified during stale-base resolution.
-- Production DTO/type compatibility is validated by the PR web build/tests and adapter coverage on the latest-main-integrated head.
-- Main remains repository-wide GREEN after PR #37 integration.
+- Production DTO/type compatibility remains validated by the fresh PR web build/tests and adapter coverage on the latest-main-integrated PR head.
+- Current production main continues to include PR #37 and remains repository-wide GREEN through run #596.
 - PR #37 intentionally provides the transport-agnostic `ProductionPresentationProvider` / `BackendPresentationGateway` contract; a concrete browser-to-Python transport remains a separate production-wiring task, not a blocker to PR #37's completed milestone.
 
 ## BLOCKERS
