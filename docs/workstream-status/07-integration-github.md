@@ -2,52 +2,53 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
-SOURCE_OF_TRUTH: main@11fbb451a0e967820ea69db2d315616133cd2023
+SOURCE_OF_TRUTH: main@0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2
 STATE: BLOCKED
-CURRENT_TASK: P0 Manual Production Verification Fallback
-RESULT: READY_FOR_MANUAL_EVIDENCE — Vercel connector live access remains blocked, so no current deployment/runtime facts are inferred. Latest API contract and the canonical deployed smoke script were re-read from main. A manual Vercel UI + production-site + Neon verification procedure is prepared so user-provided screenshots/status/HTTP responses can be treated as auditable evidence. All deployed-runtime gates remain OPEN until that evidence is supplied.
+CURRENT_TASK: Fix Confirmed Vercel Python Packaging Failure
+RESULT: PARTIAL_PASS — confirmed `uv lock` packaging blocker is fixed in code and merged via PR #45. Branch and PR CI both prove the PEP 621 project metadata, uv resolution path, FastAPI entrypoint, API/full Python tests, and web build/tests are green. Actual post-merge Vercel deployment READY and `/api/v1/session` remain OPEN because the Vercel connector disabled again on the first live post-merge call.
 
 ## LAST_COMPLETED
-- Re-read latest main at task start: `11fbb451a0e967820ea69db2d315616133cd2023`.
-- Re-read `src/api/app.py` and confirmed the current P0 API contract: GET `/api/v1/session`, POST `/api/v1/career`, GET `/api/v1/state`, POST `/api/v1/advance`, POST `/api/v1/save`.
-- Confirmed production session cookie name `baseball_sim_session`, opaque UUID session ID, HttpOnly, SameSite=Lax, Secure in production, Path=/, one-year max age.
-- Confirmed P0 `advance` accepts only `command=next_game`; request requires `expected_revision` and `idempotency_key`.
-- Confirmed stale revision error is HTTP 409 with `error.code=REVISION_CONFLICT`; conflicting idempotency reuse is HTTP 409 with `error.code=SIMULATION_CONFLICT`.
-- Re-read `tools/deployed_p0_smoke.py`, which already codifies create/state/next_game/revision/idempotency replay/stale-409/new-client persistence/API-error-schema checks.
-- Prepared a manual fallback sequence that preserves one browser/curl cookie jar and avoids exposing the session cookie, DATABASE_URL, save payload, idempotency fingerprint, or connection secrets.
-- No application, gameplay, ratings, growth, injury, events, KBO rules, stat formulas, UI, advance breadth, persistence logic, DB schema, SessionStore semantics, or deployment configuration was changed.
+- Task-start main was `ed9ff7831ab899c625a36217c90c07927a1a8d12`.
+- Confirmed root cause from prior real Vercel build evidence: Vercel Python runtime invoked `uv lock` against root `pyproject.toml`, which had only `[tool.vercel]` and no PEP 621 `[project]`, causing `No project table found` before FastAPI startup.
+- Re-read current dependency/install contract: `requirements.txt` includes `requirements-api.txt`; runtime dependencies are `fastapi>=0.115,<1`, `httpx>=0.27,<1`, `uvicorn>=0.30,<1`, and `psycopg[binary]>=3.2,<4`; CI installs them from `requirements-api.txt`.
+- Added minimal `[project]` metadata: name `baseball-player-sim`, version `0.1.0`, `requires-python = ">=3.12"`, and the same four runtime dependency specifiers. No build backend or publish/package-framework migration was added.
+- Preserved `[tool.vercel] entrypoint = "src.api.app:app"` and the existing Vite build command unchanged.
+- Added `tests/test_python_dependency_contract.py` to parse the PEP 621 metadata, require exact dependency equality with `requirements-api.txt`, and preserve the Vercel entrypoint contract.
+- Added CI `uv lock --dry-run --python 3.12` packaging validation and enabled the workflow on `fix/**` branches.
+- Branch run #660 (`34514693916`) completed SUCCESS: Vercel packaging/uv validation, compile, external durable store tests, FastAPI entrypoint smoke, API vertical slice, related production integration, full unit suite, auto career, balance, draft calibration, artifact upload, web build/tests all PASS.
+- PR run #661 (`34514739802`) completed SUCCESS with the same gates PASS.
+- PR #45 `Fix Vercel Python project metadata` merged with merge commit `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2`.
+- Post-merge main run #662 (`34514958869`) started on the merge SHA; Vercel packaging/uv validation, compile, external-store tests, FastAPI entrypoint, API integration and web build/tests were already PASS at last observation, while the remainder of the Python job was still running.
+- After merge, Vercel tool discovery succeeded, but the first live `list_teams` call disabled the connector again. No Vercel deployment state or runtime response was inferred.
+- No gameplay, ratings, growth, injury, events, KBO rules, stat formulas, Neon schema, SessionStore/CAS/idempotency semantics, UI redesign, or advance-breadth logic was changed.
 
 ## CURRENT_FINDINGS
-- GitHub/API evidence is sufficient to define exactly what manual runtime responses must look like, but it is not sufficient to mark any deployed gate PASS.
-- Intended repository-root production project from prior verified Vercel evidence is `baseball-player-sim`; user must confirm the currently active production project/deployment in Vercel UI because connector evidence is stale/unavailable.
-- The production domain must be taken from the active Vercel Production deployment/assigned domain, not guessed from historical aliases.
-- The canonical smoke career payload is `{name: "Deployment Smoke", position: "SS", bats: "RIGHT", throws: "RIGHT", traitCount: 1}`.
-- Successful career creation must return HTTP 201 with `meta.revision=1`; successful `next_game` must return HTTP 200 with `meta.revision=2` and dashboard progress game/games_completed = 1.
-- Repeating the exact same advance request with the same idempotency key must return the same committed response and must not increase game count/revision again.
-- A new idempotency key with stale `expected_revision=1` after the first commit must return HTTP 409 with `REVISION_CONFLICT` and current revision 2.
-- A fresh HTTP client/browser request that reuses the same `baseball_sim_session` cookie must recover the revision-2 state from durable storage.
-- Neon verification should expose only aggregate/latest revision/timestamps, not session IDs, cookie values, save payloads, fingerprints, DATABASE_URL, or passwords.
+- `VERCEL_PYTHON_PACKAGING` is PASS at code/CI level: the exact previously failing `uv lock` class now succeeds in both branch and PR GitHub Actions.
+- Dependency authority remains `requirements-api.txt` for local/CI install; `project.dependencies` is the Vercel/uv mirror required by the platform. The contract test prevents silent drift between them.
+- Local/container TOML parsing and uv project recognition succeeded; local registry resolution was limited by outbound DNS, so complete resolution evidence comes from GitHub Actions `uv lock --dry-run` PASS rather than being overstated as a local network PASS.
+- Actual Vercel `VERCEL_CURRENT_MAIN_BUILD` cannot yet be marked PASS solely from GitHub CI. A Vercel production/preview deployment of `0a9ad6d3...` must reach READY and create the Python function.
+- `/api/v1/session` has not been rerun against a READY deployment containing PR #45, so the production route remains OPEN.
 
 ## BLOCKERS
-- Vercel connector live access remains unstable/blocked, so current project/deployment/env/runtime cannot be independently queried by 07.
-- Deployed gates require user-supplied Vercel UI screenshots/status and production HTTP/Neon evidence, or later restored connector access.
+- Vercel connector again became unavailable on the first live post-merge call, preventing inspection/triggering of the current-main Vercel deployment and protected runtime fetch.
+- Root `vercel.json` has Git deployment disabled, so a merge does not by itself prove a new production deployment exists; actual Vercel deployment evidence is required.
 
 ## OPEN_ITEMS
-- User to provide Vercel Production project name, latest deployment status, deployed Git SHA, build-failure status, and production domain from the Vercel UI.
-- User to provide production HTTP evidence for session -> career create -> state -> next_game -> same-key replay -> stale revision 409 -> reconnect/state persistence.
-- User to provide Neon production evidence showing a session row exists, latest revision advanced to 2, updated_at changed, and at least one idempotency record exists, without sharing secrets or full save payload.
-- User to refresh/reopen the production site and provide browser evidence that the same career/state is shown and backend DTOs are being used.
-- Once evidence is supplied, 07 will validate deployed SHA, route contract, revision progression, persistence, idempotency, stale-409 behavior, Neon durability, and browser authority before changing gates.
+- Re-establish Vercel connector or use manual Vercel UI evidence to verify a deployment from `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2` (or later status-only successor with identical code) reaches READY.
+- Confirm Vercel build completes Python dependency installation/function creation and frontend build.
+- Verify `GET /api/v1/session` returns the expected API response on that deployment.
+- Only after those build gates PASS, resume production create/state/next_game/revision/persistence/idempotency/stale-409/cold-start/browser verification.
 
 ## DEPENDENCIES
 - Neon production PostgreSQL/schema: READY and previously validated.
-- GitHub main/API contract: `11fbb451a0e967820ea69db2d315616133cd2023` at task start.
-- Vercel connector: BLOCKED; manual user evidence is the active fallback path.
+- GitHub packaging fix: merged in PR #45 at `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2`.
+- Vercel connector live access: BLOCKED at post-merge verification.
 
 ## NEXT_ACTION
-- User performs the manual verification checklist supplied by 07 and returns screenshots and/or sanitized command outputs. 07 then audits those artifacts against the exact API contract and updates deployed-runtime gates. Do not expose DATABASE_URL, cookies, save payloads, fingerprints, or other secrets.
+- Inspect or manually redeploy the repository-root `baseball-player-sim` project from the PR #45 merge SHA. First require Vercel READY + correct deployed SHA + `/api/v1/session` 200; then resume existing production smoke without any feature/refactor work.
 
 ## RELATED_PRS
+- #45 merged: minimal Vercel Python PEP 621/uv packaging fix
 - #44 merged: Neon production schema + Vercel handoff
 - #43 merged: P0 Vercel production persistence wiring code
 - #42 merged: P0 Web ↔ Python local/CI vertical slice
@@ -55,6 +56,7 @@ RESULT: READY_FOR_MANUAL_EVIDENCE — Vercel connector live access remains block
 
 ## RELATED_BRANCHES
 - main
+- fix/vercel-python-packaging
 - Neon branch `production`
 - Neon branch `p0-validation`
 
@@ -69,7 +71,11 @@ RESULT: READY_FOR_MANUAL_EVIDENCE — Vercel connector live access remains block
 - PRODUCTION_FAIL_CLOSED = PASS
 - PRODUCTION_SECURE_SESSION_COOKIE = PASS
 - MOCK_NOT_PRODUCTION_AUTHORITY_CODE = PASS
-- MANUAL_PRODUCTION_VERIFICATION_FALLBACK = PASS
+- VERCEL_PYTHON_PACKAGING = PASS
+- VERCEL_PYPROJECT_DEPENDENCY_CONTRACT = PASS
+- VERCEL_UV_LOCK_CI = PASS
+- PR45_CI = PASS
+- PR45_MERGED = PASS
 - VERCEL_CONNECTOR_ACCESS = BLOCKED
 - VERCEL_CURRENT_MAIN_BUILD = OPEN
 - VERCEL_DEPLOYED_SHA_VERIFIED = OPEN
