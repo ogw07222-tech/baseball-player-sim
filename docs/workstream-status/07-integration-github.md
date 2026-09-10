@@ -2,43 +2,43 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
-SOURCE_OF_TRUTH: main@2f2235ccc2253929f86483c3495f7ce1385d0748
+SOURCE_OF_TRUTH: main@b455db85e0ffa81cbe93f2f8106f9a20e7538a52
 STATE: BLOCKED
-CURRENT_TASK: Vercel access recheck and production deployment smoke
-RESULT: OPEN — latest main remains `2f2235ccc2253929f86483c3495f7ce1385d0748`. The Vercel connector was initially available for tool discovery but became disabled before project/deployment/runtime verification could be completed. Independent web access could not resolve the production domains through the available web path. No new production runtime evidence was obtained, so existing deployment/build blocker and OPEN deployed-E2E gates remain unchanged.
+CURRENT_TASK: Vercel Connector Stability Recheck + Minimal Production Gate Probe
+RESULT: OPEN/BLOCKED — Vercel connector tool discovery succeeded, but the first live `list_teams` call immediately disabled the connector. Per task contract, no deployment/project/runtime facts were inferred beyond prior verified evidence. The minimal production probe (deployment status, deployed SHA, `/api/v1/session`) was not run, and no full production smoke was attempted.
 
 ## LAST_COMPLETED
-- Re-read latest main: `2f2235ccc2253929f86483c3495f7ce1385d0748`.
-- Re-read the 07 workstream status and retained the last verified production facts: repository-root `baseball-player-sim` deployment on current-main predecessor failed in Vercel Python packaging, while `baseball-player-sim-ui` READY deployment was stale and lacked `/api/v1/session`.
-- Re-initialized the Vercel connector and confirmed the tool surface was briefly discoverable, but the connector became disabled before live project/deployment fetches could complete.
-- Tried an independent HTTP/web fallback against the known production domains; the available web path could not resolve/open those deployment URLs, so no HTTP assertions were fabricated.
-- No application, gameplay, ratings, growth, injury, events, KBO rules, stat formulas, UI, advance breadth, persistence code, DB schema, SessionStore semantics, or deployment configuration was changed.
+- Re-read latest main at task start: `b455db85e0ffa81cbe93f2f8106f9a20e7538a52`.
+- Re-read the 07 workstream status.
+- Re-loaded the Vercel connector skill and successfully discovered the `list_teams` tool surface.
+- First live `list_teams` invocation returned a tool-level disable event; the connector became unavailable before any current team/project/deployment evidence could be collected.
+- Per the explicit task rule, stopped Vercel verification immediately rather than carrying forward stale project/deployment assumptions as current facts.
+- No application, gameplay, ratings, growth, injury, events, KBO rules, stat formulas, UI, advance breadth, persistence logic, DB schema, SessionStore semantics, or deployment configuration was changed.
 
 ## CURRENT_FINDINGS
-- There is no new evidence that a READY production deployment containing P0 FastAPI/Neon wiring exists after the last verified failure.
-- Latest GitHub main still contains the existing packaging/deployment configuration and no packaging-fix commit was observed after `2f2235ccc2253929f86483c3495f7ce1385d0748`.
-- Because the Vercel connector disabled mid-task and independent HTTP fallback could not access the domains, `/api/v1/session`, career creation, next_game, revision, persistence, idempotency, stale-409, cold-start, and browser E2E were not rerun.
-- Prior Neon/Postgres adapter/schema/CAS/idempotency evidence remains valid but is not substituted for deployed runtime evidence.
+- Vercel connector discovery is available but the live connector is not stable enough to complete even Step 1 (`list teams`).
+- No current evidence was collected for team/project visibility, latest production deployment status, deployed commit SHA, or `/api/v1/session`.
+- Prior verified evidence remains historical only: the last current-main root deployment had a Python packaging failure and the last READY UI deployment was stale/pre-P0. This task does not automatically treat those historical results as the current deployment state.
+- Because Step 1 failed, Step 2 minimal production probe and Step 3 full production smoke were intentionally not executed.
+- Prior Neon/Postgres durable-store validation remains PASS but is not substituted for deployed runtime evidence.
 
 ## BLOCKERS
-- Vercel connector unavailable during the actual verification phase.
-- No independent HTTP/browser path in the current execution environment successfully reached the production Vercel domains.
-- The last verified repository-root Vercel deployment remained blocked by Python packaging metadata and no later READY current-main deployment could be independently observed.
+- Vercel connector live access is unstable/unavailable: first `list_teams` call disabled the connector.
+- Without stable connector access, current project identification, latest deployment status/SHA, build logs, and protected runtime fetch cannot be independently verified.
 
 ## OPEN_ITEMS
-- Re-establish Vercel project/deployment/runtime access and identify the latest production deployment for `baseball-player-sim` / canonical production domain.
-- Confirm the deployed Git SHA is current-main or its packaging-fix successor and that deployment state is READY.
-- Run production smoke: GET session -> create career -> GET state -> next_game -> revision +1 -> GET state -> reconnect -> same-key replay -> stale revision 409 -> error schema.
-- Verify Neon production session/idempotency rows and cold-start persistence.
-- Run deployed browser E2E and verify backend DTO authority / no MockGameDataProvider authority.
+- Re-establish stable Vercel connector access and successfully complete: list teams -> list projects -> identify production project -> list latest deployments.
+- If Step 1 succeeds, verify only the minimal production gate first: latest production deployment status, deployed Git SHA, and `GET /api/v1/session`.
+- Only if that minimal probe is current-main/READY/session-route PASS should the complete career/create/state/next_game/persistence/idempotency/stale-409/cold-start/browser smoke be run.
+- If the current deployment is actually failing, fetch its current build log and classify the real blocker before proposing any packaging fix.
 
 ## DEPENDENCIES
 - Neon production PostgreSQL/schema: READY and previously validated.
-- GitHub main: `2f2235ccc2253929f86483c3495f7ce1385d0748`.
-- Vercel connector/runtime access: BLOCKED in this verification attempt.
+- GitHub main at task start: `b455db85e0ffa81cbe93f2f8106f9a20e7538a52`.
+- Vercel connector live access: BLOCKED in this attempt.
 
 ## NEXT_ACTION
-- Once Vercel access is available again, inspect the latest production deployment first. If current-main packaging is still failing, resolve only that deployment-config blocker; otherwise immediately execute the existing production smoke and Neon/browser verification without feature changes.
+- Retry Vercel connector access. Do not infer current deployment state from historical failures. The first successful sequence must be team/project/deployment discovery followed by the three-point minimal production probe.
 
 ## RELATED_PRS
 - #44 merged: Neon production schema + Vercel handoff
@@ -62,12 +62,12 @@ RESULT: OPEN — latest main remains `2f2235ccc2253929f86483c3495f7ce1385d0748`.
 - PRODUCTION_FAIL_CLOSED = PASS
 - PRODUCTION_SECURE_SESSION_COOKIE = PASS
 - MOCK_NOT_PRODUCTION_AUTHORITY_CODE = PASS
-- VERCEL_ACCESS_RECHECK = BLOCKED
+- VERCEL_CONNECTOR_ACCESS = BLOCKED
 - VERCEL_CURRENT_MAIN_BUILD = OPEN
 - VERCEL_DEPLOYED_SHA_VERIFIED = OPEN
+- PRODUCTION_API_SESSION_ROUTE = OPEN
 - VERCEL_DATABASE_URL_PRODUCTION_SCOPE_VERIFIED = OPEN
 - VERCEL_PRODUCTION_WIRING = OPEN
-- PRODUCTION_API_SESSION_ROUTE = OPEN
 - PRODUCTION_SESSION_PERSISTENCE = OPEN
 - PRODUCTION_REVISION_CAS = OPEN
 - PRODUCTION_IDEMPOTENCY = OPEN
