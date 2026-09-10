@@ -1,0 +1,48 @@
+{
+  "experiment": "Rating Generation R1",
+  "execution_source_head": "9aa458735721570581f4968060590acf3fc9c957",
+  "seeds": [20260910, 20260911, 20260912, 20260913, 20260914],
+  "sample_sizes": {
+    "hitter_player": 200000,
+    "hitter_npc": 200000,
+    "pitcher_player": 200000,
+    "pitcher_npc": 200000,
+    "catcher_player_diagnostic": 50000,
+    "catcher_npc_diagnostic": 50000
+  },
+  "reproducibility_spot_check_5000_per_representative_cohort": true,
+  "strict_rule": {
+    "threshold_raw_points": 0.5,
+    "flagged_population_rating_rows": 53,
+    "total_population_rating_rows": 62,
+    "result": "FAIL",
+    "reason": "At least one per-seed mean/SD/P10/P50/P90/P99 range exceeded 0.5 for 53 of 62 population-rating rows; integer quantile movement dominates many flags."
+  },
+  "per_seed_current_ability": {
+    "hitter_player": {
+      "20260910": [79.7350, 9.8436, 102.6083], "20260911": [79.7059, 9.7499, 102.3420], "20260912": [79.6987, 9.7965, 102.5751], "20260913": [79.8190, 9.8593, 102.9083], "20260914": [79.7391, 9.8316, 102.5752]
+    },
+    "hitter_npc": {
+      "20260910": [69.7411, 6.9831, 86.0419], "20260911": [69.7112, 6.9413, 85.8418], "20260912": [69.7074, 6.9552, 85.6500], "20260913": [69.7622, 6.9251, 85.9083], "20260914": [69.7517, 6.9196, 85.8000]
+    },
+    "pitcher_player": {
+      "20260910": [79.4629, 8.9017, 100.0200], "20260911": [79.4103, 8.8701, 100.0200], "20260912": [79.5321, 8.8264, 100.2800], "20260913": [79.5485, 8.8925, 100.4202], "20260914": [79.4956, 8.9123, 100.3900]
+    },
+    "pitcher_npc": {
+      "20260910": [69.9443, 6.1865, 84.3901], "20260911": [70.0027, 6.1696, 84.5301], "20260912": [69.9862, 6.1721, 84.3700], "20260913": [70.0076, 6.1740, 84.2700], "20260914": [70.0034, 6.1798, 84.3000]
+    },
+    "catcher_player": {
+      "20260910": [79.0649, 9.8234, 101.7003, 85.8827], "20260911": [78.9950, 9.7175, 101.2006, 85.6697], "20260912": [78.8373, 9.8116, 101.1928, 85.8308], "20260913": [78.9746, 9.8084, 101.8669, 85.4315], "20260914": [78.8358, 9.7987, 101.3587, 85.6833]
+    },
+    "catcher_npc": {
+      "20260910": [68.9927, 6.9319, 85.0588, 82.8869], "20260911": [68.9334, 6.9564, 85.0087, 82.6892], "20260912": [68.8751, 6.8700, 84.9085, 82.7616], "20260913": [69.0043, 6.8788, 84.9418, 82.6363], "20260914": [68.8991, 6.9498, 85.0918, 82.6378]
+    }
+  },
+  "tuple_format": "main cohorts=[CA mean, CA SD, CA P99]; catcher=[CA mean, CA SD, CA P99, Game Calling mean]",
+  "archetype_counts": {
+    "pitcher_player": {"balanced":39920,"breaking":32089,"command":36053,"power":35851,"wild_flamethrower":23957,"workhorse":32130},
+    "pitcher_npc": {"balanced":40259,"breaking":32020,"command":35699,"power":35842,"wild_flamethrower":24283,"workhorse":31897},
+    "catcher_player": {"balanced":12457,"defensive":10996,"game_manager":10086,"offensive":7450,"strong_arm":9011},
+    "catcher_npc": {"balanced":12350,"defensive":11013,"game_manager":9989,"offensive":7558,"strong_arm":9090}
+  }
+}
