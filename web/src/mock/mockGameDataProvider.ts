@@ -165,12 +165,18 @@ export class MockGameDataProvider implements GameDataProvider {
   async advanceNextGame() { return this.advance(1) }
   async advanceWeek() { return this.advance(6) }
   async advanceMonth() { return this.advance(24) }
-  async advanceSeason() { return this.advance(this.dashboardState.season.totalGames - this.dashboardState.season.game) }
+  async advanceSeason() {
+    const totalGames = this.dashboardState.season.totalGames ?? 0
+    const game = this.dashboardState.season.game ?? 0
+    return this.advance(Math.max(0, totalGames - game))
+  }
   async saveGame() { await Promise.resolve() }
   private async advance(games:number) {
     const next = clone(this.dashboardState)
-    next.season.game = Math.min(next.season.totalGames, next.season.game + games)
-    next.season.progress = Math.round((next.season.game / next.season.totalGames) * 100)
+    const currentGame = next.season.game ?? 0
+    const totalGames = next.season.totalGames ?? currentGame
+    next.season.game = Math.min(totalGames, currentGame + games)
+    next.season.progress = totalGames > 0 ? Math.round((next.season.game / totalGames) * 100) : 0
     this.dashboardState = clone(next)
     this.seasonState.season = clone(next.season)
     return next

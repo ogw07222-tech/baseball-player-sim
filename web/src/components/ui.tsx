@@ -25,11 +25,13 @@ export function AbilityBar({ stat }: { stat:AbilityViewModel }) {
 }
 
 export function Leaderboard({ rows }: { rows:LeaderboardEntry[] }) {
+  if (!rows.length) return <div className="empty-tab">현재 제공되는 리더보드 데이터가 없습니다.</div>
   return <div className="leaderboard">{rows.slice(0,10).map(row => <div className={`leader-row ${row.isUser?'user-row':''}`} key={`${row.rank}-${row.player}`}><span>{row.rank}</span><span className="leader-name">{row.player}<small>{row.team}</small></span><strong>{row.display}</strong></div>)}</div>
 }
 
 export function ProgressRing({ value, label }: { value:number; label:string }) {
-  return <div className="progress-ring" style={{background:`conic-gradient(var(--accent-cyan) ${Math.min(100,value)}%, var(--panel-alt) 0)`}} aria-label={`${label} ${value}%`}><span>{value}%</span></div>
+  const normalized = Math.max(0, Math.min(100, value))
+  return <div className="progress-ring" style={{background:`conic-gradient(var(--accent-cyan) ${normalized}%, var(--panel-alt) 0)`}} aria-label={`${label} ${Math.round(value)}%`}><span>{Math.round(value)}%</span></div>
 }
 
 export function LoadingState() {
