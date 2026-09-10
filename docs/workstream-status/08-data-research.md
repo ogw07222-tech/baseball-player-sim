@@ -2,48 +2,48 @@
 
 WORKSTREAM: 08 - Baseball Data & Research
 UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@564518b0e021f3f9b4880fe4ca55946cc0d93179
+SOURCE_OF_TRUTH: main@9807004ff1dc00a5bb88bca49bebadd7a87f1f99
 STATE: ACTIVE
-CURRENT_TASK: Shared KBO evidence lane for next development wave
-RESULT: OPEN
+CURRENT_TASK: KBO roster / age / pitcher workload baseline pack
+RESULT: PARTIAL_PASS_OPEN
 
 ## LAST_COMPLETED
 - Public data provenance/usage policy added under `data/README.md`.
 - Detailed KBO dataset provenance matrix added and linked from main.
-- Added `docs/kbo-shared-evidence-baseline.md` as a compact, provenance-labelled baseline pack for 02/03/04/05.
-- Established 2025 completed regular season as the preferred matched-condition league baseline for Balance work.
+- Added `docs/kbo-shared-evidence-baseline.md` for common 02/03/04/05 reference data.
+- Added `docs/kbo-roster-age-pitcher-workload-baseline.md` with modern position/rookie distribution, age bounds, completed-2025 workload tail anchors, official velocity-system provenance, and longitudinal cohort methodology.
 
 ## CURRENT_FINDINGS
-- 2025 KBO league hitting baseline is usable from frozen aggregate totals: AVG .2616, OBP .3385, SLG .3887, OPS .7272, BB% 9.149%, K% 19.687%, HR% 2.127%, BABIP .3122.
-- 2025 pitching aggregate cross-check supports ERA 4.31, WHIP 1.41, 12,771 IP, 11,024 SO, 5,123 BB, 1,191 HR; derived K/9 7.769, BB/9 3.610, HR/9 .839.
-- KBO official operation confirms 144 games/team and 720 league games.
-- Official award pages provide usable Rookie, Golden Glove and Fielding Award eligibility thresholds.
-- Official FA notices provide usable transaction examples and historical 145 active-roster-day service-season reference, but the current full rulebook should be checked before hard-locking production service rules.
-- Modern position distribution, full age histogram, starter/reliever workload splits, debut-age/career-length/peak-age curves and injury-event frequency remain OPEN.
-- Velocity evidence is only provisional: a secondary report gives a 2024 league fastball average of 144.2 km/h, while 2025 early-season official-attributed reporting provides elite 153-154 km/h anchors. No primary full distribution was recovered.
+- 2026 KBO official registration: 621 players; 317 pitchers (51.05%), 50 catchers (8.05%), 138 infielders (22.22%), 116 outfielders (18.68%). This closes the modern registered-player position-share gap for 02.
+- 2026 rookies: 52 players (8.37% of the 621 registered population); 28 pitchers, 14 infielders, 8 outfielders, 2 catchers.
+- Official roster-age bounds remain usable: 2026 18y1m19d to 42y1m15d; 2025 18y1m19d to 42y6m16d. Mean/median/percentiles and position-age distributions remain OPEN.
+- Completed 2025 player leaderboards provide extreme workload anchors: top GS leaders reached 30-31 starts, with the top-five GS group spanning about 5.46-6.58 IP/start.
+- Completed 2025 high-appearance zero-start relievers reached 75-82 games; the top-five appearance group spans about 0.58-1.04 IP/appearance. These are extreme sanity bands, not percentile estimates.
+- Full P10/P50/P90/P95 starter/reliever distributions and role IP shares remain OPEN because no redistribution-safe complete player-level `G/GS/IP/BF` aggregate was obtained.
+- KBO officially adopted TrackMan as the league pitch-velocity measurement system for 2025, improving measurement provenance. A primary league-wide average/SD/percentile velocity distribution is still not publicly recovered.
+- Debut-age/career-length cohort design is now predeclared with player-ID entity matching, active-season and calendar-span definitions, right-censoring, left-truncation controls, and metric-specific peak-age rules.
 
 ## BLOCKERS
-- No verified compact extraction yet for modern KBO position/age distribution from the official annual registration attachment.
-- No completed 2025 player-level GS/IP aggregation yet for starter/reliever workload baselines.
-- No provenance-safe longitudinal cohort dataset yet for debut age, peak age or career length.
-- Primary/licensed full KBO pitch-velocity distribution not yet recovered.
+- KBO annual roster attachments/public pages do not currently provide a compact redistribution-safe age histogram; bulk extraction was deliberately avoided under public-repo policy.
+- No complete licensed/reproducible 2025 player-level `G/GS/IP/BF` dataset was available in this pass for percentile calculation.
+- KBO public material confirms TrackMan as the official measurement system but does not expose a league-wide velocity distribution suitable for direct aggregation.
+- No provenance-safe longitudinal KBO career cohort has yet been materialized.
 
 ## OPEN_ITEMS
-- Recover compact modern roster position/age/service summaries from official KBO registration material without committing bulk source attachments.
-- Build 2025 starter/reliever workload summaries from player G/GS/IP under a reproducible aggregation path.
-- Define and build longitudinal career cohorts with censoring rules for debut age, career length and peak age.
-- Build explicit-PA/IP percentile packs for low/middle/elite hitter and pitcher spectra.
-- Find a primary or clearly licensed KBO pitch-tracking aggregate for velocity distribution.
-- Research public aggregate injury/event incidence before any narrative probability calibration.
+- Recover roster age mean/median/P10/P25/P75/P90 and position-age splits from an aggregate-permitted source.
+- Build completed-2025 starter/reliever P10/P50/P90/P95, role counts, total-IP shares, and BF distributions using the declared role classifier once an appropriate player-level source is available.
+- Find a primary or explicitly licensed TrackMan-derived KBO fastball average/SD/percentile source; keep average and maximum velocity separate.
+- Materialize the debut-age/career-length longitudinal cohort with censoring metadata.
+- Continue explicit-PA/IP low/middle/elite performance percentile research for 02/05.
 
 ## DEPENDENCIES
-- 02: can use age bounds and provisional velocity anchors; position/age/usage/performance distributions remain OPEN.
-- 03: can use season structure and FA/service-time references; longitudinal career distributions remain OPEN.
-- 04: can use award eligibility/annual award structure and FA transaction context; injury/event frequencies remain OPEN.
-- 05: can use the 2025 matched-season league hitting/pitching baseline immediately; starter/reliever workload split remains OPEN.
+- 02: position and rookie distribution are now usable for registered-player generation comparisons; age bounds usable as plausibility constraints; full age/usage/velocity distributions remain OPEN.
+- 03: longitudinal debut-age/career-length/peak-age methodology is ready; numerical career distributions remain OPEN.
+- 04: unchanged; award/rule evidence remains usable from shared baseline.
+- 05: 2025 league baseline remains usable; new extreme starter/reliever workload sanity bands are usable, but central percentile workload targets remain OPEN.
 
 ## NEXT_ACTION
-- Highest priority: modern roster position/age distribution extraction, then completed-2025 starter/reliever workload aggregation.
+- Highest priority: obtain a redistribution-safe complete 2025 player-level pitching summary to calculate role/workload percentiles; second priority is an aggregate-permitted roster age distribution.
 
 ## RELATED_PRS
 - #35 merged
@@ -55,9 +55,14 @@ RESULT: OPEN
 - PUBLIC_DATA_POLICY = PASS
 - DATASET_PROVENANCE_MATRIX = PASS
 - 2025_MATCHED_LEAGUE_BASELINE = PASS
-- AWARD_RULE_BASELINE = PASS
-- ROSTER_DISTRIBUTION_BASELINE = OPEN
-- CAREER_LONGITUDINAL_BASELINE = OPEN
+- ROSTER_POSITION_DISTRIBUTION_BASELINE = PASS
+- ROSTER_ROOKIE_SHARE_BASELINE = PASS
+- ROSTER_AGE_BOUNDS = PASS
+- ROSTER_AGE_DISTRIBUTION = OPEN
+- STARTER_RELIEVER_EXTREME_WORKLOAD_SANITY = PASS
+- STARTER_RELIEVER_WORKLOAD_PERCENTILES = OPEN
+- VELOCITY_MEASUREMENT_PROVENANCE = PASS
 - VELOCITY_DISTRIBUTION_BASELINE = OPEN
-- STARTER_RELIEVER_WORKLOAD_BASELINE = OPEN
-- SHARED_KBO_EVIDENCE_LANE = OPEN
+- CAREER_LONGITUDINAL_METHODOLOGY = PASS
+- CAREER_LONGITUDINAL_NUMERICAL_BASELINE = OPEN
+- KBO_ROSTER_AGE_WORKLOAD_PACK = PARTIAL_PASS_OPEN
