@@ -2,49 +2,64 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
-SOURCE_OF_TRUTH: `main` observed at `d6b8d86f4dd1f523ba5e1d09d84ad82d6a37cf55` before this status-sync commit
+SOURCE_OF_TRUTH: `main@b3ca2fe9cd6c84f400d7d301a2c30176bf0978cc`
 STATE: BLOCKED
-CURRENT_TASK: Vercel Production Gate
-RESULT: PRE-FIX PRODUCTION DEPLOYMENT FAILS FIRST GATE / FIX MERGED BUT NOT YET DEPLOYED
+CURRENT_TASK: Diagnose Production 503 on /api/v1/session
+RESULT: CURRENT DEPLOYMENT REACHES FASTAPI BUT SESSION ROUTE RETURNS HANDLED 503; DATABASE ENV/STORE PATH NOT YET DISAMBIGUATED
 
 ## CURRENT_FINDINGS
-- Newer-than-historical Production deployment exists: `dpl_AbPPVvPXDPAgcbYUvJsGBRM2Ti7Q`.
+- Current Production deployment: `dpl_zeqW4tEs1FBs95cKeZABrXSEPcCU`.
 - Deployment state: `READY`.
-- Deployed Git SHA: `51e7e64d6c7bb44ba99cbe4771da8985e8450546`.
-- That deployed SHA is later than PR #45 merge `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2` and contains the PR #45 Python packaging fix; it also contains the PR #48 `web/package-lock.json` fix.
-- `GET /api/v1/session`: FAIL. Production alias returns HTTP 500 with `FUNCTION_INVOCATION_FAILED`; therefore the full production smoke was intentionally not run.
-- Runtime traceback root cause: Vercel directly loads `src/api/app.py`; `app.py` imports `.store`; package initialization executes `src/api/__init__.py`, whose eager `from .app import app, create_app` re-imports the partially initialized module and raises `ImportError: cannot import name 'app' from 'src.api.app'`.
-- Classification: A — FastAPI/module import failure caused by Vercel direct-module loading + eager package re-export circularity.
-- This crash occurs before endpoint execution and before `_external_database_url()` / `_default_store()` can prove whether `DATABASE_URL` is visible at runtime. `DATABASE_URL_VISIBLE_IN_PRODUCTION_RUNTIME = OPEN`; this is not evidence that it is missing.
-- Minimum fix is merged in PR #49 as merge SHA `13c7976fdae227b10f20d7130f6f7e176eb579e3`: lazy exports in `src/api/__init__.py` plus a Vercel-style direct-loader regression test.
-- PR #49 CI passed, including the direct-loader regression, API/durable-store tests, full Python suite, web tests, and production integration smokes.
-- Current main observed after PR #49: `d6b8d86f4dd1f523ba5e1d09d84ad82d6a37cf55`.
-- No Production deployment newer than `dpl_AbPPVvPXDPAgcbYUvJsGBRM2Ti7Q` was observed, so no Production deployment containing PR #49/current main exists yet.
+- Deployed Git SHA: `b3ca2fe9cd6c84f400d7d301a2c30176bf0978cc`.
+- Deployed SHA contains PR #49 merge `13c7976fdae227b10f20d7130f6f7e176eb579e3`; PR #49 contains the earlier PR #48 lockfile fix and PR #45 packaging fix in ancestry.
+- The previous `FUNCTION_INVOCATION_FAILED` circular-import crash is no longer the current symptom. Runtime telemetry records repeated `GET /api/v1/session` responses with HTTP 503 on this READY deployment and reports no runtime exception cluster for the route.
+- `PRODUCTION_API_ROUTE_REACHED = PASS`: the function executes and returns an application-level 503 rather than crashing during import.
+- The current application has two relevant handled 503 paths: when production has no external database URL, `_default_store()` selects `DisabledProductionStore`, whose operations raise `ApiProblem(503, "SAVE_FAILED", "external transactional durable store is required in production")`; when a configured Postgres store raises `StoreUnavailable`, the app returns a different handled 503 (`external durable store is unavailable`).
+- Exact response body could not be retrieved through the available Vercel connector in this session because direct deployment/alias fetch is intercepted by Vercel SSO and returns HTTP 302 before exposing the application body. Runtime request logs expose the 503 status but not the response body.
+- The available Vercel connector does not expose project environment-variable listing, so `DATABASE_URL` presence/scope cannot be asserted from tooling. `PRODUCTION_DATABASE_URL_VISIBLE = OPEN`.
+- No code change is justified yet: missing/incorrect Production env scope vs Postgres connection failure cannot be distinguished until the actual 503 JSON body or equivalent runtime evidence is obtained.
 - `git.deploymentEnabled=false` remains preserved.
 
 ## FIRST GATES
-- NEW_PRODUCTION_DEPLOYMENT_AFTER_HISTORICAL_STALE = PASS
-- DEPLOYMENT_READY = PASS
-- DEPLOYED_SHA_CONTAINS_PR45 = PASS
-- GET_API_V1_SESSION_FASTAPI_JSON = FAIL
-- FULL_PRODUCTION_SMOKE = NOT RUN by gate policy
+- VERCEL_CURRENT_MAIN_BUILD = PASS
+- VERCEL_DEPLOYED_SHA_VERIFIED = PASS
+- PR49_INCLUDED = PASS
+- PRODUCTION_API_ROUTE_REACHED = PASS
+- PRODUCTION_API_SESSION_ROUTE = FAIL (HTTP 503)
+- PRODUCTION_DATABASE_URL_VISIBLE = OPEN
+- FULL_PRODUCTION_SMOKE = NOT RUN
 
-## BLOCKER
-A Production redeploy containing PR #49/current main is still required. The currently observed Production deployment is READY but remains on the pre-fix SHA and crashes during Python module import.
+## ROOT-CAUSE BRANCH
+- If the actual response body has `error.code = SAVE_FAILED` and message `external transactional durable store is required in production`, classify as Production external DB URL missing/not visible to this deployment. Fix Vercel Production Environment Variable scope/config only, redeploy once, and retest `/api/v1/session`; do not change application code.
+- If the body message is `external durable store is unavailable`, the configured Postgres path is being selected and the next blocker is Neon/Postgres connectivity. Inspect the new runtime traceback/error details before any code or DB change; classify hostname/SSL/pooled endpoint/credentials/schema exactly.
+
+## BLOCKERS
+- Exact 503 JSON response body is not observable through the current Vercel connector because the fetch path is intercepted by Vercel SSO.
+- Vercel environment-variable names/scopes are not exposed by the current connector, so `DATABASE_URL` Production visibility remains unverified.
 
 ## NEXT_ACTION
-Create one Production deployment from current main while keeping Git auto-deploy disabled. On that deployment, verify only these first: READY, deployed SHA contains PR #49/PR #45, and `GET /api/v1/session` returns actual FastAPI JSON. Only if all pass, continue career create/state/next_game/revision/idempotency/stale-revision/Neon persistence/cold-start/browser E2E/MockGameDataProvider authority checks.
+- Obtain the actual `/api/v1/session` JSON body from the current Production URL (without exposing any secret). If it reports `external transactional durable store is required in production`, verify/add `DATABASE_URL` under Vercel Production scope and create one new Production deployment from current main. If it reports `external durable store is unavailable`, inspect that deployment's runtime DB error before changing anything.
+- Do not run career create, next_game, CAS, idempotency, persistence, cold-start, or browser E2E until `/api/v1/session` returns HTTP 200 FastAPI JSON.
+
+## RELATED_PRS
+- #49 merged: Vercel direct-module import circularity fix
+- #48 merged: web npm lockfile fix
+- #45 merged: Vercel Python packaging fix
+- #44 merged: Neon production schema + Vercel handoff
+- #43 merged: P0 production persistence wiring
+- #42 merged: Web ↔ Python vertical slice
 
 ## GATES
 - PR45_MERGED = PASS
 - PR48_LOCKFILE_FIX_MERGED = PASS
 - PR49_RUNTIME_IMPORT_FIX_MERGED = PASS
 - VERCEL_GIT_AUTO_DEPLOY = OFF
-- VERCEL_RUNTIME_ROOT_CAUSE_IDENTIFIED = PASS
-- VERCEL_DIRECT_IMPORT_REGRESSION = PASS
-- POST_FIX_PRODUCTION_DEPLOYMENT = OPEN
-- PRODUCTION_API_SESSION_ROUTE = FAIL on pre-fix deployment
+- VERCEL_CURRENT_MAIN_BUILD = PASS
+- VERCEL_DEPLOYED_SHA_VERIFIED = PASS
+- PRODUCTION_API_ROUTE_REACHED = PASS
+- PRODUCTION_API_SESSION_ROUTE = FAIL
 - PRODUCTION_DATABASE_URL_VISIBLE = OPEN
+- VERCEL_PRODUCTION_WIRING = OPEN
 - PRODUCTION_SESSION_PERSISTENCE = OPEN
 - PRODUCTION_REVISION_CAS = OPEN
 - PRODUCTION_IDEMPOTENCY = OPEN
