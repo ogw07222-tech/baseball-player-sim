@@ -2,7 +2,8 @@
 """Monte Carlo sanity/benchmark for the production full-game provider.
 
 Validation only. No gameplay or calibration tuning occurs here. The runner
-records structural invariants, deterministic replay, and distribution tails.
+records structural invariants, deterministic replay, KBO regular-season
+termination semantics, and distribution tails.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ import statistics
 import time
 
 from src.game_provider import GameFixture, GameSafetyLimitError, ProductionGameProvider
+from src.inning import KBO_REGULAR_SEASON_MAX_INNING
 from src.rng import RNG
 
 
@@ -82,14 +84,23 @@ def _check_result_invariants(result, fixture) -> Counter:
         violations["non_integer_score"] += 1
     if result.away_score < 0 or result.home_score < 0:
         violations["negative_score"] += 1
-    if result.away_score == result.home_score:
-        violations["final_tie"] += 1
     if result.innings_played < 9:
         violations["innings_below_nine"] += 1
+    if result.innings_played > KBO_REGULAR_SEASON_MAX_INNING:
+        violations["innings_above_kbo_limit"] += 1
     if result.event_count <= 0:
         violations["nonpositive_event_count"] += 1
     if result.safety_cap_hit:
         violations["result_safety_cap_hit"] += 1
+
+    is_draw = result.away_score == result.home_score
+    if is_draw:
+        if result.innings_played != KBO_REGULAR_SEASON_MAX_INNING:
+            violations["draw_not_after_completed_11th"] += 1
+        if result.winner is not None or result.loser is not None:
+            violations["draw_has_winner_or_loser"] += 1
+        if result.team_result_for(fixture.away_team) != "T" or result.team_result_for(fixture.home_team) != "T":
+            violations["draw_team_result_semantics"] += 1
 
     away_lines = [line for line in result.player_lines if line.team == fixture.away_team]
     home_lines = [line for line in result.player_lines if line.team == fixture.home_team]
@@ -137,6 +148,7 @@ def _deterministic_replay(seed: int) -> dict[str, object]:
         "away_score": a.away_score,
         "home_score": a.home_score,
         "innings": a.innings_played,
+        "draw": a.away_score == a.home_score,
         "events": a.event_count,
     }
 
@@ -185,6 +197,11 @@ def run_games(games: int, seed: int) -> dict[str, object]:
         total_runs = result.away_score + result.home_score
         totals["runs"] += total_runs
         totals["extra_innings"] += int(result.innings_played > 9)
+        totals["inning_9"] += int(result.innings_played == 9)
+        totals["inning_10"] += int(result.innings_played == 10)
+        totals["inning_11"] += int(result.innings_played == 11)
+        totals["inning_12plus"] += int(result.innings_played >= 12)
+        totals["draws"] += int(result.away_score == result.home_score)
         totals["walkoffs"] += int("WALKOFF" in result.notable_events)
         totals["events"] += result.event_count
 
@@ -218,6 +235,13 @@ def run_games(games: int, seed: int) -> dict[str, object]:
         "games_completed": completed,
         "completion_rate": completed / max(1, games),
         "seed": seed,
+        "kbo_regular_season_max_inning": KBO_REGULAR_SEASON_MAX_INNING,
+        "regulation_9_inning_pct": totals["inning_9"] / max(1, completed),
+        "ten_inning_pct": totals["inning_10"] / max(1, completed),
+        "eleven_inning_pct": totals["inning_11"] / max(1, completed),
+        "games_12plus_innings": totals["inning_12plus"],
+        "draw_count": totals["draws"],
+        "draw_pct": totals["draws"] / max(1, completed),
         "runs_per_team_game": totals["runs"] / team_games,
         "hits_per_team_game": totals["H"] / team_games,
         "hr_per_game": totals["HR"] / max(1, completed),
@@ -240,7 +264,7 @@ def run_games(games: int, seed: int) -> dict[str, object]:
         "pa_per_game_distribution_summary": pa_dist,
         "events_per_game_distribution": event_dist,
         "extreme_tails": {
-            "games_15plus_innings": sum(value >= 15 for value in innings_game),
+            "games_12plus_innings": totals["inning_12plus"],
             "games_20plus_total_runs": sum(value >= 20 for value in runs_game),
             "team_games_15plus_runs": sum(value >= 15 for value in team_runs),
             "games_100plus_pa": sum(value >= 100 for value in pa_game),
@@ -285,6 +309,8 @@ def main() -> int:
         summary["completion_rate"] != 1.0
         or summary["cap_hit_count"] != 0
         or summary["invariant_violation_count"] != 0
+        or summary["games_12plus_innings"] != 0
+        or summary["innings_per_game_distribution"]["max"] > KBO_REGULAR_SEASON_MAX_INNING
         or not summary["deterministic_replay"]["pass"]
         or summary["obvious_distribution_collapse"]
     )

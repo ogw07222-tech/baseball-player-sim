@@ -33,6 +33,7 @@ from .simulation import PitcherProfile, simulate_plate_appearance_outcome
 
 Side = Literal["away", "home"]
 Half = Literal["top", "bottom"]
+KBO_REGULAR_SEASON_MAX_INNING = 11
 
 
 @dataclass(frozen=True)
@@ -511,6 +512,8 @@ class BaseStateResolver:
 class PersistentInningEngine:
     """PA -> persistent base state -> next PA orchestration with runner identity."""
 
+    regular_season_max_inning = KBO_REGULAR_SEASON_MAX_INNING
+
     def __init__(
         self,
         away_lineup: Sequence[Player],
@@ -630,6 +633,10 @@ class PersistentInningEngine:
             return
 
         if self.state.inning >= 9 and self.state.home_score != self.state.away_score:
+            self.state.game_over = True
+            return
+
+        if self.state.inning >= self.regular_season_max_inning:
             self.state.game_over = True
             return
 
