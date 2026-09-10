@@ -1,0 +1,116 @@
+name: heavy-validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Validation suite to run
+        required: true
+        default: full_game
+        type: choice
+        options:
+          - full_game
+          - pitcher_usage
+          - catcher_generation
+          - all
+      seed:
+        description: RNG seed
+        required: true
+        default: '20260906'
+        type: string
+      games:
+        description: Full-game sample size
+        required: true
+        default: '10000'
+        type: string
+      seasons:
+        description: Pitcher-usage season sample size
+        required: true
+        default: '500'
+        type: string
+      samples:
+        description: Catcher-generation sample size
+        required: true
+        default: '200000'
+        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/heavy-validation.yml'
+
+jobs:
+  heavy-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || 'full_game' }}
+      SEED: ${{ github.event_name == 'workflow_dispatch' && inputs.seed || '20260906' }}
+      GAMES: ${{ github.event_name == 'workflow_dispatch' && inputs.games || '10000' }}
+      SEASONS: ${{ github.event_name == 'workflow_dispatch' && inputs.seasons || '500' }}
+      SAMPLES: ${{ github.event_name == 'workflow_dispatch' && inputs.samples || '200000' }}
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Record validation metadata
+        shell: bash
+        run: |
+          mkdir -p reports/integration-local
+          cat > reports/integration-local/metadata.json <<EOF
+          {
+            "sha": "${GITHUB_SHA}",
+            "run_id": "${GITHUB_RUN_ID}",
+            "suite": "${SUITE}",
+            "seed": "${SEED}",
+            "games": "${GAMES}",
+            "seasons": "${SEASONS}",
+            "samples": "${SAMPLES}"
+          }
+          EOF
+          cat reports/integration-local/metadata.json
+
+      - name: Compile validation dependencies
+        run: python -m compileall -q src tools/production_game_provider_sanity.py tools/pitcher_usage_sanity.py tools/catcher_generation_sanity.py
+
+      - name: Canonical full-game production sanity
+        if: env.SUITE == 'full_game' || env.SUITE == 'all'
+        run: |
+          python tools/production_game_provider_sanity.py \
+            --games "$GAMES" \
+            --seed "$SEED" \
+            --output reports/integration-local/full-game.json
+
+      - name: Pitcher usage heavy sanity
+        if: env.SUITE == 'pitcher_usage' || env.SUITE == 'all'
+        run: |
+          python tools/pitcher_usage_sanity.py \
+            --seasons "$SEASONS" \
+            --seed "$SEED" \
+            > reports/integration-local/pitcher-usage.json
+          cat reports/integration-local/pitcher-usage.json
+
+      - name: Catcher generation heavy sanity
+        if: env.SUITE == 'catcher_generation' || env.SUITE == 'all'
+        run: |
+          python tools/catcher_generation_sanity.py \
+            --samples "$SAMPLES" \
+            --seed "$SEED" \
+            > reports/integration-local/catcher-generation.json
+          cat reports/integration-local/catcher-generation.json
+
+      - name: Upload heavy validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: heavy-validation-${{ github.run_id }}-${{ github.sha }}
+          path: reports/integration-local/
+          if-no-files-found: error
+          retention-days: 30
