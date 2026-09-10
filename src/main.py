@@ -8,7 +8,7 @@ from .events import CareerEvent,EventChoice
 from .persistence import load_game,save_game
 from .player import Player
 from .rng import RNG
-STAT_LABELS={'contact':'컨택','power':'파워','discipline':'선구안','speed':'주력','defense':'수비','throwing':'송구','stamina':'체력','durability':'내구성','mentality':'멘탈','talent':'재능'}
+STAT_LABELS={'contact':'컨택','power':'파워','discipline':'선구안','speed':'주력','defense':'수비','throwing':'송구','stamina':'체력','durability':'내구성','mentality':'멘탈','talent':'재능','game_calling':'게임 콜링'}
 def _fmt_rate(v:float)->str:return f'{v:.3f}'.lstrip('0')
 def print_player(p:Player)->None:
     print('\n=== 선수 ===');print(f'{p.name} | {p.age}세 | {p.position} | {p.bats_throws}');print(f"소속: {p.team or '고교'} | 상태: {p.roster_level} | 성장형: {p.development_profile}")
