@@ -32,3 +32,4 @@ jobs:
           git add web/package-lock.json
           git commit -m "build: add web npm lockfile [skip ci]"
           git push
+# generation trigger
