@@ -2,97 +2,65 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
-SOURCE_OF_TRUTH: main@546147bd280aafb1530904aeac328515718931f0
+SOURCE_OF_TRUTH: main@9f7fc381bde6edc626ef42bb175abff2aa7b151d
 STATE: BLOCKED
-CURRENT_TASK: Re-enable Vercel Git Production Deployments
-RESULT: PARTIAL — PR #46 removed root `vercel.json` `git.deploymentEnabled: false`, restoring Git-triggered Vercel deployments for the root `baseball-player-sim` project. Merge to `main` automatically created Production deployment `dpl_BUJd7fdPfkJJwUHm3iPXXCWA4JkZ` from merge SHA `546147bd280aafb1530904aeac328515718931f0`, proving Git -> Vercel triggering is restored and Production Branch is operationally `main`. The current-main deployment then failed during the custom web build because `npm --prefix web ci` found no `web/package-lock.json`. This is a new current-main build blocker, distinct from the historical pre-PR45 Python packaging failure. Because deployment did not reach READY, `/api/v1/session` and full production smoke were not executed.
+CURRENT_TASK: One-Time Manual Production Deploy Without Re-enabling Git Auto Deploy
+RESULT: BLOCKED — Git auto-deploy has been restored to OFF on current main, but the available Vercel connector deployment action cannot create the requested one-time Production deployment from a Git SHA directly. Its runtime validation requires an explicit `target`, project `name`, and full `files` bundle; the exposed connector schema in this session does not provide a Git-source/redeploy-by-SHA path. No Preview deployment was intentionally created and no new automatic Production deployment was created after auto-deploy was disabled.
 
 ## LAST_COMPLETED
-- Task-start main verified: `83e4a3c78568d343ae18c0a86e493288d75c974c`.
-- Confirmed root `vercel.json` disabled all Git deployments with `git.deploymentEnabled: false`.
-- Confirmed Vercel project `baseball-player-sim` (`prj_5m6Qi5Ljj0ebBtZPcWbZjQADj1ZD`) is Git-linked to `ogw07222-tech/baseball-player-sim`, framework `python`, root project.
-- Confirmed production authority is `baseball-player-sim`, not `baseball-player-sim-ui`, for this P0 runtime verification.
-- Vercel documentation confirms `git.deploymentEnabled: false` disables automatic Git deployments; removing the disabling block restores default enabled behavior.
-- Created branch `fix/re-enable-vercel-git-deployments`.
-- Changed root `vercel.json` to schema-only configuration; no unrelated Vercel settings were added.
-- Opened PR #46 `fix: re-enable Vercel Git deployments` and merged it.
-- PR #46 merge SHA: `546147bd280aafb1530904aeac328515718931f0`.
-- Vercel automatically created Production deployment `dpl_BUJd7fdPfkJJwUHm3iPXXCWA4JkZ` from Git ref `main`, SHA `546147bd280aafb1530904aeac328515718931f0`.
-- The deployment cloned `main` at `546147b`, selected Python 3.12 from `pyproject.toml`, installed Python dependencies successfully, and then failed at `npm --prefix web ci` because no npm lockfile exists under `web/`.
-- No gameplay, ratings, growth, events, DB schema, SessionStore semantics, UI, stat formula, or unrelated configuration changes were made.
+- Task-start main: `80209cba45f684e6bf6603ab5f2dec705c4765a9`.
+- Confirmed the intended Production project remains Vercel project `baseball-player-sim` (`prj_5m6Qi5Ljj0ebBtZPcWbZjQADj1ZD`).
+- Detected that task-start main had root `vercel.json` in schema-only form, meaning Git auto-deploy had been re-enabled by prior PR #46 and did not match the requested OFF state.
+- Created and merged PR #47 to restore `git.deploymentEnabled: false` with no net file changes outside root `vercel.json`.
+- PR #47 merge SHA: `9f7fc381bde6edc626ef42bb175abff2aa7b151d`.
+- Verified root `vercel.json` on main now has `git.deploymentEnabled: false`.
+- Verified no Vercel deployment was created after the PR #47 merge timestamp, confirming the OFF configuration suppressed the merge-triggered deployment.
+- Attempted exactly one connector manual-deploy action. The action rejected the invocation before deployment creation because the connector requires explicit `target`, `name`, and `files` inputs and does not expose a Git-SHA deployment input in this session.
+- No gameplay, UI, DB, ratings, growth, events, SessionStore semantics, or unrelated configuration was changed.
 
 ## CURRENT_FINDINGS
-- `VERCEL_GIT_DEPLOYMENT_ENABLED = PASS`: a Git push/merge now creates Vercel deployments automatically.
-- `NEW_CURRENT_MAIN_PRODUCTION_DEPLOYMENT = PASS`: a new Production deployment was created from `main` after PR #46 merge.
-- Production Branch is operationally confirmed as `main` by the automatic Production deployment metadata (`githubCommitRef=main`, `target=production`, main branch alias).
-- `VERCEL_DEPLOYED_SHA_VERIFIED = PASS`: deployment SHA `546147bd...` is the PR #46 merge SHA and is later than PR #45 merge `0a9ad6d3...`, so it contains the PR #45 packaging fix.
-- `VERCEL_CURRENT_MAIN_BUILD = FAIL`: current-main deployment reached Python setup successfully but failed in the explicit web build command because `npm ci` requires an existing lockfile and `web/package-lock.json` is absent.
-- `PRODUCTION_API_SESSION_ROUTE = OPEN`: not tested because FIRST GATE failed at deployment READY.
-- The historical `No project table found in pyproject.toml` error is not the current failure; current-main passed that Python packaging stage.
-
-## HISTORICAL
-- STALE_PRODUCTION_DEPLOYMENT = FAIL
-- STALE_DEPLOYMENT_ID = `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg`
-- STALE_DEPLOYMENT_SHA = `8a6f48c9ab833ab5412cc246e31b6b6c09275296`
-- STALE_DEPLOYMENT_PACKAGING = FAIL
-- Historical failure reason: stale pre-PR45 deployment lacked the PEP 621 `[project]` table.
+- `VERCEL_GIT_AUTO_DEPLOY = OFF` on current main.
+- Current main contains PR #45 in ancestry.
+- No one-time manual Production deployment was created in this run.
+- Historical stale deployment evidence remains historical only and was not reused.
+- The most recent current-main Git-triggered deployment remains the earlier PR #46 deployment and is not reused as the requested manual deployment.
 
 ## BLOCKERS
-- Current-main Production build fails because the configured command `npm --prefix web ci && npm --prefix web run build` requires `web/package-lock.json`, which is not present in the repository.
+- Available Vercel connector does not expose a supported one-time Production deployment from repository Git SHA; its deploy action requires a full file bundle.
 
 ## OPEN_ITEMS
-- Resolve the current-main web packaging/build blocker with a separate minimal dependency/build-contract change.
-- Produce a new Production deployment and require `READY`.
-- Reconfirm deployed SHA contains PR #45 or later main.
-- Only after READY, verify `GET /api/v1/session` returns FastAPI JSON.
-- Only if the full FIRST GATE passes, execute career create/state/next_game/revision/persistence/Neon/idempotency/stale-409/cold-start/browser production smoke.
+- Create exactly one Production deployment of latest main through a Vercel UI/CLI/API path that can target the linked Git project while leaving `git.deploymentEnabled: false` unchanged.
+- After a new Production deployment exists, run FIRST GATE: `READY`, deployed SHA contains PR #45 or later main, and `GET /api/v1/session` returns FastAPI JSON.
+- Only if all FIRST GATE checks pass, continue the existing full production smoke.
 
 ## DEPENDENCIES
-- PR #45 Python packaging fix: merged and verified present in deployed SHA ancestry.
-- Neon production PostgreSQL/schema: READY and previously validated.
-- Git -> Vercel automatic deployment triggering: RESTORED.
-- Current web npm lockfile/build contract: BLOCKED.
+- Vercel Production project: `baseball-player-sim`.
+- Git auto-deploy: OFF.
+- One-time Git-SHA/manual Production deployment capability: BLOCKED in current connector surface.
 
 ## NEXT_ACTION
-- Do not reinterpret the historical Python packaging failure as current. Address only the newly evidenced current-main npm lockfile/build blocker in a separate minimal task, then let Git create a new Production deployment and re-run FIRST GATE. Do not run `/api/v1/session` or full smoke until deployment is READY.
+- Trigger exactly one manual Production deployment from current main outside the unavailable connector Git-SHA path (Vercel UI/CLI/API). Keep automatic Git deployments OFF. Once the new deployment appears, verify FIRST GATE before any full smoke.
 
 ## RELATED_PRS
-- #46 merged: re-enable Vercel Git deployments
-- #45 merged: minimal Vercel Python PEP 621/uv packaging fix
+- #47 merged: restore Vercel Git auto-deploy OFF
+- #46 merged: prior temporary re-enable of Vercel Git deployments
+- #45 merged: Vercel Python packaging fix
 - #44 merged: Neon production schema + Vercel handoff
-- #43 merged: P0 Vercel production persistence wiring code
-- #42 merged: P0 Web ↔ Python local/CI vertical slice
-- #37 merged: production presentation contract/provider foundation
+- #43 merged: P0 production persistence wiring
+- #42 merged: Web ↔ Python vertical slice
 
 ## RELATED_BRANCHES
 - main
-- fix/re-enable-vercel-git-deployments
-- Neon branch `production`
-- Neon branch `p0-validation`
+- fix/disable-vercel-auto-deploy
 
 ## GATES
-- NEON_PRODUCTION_PROJECT = PASS
-- NEON_PRODUCTION_DATABASE = PASS
-- NEON_PRODUCTION_SCHEMA = PASS
-- EXTERNAL_DURABLE_STORE = PASS
-- POSTGRES_SESSION_STORE_ADAPTER = PASS
-- POSTGRES_MIGRATION_CONTRACT = PASS
-- POSTGRES_REAL_SERVICE_TESTS = PASS
-- PRODUCTION_FAIL_CLOSED = PASS
-- PRODUCTION_SECURE_SESSION_COOKIE = PASS
-- MOCK_NOT_PRODUCTION_AUTHORITY_CODE = PASS
-- VERCEL_PYTHON_PACKAGING = PASS
-- VERCEL_PYPROJECT_DEPENDENCY_CONTRACT = PASS
-- VERCEL_UV_LOCK_CI = PASS
-- PR45_CI = PASS
 - PR45_MERGED = PASS
 - VERCEL_CONNECTOR_ACCESS = PASS
-- VERCEL_GIT_DEPLOYMENT_ENABLED = PASS
-- NEW_CURRENT_MAIN_PRODUCTION_DEPLOYMENT = PASS
-- VERCEL_CURRENT_MAIN_BUILD = FAIL
-- VERCEL_DEPLOYED_SHA_VERIFIED = PASS
+- VERCEL_GIT_AUTO_DEPLOY = OFF
+- ONE_TIME_MANUAL_PRODUCTION_DEPLOYMENT = BLOCKED
+- VERCEL_CURRENT_MAIN_BUILD = OPEN
+- VERCEL_DEPLOYED_SHA_VERIFIED = OPEN
 - PRODUCTION_API_SESSION_ROUTE = OPEN
-- VERCEL_DATABASE_URL_PRODUCTION_SCOPE_VERIFIED = OPEN
 - VERCEL_PRODUCTION_WIRING = OPEN
 - PRODUCTION_SESSION_PERSISTENCE = OPEN
 - PRODUCTION_REVISION_CAS = OPEN
