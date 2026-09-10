@@ -17,8 +17,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install API dependencies
+        run: pip install -r requirements-api.txt
       - name: Compile
         run: python -m compileall -q src tests tools/draft_calibration.py
+      - name: API vertical-slice tests
+        run: python -m unittest tests.test_api_vertical_slice -v
+      - name: Related production integration tests
+        run: python -m unittest tests.test_production_game_provider tests.test_production_integration_consolidation tests.test_season_lifecycle_bridge -v
       - name: Unit tests
         run: python -m unittest discover -s tests -v
       - name: Auto career smoke

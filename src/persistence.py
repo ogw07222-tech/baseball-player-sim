@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -27,8 +28,8 @@ def _tuple_state(value: object) -> object:
     return value
 
 
-def save_game(path: str | Path, engine: CareerEngine) -> Path:
-    target = Path(path)
+def serialize_game(engine: CareerEngine) -> dict[str, object]:
+    """Return the canonical durable save payload without choosing a storage medium."""
     payload: dict[str, object] = {
         "save_version": config.SAVE_VERSION,
         "player": engine.player.as_dict(),
@@ -41,15 +42,12 @@ def save_game(path: str | Path, engine: CareerEngine) -> Path:
     pitcher_usage_state = getattr(engine, "pitcher_usage_state", None)
     if isinstance(pitcher_usage_state, PitcherUsageLeagueState):
         payload["pitcher_usage_state"] = pitcher_usage_state.as_dict()
-    target.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False),
-        encoding="utf-8",
-    )
-    return target
+    return payload
 
 
-def load_game(path: str | Path) -> CareerEngine:
-    data: dict[str, Any] = json.loads(Path(path).read_text(encoding="utf-8"))
+def deserialize_game(payload: Mapping[str, Any]) -> CareerEngine:
+    """Restore a CareerEngine from the canonical save payload."""
+    data = dict(payload)
     version = int(data.get("save_version", 1))
     if version not in config.SUPPORTED_SAVE_VERSIONS:
         raise ValueError(f"unsupported save version: {version}")
@@ -78,3 +76,17 @@ def load_game(path: str | Path) -> CareerEngine:
             dict(data["pitcher_usage_state"])
         )
     return engine
+
+
+def save_game(path: str | Path, engine: CareerEngine) -> Path:
+    target = Path(path)
+    target.write_text(
+        json.dumps(serialize_game(engine), ensure_ascii=False, indent=2, allow_nan=False),
+        encoding="utf-8",
+    )
+    return target
+
+
+def load_game(path: str | Path) -> CareerEngine:
+    data: dict[str, Any] = json.loads(Path(path).read_text(encoding="utf-8"))
+    return deserialize_game(data)
