@@ -79,7 +79,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install
-        run: npm install
+        run: npm ci
       - name: Build
         run: npm run build
       - name: Tests
