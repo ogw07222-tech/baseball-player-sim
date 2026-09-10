@@ -2,135 +2,117 @@
 
 WORKSTREAM: 04 - Events & Story
 UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@e642fa2545bdc05ad8cc2b363b7bd199173409b1
+SOURCE_OF_TRUTH: main@4fa27947a72853ff17eeb373c8f0082341f40d02
 STATE: ACTIVE
-CURRENT_TASK: First production narrative/event expansion batch selection
-RESULT: PARTIAL
+CURRENT_TASK: Draft / Entry / First-Team Debut Career Spine v1 implementation
+RESULT: PASS_WITH_OPEN_INTEGRATION
 
 ## LAST_COMPLETED
-- Re-audited latest main event scheduler, eligibility, cooldown, once-per-season, pending choice/auto flow, temporary/seasonal modifiers, permanent effects, injury/breakthrough events, Traits, career histories, save/load, and deterministic-seed tests.
-- Confirmed the existing v0.4 scheduler is usable as a production prototype foundation, but narrative coverage is concentrated in PRO in-season training/performance/breakthrough events.
-- Selected the first bounded production expansion theme: Draft / Entry / First-Team Debut Career Spine.
+- Implemented bounded observational/system-mirror career spine on `feature/career-spine-v1` / PR #39.
+- Added append-only `Player.career_history` with backward-compatible default `[]`.
+- Added typed schema v1 and deterministic template news in `src/career_story.py`.
+- Implemented `draft_selected`, `draft_undrafted_entry`, `pro_entry`, `first_team_callup`, `first_team_debut`, and `farm_demotion`.
+- Rebased the unchanged feature tree onto current latest main after concurrent docs/research-only main advances.
+- CI run #610 on the validated code tree passed Python unit tests, Auto career smoke, Balance smoke, high-school/draft calibration gate, artifact upload, web build, and web tests.
 
-## CURRENT_FINDINGS
-- Scheduler controls are functional: pending events, once-per-season, career-once, event cooldowns, global minimum gap, phase gates, weighted eligibility, interactive choice, and auto choice are implemented.
-- `temporary_ranges` are actually season-long modifiers cleared at season end; there is no generic games/days/until-state-change temporary-effect contract yet.
-- Event outcomes can directly mutate permanent ratings, season modifiers, growth modifiers, injury, fatigue, form, and Traits. Large breakthrough events therefore remain too tightly coupled to simulation state ownership for further expansion.
-- Injury, awards, draft, roster transitions, debut year, coach changes, Trait history, team history, and event history exist as separate records rather than one unified narrative ledger/news pipeline.
-- Same-code same-seed behavior is covered, including save/load RNG-state preservation, but all systems currently share one RNG stream; narrative-only RNG isolation remains open.
-- Trait catalog supports positive/negative polarity only; Trait lifecycle changes at season end can occur without a causal narrative event.
-- No production contract/FA/transfer state owner was identified in the audited core flow, so those story stages remain blocked on 03 Growth & Career ownership.
+## HISTORY_SCHEMA
+`CareerHistoryEntry` v1 is append-only and contains:
+- `schema_version`
+- `event_id`, `event_type=system_mirror`
+- `year`, `age`, `career_stage`, `kind`, `importance`
+- `dedupe_key`, `trigger`, `eligibility`, `repeat_contract`
+- `team`, `game_number`
+- `facts`
+- `news` (`template_key`, `headline`, `body`)
+- `effects=[]`
+- `source_owner=03-growth-career`
+- `observer_owner=04-events-story`
 
-## CAREER_COVERAGE
-- High school: PARTIAL — tournaments/MVP simulated, no general narrative event/news spine.
-- Draft: PARTIAL — draft result persisted, no first-class history/news event contract.
-- Entry: PARTIAL — team assignment/team_history exists, no structured career story output.
-- Farm: PARTIAL — FARM gameplay and farm-development event exist, but roster/story transitions are not logged uniformly.
-- First-team debut: PARTIAL — debut_year is set, but no dedicated debut event/news/history entry.
-- Role competition: PARTIAL — roster reconsideration exists, no promotion/demotion story contract.
-- Slump: PARTIAL — form state and slump-response event exist, but trigger is not performance-history-derived narrative.
-- Breakout: PARTIAL — breakthrough events exist but often create the state via direct +stat effects instead of observing simulation results.
-- Injury: PARTIAL — injuries and injury events exist, histories are separate and recovery causality is weak.
-- Return: PARTIAL — injury-return choice event exists, but generic recovery completion is not a unified story signal.
-- Awards: PARTIAL — awards are calculated/persisted, but award news/history integration is missing.
-- Contract: MISSING — production state owner not found in audited core flow.
-- Transfer: MISSING — production state owner not found in audited core flow.
-- Late career: PARTIAL — aging/retirement probability exists, little narrative support.
-- Retirement: PARTIAL — retirement state exists, no retirement story/news entry.
+Repeat contracts:
+- `career_once`: draft result, pro entry, first-team debut.
+- `transition_repeat`: first-team call-up and farm demotion; duplicate transition keys are suppressed deterministically.
 
-## SELECTED_NEXT_BATCH
-### Draft / Entry / First-Team Debut Career Spine
-Reason:
-- Largest early-career narrative gap with already-existing authoritative simulation state.
-- Minimal gameplay-formula risk and minimal arbitrary stat mutation.
-- Establishes reusable observational/system-mirror event contracts before deeper slump/breakout or injury redesign.
-- Provides an end-to-end pattern for 03-owned state -> 04 history/news -> 06 presentation -> 07 persistence/integration.
+## IMPLEMENTED_CONTRACTS
+- `draft_selected`: authoritative selected draft result -> career-once history/news, zero simulation effect.
+- `draft_undrafted_entry`: authoritative undrafted-entry result -> career-once history/news, zero simulation effect.
+- `pro_entry`: authoritative team assignment/FARM entry -> career-once history/news, zero simulation effect.
+- `first_team_callup`: FARM -> FIRST authoritative transition -> repeatable history/news, year/game/from/to dedupe.
+- `first_team_debut`: first actual FIRST-team game appearance -> career-once history/news.
+- `farm_demotion`: FIRST -> FARM authoritative transition -> repeatable history/news, year/game/from/to dedupe.
 
-Initial contracts:
-1. `draft_selected` / `draft_undrafted_entry`
-   - Trigger: successful `evaluate_draft()` state transition.
-   - Eligibility: HIGH_SCHOOL -> PRO only; career-once.
-   - Probability: 1.0 system event; no scheduler random roll.
-   - Choices: none in first batch.
-   - Effects: none on ratings/gameplay; mirror authoritative draft/team state only.
-   - Duration: instant.
-   - Cooldown/repeat: career-once, deterministic dedupe key by career + draft year.
-   - Output: structured history entry + template news.
-2. `pro_entry`
-   - Trigger: team assignment / roster_level becomes FARM after draft.
-   - Eligibility: drafted or undrafted-entry player with team set; career-once.
-   - Probability: 1.0 system event.
-   - Choices/effects: none; observational only.
-   - Duration: instant.
-   - Output: entry/team history and template news; may merge with draft entry at presentation layer but remains separate fact.
-3. `first_team_callup`
-   - Trigger: FARM -> FIRST authoritative roster transition from career system.
-   - Eligibility: current level FARM, resulting level FIRST.
-   - Probability: 1.0 after transition; no additional random roll.
-   - Choices/effects: none in first batch.
-   - Duration: instant.
-   - Cooldown/repeat: repeatable across seasons, dedupe same transition/game; optional news importance reduced after first career call-up.
-   - Output: history entry + call-up news.
-4. `first_team_debut`
-   - Trigger: first actual FIRST-level game appearance, not merely roster promotion.
-   - Eligibility: debut_year unset before appearance / no prior debut ledger entry.
-   - Probability: 1.0 career-once.
-   - Choices/effects: none; no rating/gameplay mutation.
-   - Duration: instant.
-   - Output: high-importance career history entry + debut news.
-5. `farm_demotion`
-   - Trigger: FIRST -> FARM authoritative roster transition.
-   - Eligibility: actual roster transition only.
-   - Probability: 1.0 mirror event.
-   - Choices/effects: none in first batch.
-   - Cooldown/repeat: repeatable; dedupe identical transition/game, presentation suppression for excessive churn.
-   - Output: history entry; news importance depends on established status/career PA.
+## HOOKS
+- `CareerEngine.evaluate_draft()` observes the completed `CareerEngineBase.evaluate_draft()` transition.
+- `CareerEngine.start_pro_season()` observes authoritative season-start FARM/FIRST assignment changes.
+- `CareerEngine._reconsider_roster()` records before/after levels around existing roster logic.
+- Debut detection uses actual FIRST-team appearance (`first_team.G == 1`) plus zero completed-career FIRST-team games; it does not rely on `debut_year` alone.
 
-## EFFECT_OWNERSHIP
-- 03 Growth & Career owns draft/career progression, roster assignment, future contract/FA/team move, aging and retirement state.
-- 04 Events & Story owns observational event definitions, dedupe/cooldown/presentation importance, structured history/news facts, and optional later choices that call explicit 03 commands rather than mutating 03 state directly.
-- 01 Gameplay Engine remains owner of gameplay probability/outcomes; this batch must not change gameplay formulas.
+## RNG_AND_MUTATION
+- `render_career_news()` accepts no RNG.
+- `record_observational_event()` accepts no RNG.
+- All new history entries use `effects=[]`.
+- No rating/stat, gameplay probability, growth, fatigue, injury, form, Trait, or roster-decision formula is mutated by this layer.
+- Broader v0.4 systems still share their pre-existing RNG stream; this new observational/news path is RNG-free.
 
-## DEPENDENCIES
-- 03: expose/confirm authoritative draft completion, FARM<->FIRST transition, actual first-team appearance, future contract/FA/team-change hooks.
-- 06: consume structured career history/news entries; no narrative logic in frontend.
-- 07: persistence/migration wiring and integration regression; preserve old saves and deterministic resume.
-- 00: approve career-spine importance/news frequency policy if cross-system design changes are needed.
+## VALIDATION
+CI run #610 on feature code tree `2d31a3d59ebe305f9f639b81be3334260e7a61fa`:
+- Python full unit suite = PASS
+- Existing v0.4 event tests = PASS as part of full unit suite
+- Career Spine v1 targeted tests = PASS as part of full unit suite
+- Auto career smoke = PASS
+- Balance smoke = PASS
+- High-school / draft calibration gate = PASS
+- Draft calibration artifact upload = PASS
+- Web build/tests = PASS
 
-## VALIDATION_REQUIREMENTS
-- Draft/entry/debut system events never mutate player ratings, gameplay probabilities, growth, injury, fatigue, form, or Traits.
-- Exactly one draft result and one first-team debut entry per career.
-- Call-up/demotion entries correspond exactly to authoritative roster transitions and do not duplicate at the same game/year.
-- Save/load before and after any spine event yields identical subsequent state/history.
-- Same seed + same actions yields identical structured career-spine history.
-- Generating template news must consume no gameplay RNG and ideally no shared simulation RNG.
-- Auto and interactive progression produce identical factual spine events when underlying simulation state is identical.
-- Existing v0.4 event-flow tests remain green.
+Targeted coverage includes:
+- draft result exactly once
+- pro entry exactly once
+- debut exactly once
+- callup/demotion mirror authoritative transitions
+- duplicate transition suppression
+- save/load history equality
+- old-save missing `career_history` -> `[]`
+- same seed/actions identical history
+- auto/interactive factual history equality
+- zero gameplay mutation
+- RNG-free deterministic template rendering
 
-## BLOCKERS
-- Generic contract/FA/transfer narrative remains blocked until 03 owns and exposes those states.
-- True temporary-duration effects and breakthrough ownership cleanup should be handled in a later contract batch, not mixed into this first expansion.
-- Unified CareerLedger schema is recommended but may be introduced minimally for this batch if 07 confirms backward-compatible persistence strategy.
+## BACKWARD_COMPATIBILITY
+- Existing `event_history` is unchanged.
+- Existing team/award/injury/Trait histories are unchanged.
+- `career_history` is additive; old saves load it as `[]`.
+- No hard save migration is required.
+- Existing v0.4 pending-event/cooldown/once-per-season semantics are not rewritten.
+
+## OWNERSHIP
+- 03 Growth & Career: draft/team/FARM/FIRST/lifecycle authoritative state.
+- 04 Events & Story: observational history, deterministic dedupe, template news.
+- 01 Gameplay Engine: gameplay probabilities/outcomes remain untouched.
+- 06 Web UI: consume structured history/news only; no narrative trigger logic in frontend.
+- 07 Integration & GitHub: merge/integration regression for PR #39.
 
 ## OPEN_ITEMS
-- Decide whether the first implementation introduces a small append-only `CareerHistoryEntry`/ledger now or adapts `event_history` with a typed observational entry while preserving migration simplicity.
-- Define stable template keys and facts payload for 06 without frontend coupling.
-- Define subsystem RNG policy; at minimum template rendering must be deterministic without advancing gameplay RNG.
-- Later batches: award/milestone mirror events, injury/recovery narrative depth, performance-derived slump/breakout, Trait lifecycle causality.
+- PR #39 production merge/integration.
+- 06 presentation wiring for `career_history`.
+- Contract/FA/transfer narrative remains blocked on future 03 authoritative states.
+- Full subsystem RNG separation remains outside this bounded batch.
 
 ## NEXT_ACTION
-- Prepare a bounded implementation task for `Draft / Entry / First-Team Debut Career Spine`: add typed observational/system-mirror history contracts, hook them to existing authoritative transitions, add deterministic template news output, persistence/save-load coverage, and targeted tests without changing gameplay formulas or rating/growth balance.
+- After PR #39 integration, implement `Award / Milestone News Spine v1` using the same authoritative-state -> observational history -> RNG-free template-news pattern.
 
 ## RELATED_PRS
-- None assigned for this batch yet.
+- #39 — Add Draft / Entry / First-Team Debut Career Spine v1
 
 ## RELATED_BRANCHES
-- main
+- `feature/career-spine-v1`
+- `main`
 
 ## GATES
 - EVENT_SYSTEM_AUDIT = PASS_WITH_GAPS
-- NEXT_EVENT_CONTRACT = PASS
-- FIRST_PRODUCTION_EXPANSION_BATCH = SELECTED
-- CAREER_SPINE_IMPLEMENTATION = OPEN
+- CAREER_SPINE_SCHEMA = PASS
+- CAREER_SPINE_IMPLEMENTATION = PASS
+- ZERO_GAMEPLAY_MUTATION = PASS
+- CAREER_SPINE_BACKCOMPAT = PASS
+- CAREER_SPINE_FINAL_CI = PASS
 - CONTRACT_FA_STORY = BLOCKED_ON_03
-- NARRATIVE_RNG_ISOLATION = OPEN
+- NARRATIVE_RNG_ISOLATION = PARTIAL
