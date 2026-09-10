@@ -10,6 +10,21 @@ on:
 jobs:
   unit-tests:
     runs-on: ubuntu-latest
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/baseball_sim_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: baseball_sim_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d baseball_sim_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,7 +35,13 @@ jobs:
       - name: Install API dependencies
         run: pip install -r requirements-api.txt
       - name: Compile
-        run: python -m compileall -q src tests tools/draft_calibration.py
+        run: python -m compileall -q index.py src tests tools/draft_calibration.py tools/deployed_p0_smoke.py
+      - name: External durable store tests
+        run: python -m unittest tests.test_postgres_session_store tests.test_api_production_config -v
+      - name: Vercel FastAPI entrypoint smoke
+        env:
+          BASEBALL_SIM_PRODUCTION: '1'
+        run: python -c "from index import app; assert app.title == 'Baseball Player Simulator API'"
       - name: API vertical-slice tests
         run: python -m unittest tests.test_api_vertical_slice -v
       - name: Related production integration tests

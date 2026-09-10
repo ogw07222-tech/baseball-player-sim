@@ -1,0 +1,5 @@
+[tool.vercel]
+entrypoint = "src.api.app:app"
+
+[tool.vercel.scripts]
+build = "npm --prefix web ci && npm --prefix web run build"

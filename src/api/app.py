@@ -11,7 +11,8 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .. import config
@@ -22,9 +23,17 @@ from ..persistence import deserialize_game, serialize_game
 from ..player import Player
 from ..production_advance import ProductionAdvanceService
 from ..rng import RNG
-from .store import IdempotencyConflict, RevisionConflict, SQLiteSessionStore, SessionStore
+from .store import (
+    IdempotencyConflict,
+    PostgresSessionStore,
+    RevisionConflict,
+    SQLiteSessionStore,
+    SessionStore,
+    StoreUnavailable,
+)
 
 COOKIE_NAME = "baseball_sim_session"
+COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365
 
 
 class NewCareerRequest(BaseModel):
@@ -86,12 +95,30 @@ class DisabledProductionStore:
         self._fail()
 
 
+def _is_production_runtime() -> bool:
+    return bool(os.getenv("VERCEL") or os.getenv("BASEBALL_SIM_PRODUCTION") == "1")
+
+
+def _external_database_url() -> str | None:
+    for name in ("BASEBALL_SIM_DATABASE_URL", "DATABASE_URL", "POSTGRES_URL"):
+        value = os.getenv(name)
+        if value and value.strip():
+            return value.strip()
+    return None
+
+
 def _default_store() -> SessionStore:
-    configured = os.getenv("BASEBALL_SIM_SQLITE_PATH")
-    if configured:
-        return SQLiteSessionStore(configured)
-    if os.getenv("VERCEL") or os.getenv("BASEBALL_SIM_PRODUCTION") == "1":
+    database_url = _external_database_url()
+    if _is_production_runtime():
+        if database_url:
+            return PostgresSessionStore(database_url)
         return DisabledProductionStore()  # type: ignore[return-value]
+
+    if database_url:
+        return PostgresSessionStore(database_url)
+    configured_sqlite = os.getenv("BASEBALL_SIM_SQLITE_PATH")
+    if configured_sqlite:
+        return SQLiteSessionStore(configured_sqlite)
     return SQLiteSessionStore(Path(".local") / "baseball-sim.sqlite3")
 
 
@@ -105,8 +132,9 @@ def _session_id(request: Request, response: Response) -> str:
         session_id,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=_is_production_runtime(),
         path="/",
+        max_age=COOKIE_MAX_AGE_SECONDS,
     )
     return session_id
 
@@ -145,6 +173,29 @@ def _fingerprint(request: AdvanceRequest) -> str:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _problem_response(
+    *,
+    status_code: int,
+    code: str,
+    message: str,
+    retryable: bool,
+    revision: int | None = None,
+    details: dict[str, object] | None = None,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "error": {
+                "code": code,
+                "message": message,
+                "retryable": retryable,
+                "details": details,
+            },
+            "meta": {"revision": revision},
+        },
+    )
+
+
 def create_app(store: SessionStore | None = None) -> FastAPI:
     app = FastAPI(title="Baseball Player Simulator API", version="1")
     session_store = store or _default_store()
@@ -152,32 +203,32 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
 
     @app.exception_handler(ApiProblem)
     async def api_problem_handler(_request: Request, exc: ApiProblem):
-        return JSONResponse(
+        return _problem_response(
             status_code=exc.status_code,
-            content={
-                "error": {
-                    "code": exc.code,
-                    "message": exc.message,
-                    "retryable": exc.retryable,
-                    "details": exc.details,
-                },
-                "meta": {"revision": exc.revision},
-            },
+            code=exc.code,
+            message=exc.message,
+            retryable=exc.retryable,
+            revision=exc.revision,
+            details=exc.details,
+        )
+
+    @app.exception_handler(StoreUnavailable)
+    async def store_unavailable_handler(_request: Request, _exc: StoreUnavailable):
+        return _problem_response(
+            status_code=503,
+            code="SAVE_FAILED",
+            message="external durable store is unavailable",
+            retryable=True,
         )
 
     @app.exception_handler(RequestValidationError)
     async def validation_handler(_request: Request, exc: RequestValidationError):
-        return JSONResponse(
+        return _problem_response(
             status_code=422,
-            content={
-                "error": {
-                    "code": "INVALID_REQUEST",
-                    "message": "request validation failed",
-                    "retryable": False,
-                    "details": {"errors": exc.errors()},
-                },
-                "meta": {"revision": None},
-            },
+            code="INVALID_REQUEST",
+            message="request validation failed",
+            retryable=False,
+            details={"errors": exc.errors()},
         )
 
     @app.get("/api/v1/session")
@@ -199,8 +250,6 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
         bats_throws = f"{'L' if body.bats == 'LEFT' else 'R'}/{'L' if body.throws == 'LEFT' else 'R'}"
         player = Player.random(body.name.strip(), rng, body.position, bats_throws, body.traitCount)
         engine = CareerEngine(player, rng)
-        # Reuse the canonical domain transition; the HTTP layer does not invent
-        # draft/team assignment semantics. The P0 slice begins at playable PRO.
         engine.evaluate_draft()
         ProductionAdvanceService(engine)
         stored = session_store.replace(session_id, serialize_game(engine))
@@ -231,8 +280,6 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
             service = ProductionAdvanceService(engine)
             service.advance_one_game()
             next_payload = serialize_game(engine)
-            # Store supplies the committed revision after CAS; placeholder meta
-            # is replaced atomically by SQLiteSessionStore.mutate.
             response_payload = _presentation(engine, body.expected_revision + 1)
             return next_payload, response_payload
 
@@ -278,6 +325,28 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
             )
         response.status_code = 204
         return None
+
+    @app.api_route(
+        "/api/{path:path}",
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+        include_in_schema=False,
+    )
+    def unknown_api(path: str):
+        raise ApiProblem(404, "NOT_FOUND", f"API route not found: /api/{path}")
+
+    frontend_dir = Path(__file__).resolve().parents[2] / "web" / "dist"
+    if frontend_dir.is_dir():
+        frontend_root = frontend_dir.resolve()
+        assets_dir = frontend_root / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+        @app.get("/{path:path}", include_in_schema=False)
+        def spa_frontend(path: str):
+            candidate = (frontend_root / path).resolve()
+            if path and candidate.is_file() and frontend_root in candidate.parents:
+                return FileResponse(candidate)
+            return FileResponse(frontend_root / "index.html")
 
     return app
 
