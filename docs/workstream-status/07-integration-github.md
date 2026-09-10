@@ -2,60 +2,71 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@2f9a0c7a3c14ca462e4be3d95db3ad4a28635d56
+SOURCE_OF_TRUTH: main@4b90f565ea9f846e9450340bf0ade77eff0c44d8
 STATE: DONE
-CURRENT_TASK: PR #37 latest-main revalidation and production UI integration
-RESULT: PASS — PR #37 remains merged; latest production main revalidated GREEN
+CURRENT_TASK: PR #38 / #39 sequential production integration
+RESULT: PASS — PR #38 merged first; PR #39 reconciled onto post-#38 main, revalidated, and merged; production integration regression GREEN
 
 ## LAST_COMPLETED
-- Updated `ui/production-presentation-milestone` onto `main@9aa458735721570581f4968060590acf3fc9c957` with merge commit `1cbddd67df717b8f4800189c87f168fcf0c4e127`.
-- Stale-base update preserved the 11 PR #37 `web/src/**` changes without feature additions; no conflicting file paths were found against intervening main changes.
-- Fresh PR workflow run #578 completed GREEN: Python full unit suite, exact Auto career smoke, Balance smoke, draft calibration gate, artifact upload, web build, and web tests all passed.
-- PR #37 was marked ready for review and merged as `1edad331045f554b03777a6254dab02f024f063b`.
-- Subsequent production-main validation remained GREEN. Latest validated main before this status-only update is `2f9a0c7a3c14ca462e4be3d95db3ad4a28635d56`; workflow run #596 completed successfully with Python full unit suite, Auto career smoke, Balance smoke, draft calibration gate, web build, and web tests all PASS.
+- Validated PR #38 `feature/production-season-lifecycle-v1@fcffdba5670e4322d4542967fcd24d51a046271b` and merged it first as `4aba1adcd60acb98558145e42dca2cfc45423388`.
+- Post-#38 main workflow run #619 completed SUCCESS.
+- Rechecked PR #39 after #38 merge; GitHub reported the expected conflict in shared `src/career.py`.
+- Resolved #39 against post-#38 main with merge-resolution head `f8ad51e8ff44f8079ad3bd57b23311c2e84b67e5`, preserving #38 lifecycle finalization and adding only #39 observational hooks.
+- Fresh PR #39 workflow run #621 completed SUCCESS: full Python unit suite, Auto career smoke, Balance smoke, draft calibration gate, web build, and web tests all passed.
+- PR #39 merged as `b97a4aca7ebc339de71e178f88a75faa68df7764`.
+- Post-#39 main workflow run #622 completed SUCCESS across both test jobs and all required gates.
+- Subsequent main changes through `4b90f565ea9f846e9450340bf0ade77eff0c44d8` are unrelated CI/docs integration changes; merged #38/#39 code remains present.
 
 ## CURRENT_FINDINGS
-- PR #37 is closed/merged, not an active stale-base PR. Its merged head remains `1cbddd67df717b8f4800189c87f168fcf0c4e127`, base-at-validation was `9aa458735721570581f4968060590acf3fc9c957`, and merge commit is `1edad331045f554b03777a6254dab02f024f063b`.
-- PR #37 integration introduced only its existing Web UI production-presentation milestone changes; no gameplay, rating, growth, event, catcher gameplay, test, or workflow logic was modified during stale-base resolution.
-- Production DTO/type compatibility remains validated by the fresh PR web build/tests and adapter coverage on the latest-main-integrated PR head.
-- Current production main continues to include PR #37 and remains repository-wide GREEN through run #596.
-- PR #37 intentionally provides the transport-agnostic `ProductionPresentationProvider` / `BackendPresentationGateway` contract; a concrete browser-to-Python transport remains a separate production-wiring task, not a blocker to PR #37's completed milestone.
+- Integration order #38 -> #39 was retained because #38 owns Growth/Career lifecycle finalization while #39 observes authoritative draft/roster/appearance transitions.
+- The only direct changed-file overlap between #38 and #39 was `src/career.py`.
+- Conflict resolution preserved `SeasonFinalizationResult`, `finalize_completed_pro_season()`, and #38 `finish_pro_season()` semantics.
+- #39 observational hooks for draft/pro entry, call-up, first-team debut, demotion, and roster transitions were layered without changing roster probabilities or lifecycle RNG semantics.
+- Append-only `career_history`, save/load compatibility, deterministic RNG-free narrative rendering, and dedupe tests are present on current main.
+- No gameplay probability, rating scale, growth coefficient, event effect, fatigue/injury/form formula, or test threshold was retuned.
+- Code integration main `b97a4aca7ebc339de71e178f88a75faa68df7764` passed run #622; current main `4b90f565ea9f846e9450340bf0ade77eff0c44d8` still contains the same #38/#39 code tree for affected files.
 
 ## BLOCKERS
-- None for PR #37 integration or current main CI.
+- None for PR #38 / #39 production integration.
 
 ## OPEN_ITEMS
-- Implement and validate a concrete `BackendPresentationGateway` transport before the browser can consume Python presentation DTOs directly in live production.
-- Perform Vercel deployment only when that concrete browser integration requires user-visible verification.
+- 05 long-run lifecycle equivalence/distribution validation remains an independent non-blocking validation item from PR #38.
+- Future contract/FA/trade/posting/service-time systems remain outside these PR scopes.
+- Career-history presentation in Web UI remains a future 06-facing integration task if exposed to players.
 
 ## DEPENDENCIES
-- 06: PR #37 is merged; Web UI milestone is unblocked and integrated into production main.
-- 05: balance/production validation remains an independent readiness input for future simulation changes.
-- Future browser-live production wiring depends on a concrete backend transport contract implementation.
+- 03: Production Season Lifecycle Bridge v1 is merged and is the lifecycle production contract.
+- 04: Career Spine v1 is merged as an observational layer over authoritative 03 transitions.
+- 05: may run long-run lifecycle/career-history regression validation without retuning production semantics.
+- 06: may consume career-history data later; no frontend change was required for these backend integrations.
 
 ## NEXT_ACTION
-- Begin the separate concrete browser-to-Python presentation transport integration task, keeping PR #37's merged DTO/provider contracts as the frontend boundary; avoid Vercel deployment until local/integration validation is complete.
+- Treat current main as the integration baseline for subsequent CareerEngine/lifecycle work; run 05 long-run validation separately if prioritized.
 
 ## RELATED_PRS
-- #36 merged
-- #37 merged
+- #38 merged
+- #39 merged
 
 ## RELATED_BRANCHES
 - main
-- feature/fix-game-calling-cli-label
-- ui/production-presentation-milestone
+- feature/production-season-lifecycle-v1
+- feature/career-spine-v1
 
 ## GATES
-- RUNNER_EXECUTION = PASS
-- PR36_FIX = PASS
-- PYTHON_UNIT_SUITE = PASS
-- WEB_TESTS = PASS
+- PR38_TARGETED_LIFECYCLE = PASS
+- PR38_SAVE_LOAD_BOUNDARY = PASS
+- PR38_HEADLESS_EQUIVALENCE = PASS
+- PR38_FULL_PYTHON_SUITE = PASS
+- PR38_MAIN_CI = PASS
+- PR39_CONFLICT_RESOLUTION = PASS
+- PR39_APPEND_ONLY_HISTORY = PASS
+- PR39_DEDUPE = PASS
+- PR39_SAVE_LOAD = PASS
+- PR39_RNG_FREE_NARRATIVE = PASS
+- PR39_ZERO_SIMULATION_MUTATION = PASS
+- PR39_FULL_PYTHON_SUITE = PASS
+- WEB_BUILD_TESTS = PASS
 - AUTO_CAREER_SMOKE = PASS
 - BALANCE_SMOKE = PASS
 - DRAFT_CALIBRATION_GATE = PASS
-- PR37_DTO_TYPE_COMPATIBILITY = PASS
-- PR37_LATEST_MAIN_REVALIDATION = PASS
-- PR37_MERGE_READY = PASS
-- PR37_MERGED = PASS
 - MAIN_CI_GREEN = PASS
-- PRODUCTION_UI_TRANSPORT = OPEN
