@@ -4,12 +4,38 @@ from typing import Any
 from . import config
 from .career_core import CareerEngineBase, TournamentResult, DraftResult, ProSeasonSession, EventDecider
 from .career_season import CareerSeasonMixin
+from .career_story import CAREER_ONCE, TRANSITION_REPEAT, record_observational_event
 from .coaches import CoachingStaff, generate_batting_coach, generate_fielding_coach
 from .growth import GrowthExperience, GrowthResult, apply_season_growth
 from .records import SeasonRecord
 from .traits import TRAIT_CATALOG, has_trait, traits_conflict
 
 class CareerEngine(CareerSeasonMixin, CareerEngineBase):
+    def evaluate_draft(self)->DraftResult:
+        phase_before=self.phase;result=super().evaluate_draft()
+        if phase_before=='HIGH_SCHOOL' and self.phase=='PRO':
+            event_id='draft_selected' if result.round is not None else 'draft_undrafted_entry'
+            record_observational_event(self.player,event_id=event_id,year=self.year,career_stage='DRAFT',kind='draft',importance='major',dedupe_key=f'draft:{self.year}',trigger='evaluate_draft completed HIGH_SCHOOL->PRO transition',eligibility='career first draft resolution',repeat_contract=CAREER_ONCE,facts={'team':result.team,'round':result.round,'pick':result.pick,'status':result.status})
+            record_observational_event(self.player,event_id='pro_entry',year=self.year,career_stage='PRO_ENTRY',kind='entry',importance='major',dedupe_key=f'pro_entry:{self.year}:{result.team}',trigger='authoritative team assignment and FARM entry after draft',eligibility='team assigned and roster_level=FARM after draft',repeat_contract=CAREER_ONCE,facts={'team':result.team,'status':result.status})
+        return result
+    def start_pro_season(self)->ProSeasonSession:
+        if self.current_session:return self.current_session
+        before=self.player.roster_level;session=super().start_pro_season()
+        if before in {'FARM','FIRST'}:self._record_roster_transition(session,before,session.current_level)
+        return session
+    def _record_first_team_debut_if_needed(self,s:ProSeasonSession)->None:
+        # Actual appearance is authoritative; debut_year can be set on a call-up before an appearance.
+        if s.record.first_team.G!=1 or self.player.first_team_career().G!=0:return
+        record_observational_event(self.player,event_id='first_team_debut',year=self.year,career_stage='PRO',kind='debut',importance='major',dedupe_key='career:first_team_debut',trigger='first actual FIRST-level game appearance',eligibility='career first-team games before appearance = 0',repeat_contract=CAREER_ONCE,game_number=s.games_completed,facts={'team':self.player.team,'level':'FIRST','season_first_team_games':s.record.first_team.G})
+    def _record_roster_transition(self,s:ProSeasonSession,from_level:str,to_level:str)->None:
+        if from_level==to_level:return
+        if from_level=='FARM' and to_level=='FIRST':
+            event_id='first_team_callup';prior=sum(e.get('event_id')==event_id for e in self.player.career_history);importance='major' if prior==0 else 'normal'
+        elif from_level=='FIRST' and to_level=='FARM':event_id='farm_demotion';importance='normal'
+        else:return
+        record_observational_event(self.player,event_id=event_id,year=self.year,career_stage='PRO',kind='roster',importance=importance,dedupe_key=f'roster:{self.year}:{s.games_completed}:{from_level}>{to_level}',trigger='authoritative roster_level transition',eligibility=f'{from_level}->{to_level} transition completed',repeat_contract=TRANSITION_REPEAT,game_number=s.games_completed,facts={'team':self.player.team,'from_level':from_level,'to_level':to_level})
+    def _reconsider_roster(self,s:ProSeasonSession)->None:
+        self._record_first_team_debut_if_needed(s);before=s.current_level;super()._reconsider_roster(s);self._record_roster_transition(s,before,s.current_level)
     def _determine_awards(self,record:SeasonRecord)->list[str]:
         line=record.first_team
         if line.PA<300:return []
