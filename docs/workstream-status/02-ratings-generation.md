@@ -2,47 +2,46 @@
 
 WORKSTREAM: 02 - Player Ratings & Generation
 UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@9807004ff1dc00a5bb88bca49bebadd7a87f1f99
+SOURCE_OF_TRUTH: main@f19bf424c910bfa66bf05cc20d20a930f27f8c88
 STATE: ACTIVE
-CURRENT_TASK: Rating Generation R1 Monte Carlo executed; independent validation/reference alignment next
+CURRENT_TASK: Rating Generation R1 Monte Carlo completed and verified; R1V/reference alignment next
 RESULT: OPEN
 
 ## LAST_COMPLETED
-- Executed Rating Generation R1 against the rating/generation contract unchanged from execution source `main@9aa458735721570581f4968060590acf3fc9c957`; verified through `main@9807004ff1dc00a5bb88bca49bebadd7a87f1f99` that intervening changes did not touch rating/generation implementation.
+- Executed Rating Generation R1 from production-equivalent generation code at execution source `main@9aa458735721570581f4968060590acf3fc9c957`.
+- Verified through latest pre-status-update main `f19bf424c910bfa66bf05cc20d20a930f27f8c88` that all intervening changes after R1 publication do not modify rating/generation implementation or the R1 reports.
 - Measured 200k hitter player, 200k hitter NPC, 200k pitcher player, and 200k pitcher NPC generation-only samples across seeds 20260910-20260914.
-- Added dedicated 50k player + 50k NPC catcher diagnostics so every catcher archetype has >10k pooled observations.
-- Published all eight R1 expected reports under `reports/rating_r1_*`.
+- Added dedicated 50k player + 50k NPC catcher diagnostics; every catcher archetype has >10k pooled observations.
+- Published all eight expected R1 reports under `reports/rating_r1_*`.
 - No production rating, gameplay, growth, aging, draft, fatigue, UI, or save-schema value was changed.
 
 ## CURRENT_FINDINGS
 - Hitter player CA mean/SD = 79.7395 / 9.8163; hitter NPC = 69.7347 / 6.9449.
 - Pitcher player CA mean/SD = 79.4899 / 8.8808; pitcher NPC = 69.9888 / 6.1765.
-- Player CA >=100 differs by system: hitter 1.96%, pitcher 1.07%. Raw 100 is therefore not a matched cross-system percentile.
-- CA-Talent correlations are effectively zero in all four main cohorts (absolute r <= 0.003), strongly passing the provisional |r| < 0.35 separation target.
-- Maximum distinct raw-skill correlation is well below collapse threshold: hitter player ~0.260; pitcher player ~0.430. No |r| >= 0.95 collapse exists.
-- Position adjustments materially separate hitter profiles; all six pitcher archetypes and all five catcher archetypes are materially represented and distinct.
-- Dedicated catcher player Game Calling: mean 85.70, SD 15.21, P10/P50/P90/P99 = 66/86/105/121, max 151. Catcher NPC mean 82.72, SD 15.08.
-- Non-talent >=170 values are extremely rare at age 18: 10 hitter-player observations total across Speed/Throwing/Durability; none in hitter NPC or pitcher cohorts. No non-talent raw skill reached 200.
-- No evaluated hitter/pitcher/catcher diagnostic player had two separate raw skills >=150 simultaneously.
-- The literal existing seed-stability rule is too strict for observed discrete quantiles: 53/62 population-rating rows are flagged because at least one per-seed mean/SD/P10/P50/P90/P99 range exceeds 0.5. Main-cohort means and SDs are stable, while integer quantiles move by 1-3 points. Under the authoritative rule the seed-stability gate is FAIL pending independent 05 review.
-- Cross-system CA centers near 80/70 are encouraging, but per-stat centers, widths, and the percentile meaning of raw 100 remain non-universal.
-- 08 provides a usable 2026 registered-position baseline and age bounds plus workload extreme bands; direct raw-scale KBO alignment remains blocked by player-level broad spectra and primary velocity distribution gaps.
+- Player CA >=100 differs by system: hitter 1.955%, pitcher 1.075%; raw 100 is not a matched cross-system percentile.
+- CA-Talent correlations are effectively zero in all four main cohorts (absolute r <= 0.003), passing the provisional |r| < 0.35 target.
+- Maximum distinct raw-skill correlation remains well below collapse threshold: hitter player ~0.260; pitcher player ~0.430; no |r| >= 0.95 collapse.
+- Position adjustments materially separate hitter profiles; pitcher and catcher archetypes are materially represented and distinct.
+- Dedicated catcher player Game Calling mean/SD = 85.70 / 15.21; P10/P50/P90/P99 = 66/86/105/121; max 151. Catcher NPC mean/SD = 82.72 / 15.08.
+- Non-talent >=170 values are extremely rare at age 18: 10 hitter-player observations total; none in hitter NPC or pitcher cohorts. No non-talent raw skill reached 200.
+- No evaluated diagnostic player had two separate raw skills >=150 simultaneously.
+- Strict seed-stability rule remains FAIL: 53/62 population-rating rows exceed the literal 0.5-point range criterion, driven mainly by integer quantile movement rather than unstable means/SDs.
+- KBO comparison is only partial: 08 has roster composition, age bounds, workload extreme bands, and TrackMan measurement provenance, but player-level broad spectra and primary velocity distribution remain incomplete.
 
 ## BLOCKERS
-- 05 independent rerun from an actual latest-main checkout is needed because this session's local environment could not network-clone GitHub; R1 compute used a source-equivalent harness transcribed from connector-fetched production modules/constants.
-- The current absolute 0.5-point seed-quantile stability rule fails heavily and needs validation-method review before it can be used as a generator-quality criterion.
-- No provenance-clean full KBO player-level hitter/pitcher broad-spectrum dataset with the requested usage restrictions is yet available.
-- Primary/licensed 2025 TrackMan-derived league fastball mean/SD/percentile distribution remains OPEN.
+- 05 independent rerun from an actual latest-main checkout is still needed because the original R1 compute used a source-equivalent local harness reconstructed from connector-fetched production modules/constants.
+- The absolute 0.5-point seed-quantile stability rule requires validation-method review before it can be treated as a generator-quality gate.
+- Provenance-clean KBO player-level hitter/pitcher broad-spectrum datasets with requested PA/BF restrictions are incomplete.
+- Primary/licensed KBO league fastball mean/SD/percentile distribution remains OPEN.
 - Catcher receiving/framing/game-management observational proxies remain incomplete.
 - Rating-to-gameplay normalization remains a 01 boundary and was not touched.
 
 ## OPEN_ITEMS
 - Have 05 reproduce R1 directly from production modules in Codespaces and compare report-level metrics.
-- Determine whether seed-stability tolerance should use confidence intervals/Monte Carlo SE instead of absolute integer-quantile movement.
-- Compare R1 position generation with 08's roster-position baseline only as context; do not force equal-position generator diagnostics to match roster shares.
-- Build player-level KBO broad-spectrum reference sets before any R2 recentering.
-- Revalidate Velocity Scale v2 physical mapping only after a primary/licensed KBO velocity distribution is available.
-- Keep hitter normalization and S/C/B recentering frozen until the raw scale/reference contract is validated.
+- Replace or justify the strict absolute seed-stability tolerance using Monte Carlo SE / quantile confidence intervals.
+- Complete KBO broad-spectrum reference sets before any R2 recentering.
+- Revalidate Velocity Scale v2 physical mapping only after primary/licensed velocity distribution is available.
+- Keep hitter normalization and Stuff/Control/Breaking recentering frozen until raw-scale/reference contract validation is complete.
 
 ## DEPENDENCIES
 - 05: independent R1 reproduction/validation from actual checkout; review seed-stability criterion; no tuning.
