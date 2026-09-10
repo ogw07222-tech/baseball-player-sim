@@ -2,47 +2,68 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
-VALIDATED_MAIN: `6380ab6535df44c0f522cf6d579e740732f735d1`
+SOURCE_OF_TRUTH: `main@13c7976fdae227b10f20d7130f6f7e176eb579e3`
 STATE: BLOCKED
-CURRENT_TASK: Vercel Production Gate
-RESULT: FAIL — a Production deployment newer than historical stale deployment `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg` exists, but the newest Production deployment is `dpl_2sx7gzn8zfTw14sevVEy9UHzdWXf` at Git SHA `80209cba45f684e6bf6603ab5f2dec705c4765a9` and is in Vercel state `ERROR`. Its build cloned main at `80209cb` and failed at `npm --prefix web ci` because that deployed commit did not contain `web/package-lock.json`. The deployed SHA is later than `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2` and therefore contains PR #45, but `/api/v1/session` serves Vercel's "Deployment has failed" HTML rather than FastAPI JSON. FIRST GATE therefore fails and full production smoke was not run.
+CURRENT_TASK: Diagnose Vercel FUNCTION_INVOCATION_FAILED Runtime Crash
+RESULT: ROOT CAUSE FIX MERGED / RUNTIME REDEPLOY BLOCKED — Production deployment `dpl_AbPPVvPXDPAgcbYUvJsGBRM2Ti7Q` is READY at Git SHA `51e7e64d6c7bb44ba99cbe4771da8985e8450546`, but `GET /api/v1/session` returns HTTP 500 `FUNCTION_INVOCATION_FAILED`. Runtime logs prove a Python module-import circularity: Vercel directly loads `src/api/app.py`; `app.py` imports `.store`; initializing package `src.api` executes `src/api/__init__.py`, which eagerly re-imports `.app` and requests `app` before `app.py` reaches `app = create_app()`. PR #49 changes the package export to lazy loading and adds a Vercel-style direct-module-loader regression test. PR #49 merged as `13c7976fdae227b10f20d7130f6f7e176eb579e3`; all CI gates passed. A post-merge Production redeploy could not be created through the currently exposed Vercel connector because its deploy action rejects invocation without hidden/runtime-required `target`, `name`, and full `files` inputs. No new deployment containing PR #49 exists yet, so runtime verification remains OPEN.
 
 ## LAST_COMPLETED
-- PR #48 `build: add web npm lockfile` merged to main with merge SHA `6380ab6535df44c0f522cf6d579e740732f735d1`.
-- `web/package-lock.json` is present on current validated main and the lockfile fix passed exact `npm ci`, web build, web tests, Python packaging/uv validation, FastAPI entrypoint, API vertical slice, related production integration tests, full Python unit tests, auto-career smoke, balance smoke, and draft calibration in CI.
-- Historical stale Production deployment remains `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg` / SHA `8a6f48c9ab833ab5412cc246e31b6b6c09275296`; its old runtime/database error is historical only and was not reused as evidence about current main.
+- Confirmed newest Production deployment `dpl_AbPPVvPXDPAgcbYUvJsGBRM2Ti7Q` is Vercel state `READY`, target `production`, source `git`, deployed SHA `51e7e64d6c7bb44ba99cbe4771da8985e8450546`.
+- Verified deployed SHA contains PR #45 merge `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2` and PR #48 merge `6380ab6535df44c0f522cf6d579e740732f735d1` in ancestry.
+- Reproduced target request: `GET /api/v1/session` -> HTTP 500, `x-vercel-error: FUNCTION_INVOCATION_FAILED`.
+- Read runtime traceback before changing code. Exact failing chain: `src/api/app.py` line 26 `from .store import ...` -> package init `src/api/__init__.py` line 3 `from .app import app, create_app` -> `ImportError: cannot import name 'app' from 'src.api.app'`; Python process exits status 1.
+- Root-cause classification: A — FastAPI/module import failure, specifically Vercel direct-module loading interacting with eager `src.api` re-export and causing a circular import. The failure occurs before endpoint execution and before the production DB selection path can be runtime-verified.
+- Changed only `src/api/__init__.py` and `tests/test_python_dependency_contract.py`.
+- Added a regression test that directly loads `src/api/app.py` via `importlib.util.spec_from_file_location("src.api.app", ...)`, matching the relevant Vercel loader behavior.
+- PR #49 `fix: avoid Vercel direct-import crash` merged as `13c7976fdae227b10f20d7130f6f7e176eb579e3`.
+- PR #49 CI PASS: Vercel packaging contract including direct-loader regression, `uv lock --dry-run --python 3.12`, compile, durable-store tests, FastAPI entrypoint, API vertical slice, related production integration tests, full Python suite (302 tests / OK), auto-career smoke, balance smoke, draft calibration, web build/tests.
+- Preserved `git.deploymentEnabled=false`; no gameplay, ratings, growth, events, UI redesign, DB schema, SessionStore semantics, or dependency declaration changes.
 
 ## CURRENT_FINDINGS
-- NEWER_PRODUCTION_DEPLOYMENT = YES.
-- NEWEST_PRODUCTION_DEPLOYMENT = `dpl_2sx7gzn8zfTw14sevVEy9UHzdWXf`.
-- NEWEST_PRODUCTION_SHA = `80209cba45f684e6bf6603ab5f2dec705c4765a9`.
-- NEWEST_PRODUCTION_STATE = `ERROR`.
-- FIRST_GATE_1_DEPLOYMENT_READY = FAIL.
-- FIRST_GATE_2_SHA_CONTAINS_PR45 = PASS; Git compare shows `80209cba...` is 9 commits ahead of `0a9ad6d3...` with no divergence.
-- FIRST_GATE_3_API_SESSION_FASTAPI_JSON = FAIL; direct fetch returns HTTP 200 with Vercel failure HTML, not the application JSON.
-- BUILD_FAILURE = `npm ci` reports no package-lock/shrinkwrap in deployed commit `80209cba...`.
-- CURRENT_MAIN_LOCKFILE_FIX = PASS on `6380ab6535df44c0f522cf6d579e740732f735d1`.
-- ROOT_CAUSE_CLASSIFICATION = stale/intermediate deployed Git SHA relative to the lockfile fix, not evidence that PR #48 failed.
-- CODE_CHANGE_REQUIRED = NO; no new application/code blocker was established beyond deploying a commit that predates PR #48.
+- PRODUCTION_DEPLOYMENT_ID = `dpl_AbPPVvPXDPAgcbYUvJsGBRM2Ti7Q`.
+- PRODUCTION_DEPLOYED_SHA = `51e7e64d6c7bb44ba99cbe4771da8985e8450546`.
+- PRODUCTION_DEPLOYMENT_STATE = `READY`.
+- PRODUCTION_API_SESSION = FAIL on deployed pre-fix SHA with `FUNCTION_INVOCATION_FAILED`.
+- VERCEL_RUNTIME_ROOT_CAUSE = confirmed circular import in `src.api` package initialization.
+- PR45_IN_DEPLOYED_SHA = PASS.
+- PR48_IN_DEPLOYED_SHA = PASS.
+- PR49_RUNTIME_FIX_MERGED = PASS.
+- DATABASE_URL_VISIBLE_IN_PRODUCTION_RUNTIME = OPEN. The current crash occurs while importing the module, before `_external_database_url()` / `_default_store()` can provide runtime evidence. The available Vercel connector in this session does not expose environment-variable listing. This is not evidence that `DATABASE_URL` is missing.
+- POST_FIX_PRODUCTION_DEPLOYMENT = NONE observed.
 
 ## BLOCKERS
-- No READY Production deployment currently verifies the PR #48 lockfile fix on Vercel.
-- The latest observed Production deployment predates `6380ab6535df44c0f522cf6d579e740732f735d1` and cannot pass the current-main FIRST GATE.
+- No Production deployment containing PR #49 merge `13c7976fdae227b10f20d7130f6f7e176eb579e3` or later main exists yet.
+- The exposed Vercel deploy action cannot create a Git-linked current-main Production deployment in this session; invocation is rejected because the runtime requires explicit `target`, project `name`, and full `files` bundle inputs not exposed by the connector schema.
 
 ## OPEN_ITEMS
-- Create/observe one Production deployment from `6380ab6535df44c0f522cf6d579e740732f735d1` or a later main commit containing PR #48 and PR #45.
-- Re-run FIRST GATE: deployment `READY`; deployed SHA includes PR #45 and lockfile fix; `GET /api/v1/session` returns actual FastAPI JSON.
-- Only after all FIRST GATE checks pass, run career create, GET state, one `next_game`, revision +1, game/stat mutation, reconnect persistence, Neon session/idempotency rows, same-key replay, stale revision 409, cold-start persistence, browser E2E, and production-authority check excluding `MockGameDataProvider`.
+- Create one Production deployment from latest main containing PR #49 while keeping `git.deploymentEnabled=false`.
+- FIRST GATE after redeploy: deployment `READY`; deployed SHA contains PR #49, PR #48, and PR #45; `GET /api/v1/session` returns valid FastAPI JSON and no `FUNCTION_INVOCATION_FAILED`.
+- After import succeeds, use `/api/v1/session` behavior and runtime logs to verify the production database path. If the external database variable is unavailable, production should fail closed at the application layer rather than crash during import.
+- Only after FIRST GATE passes, continue full production smoke: career create/state/one next_game/revision +1/idempotency/stale revision/persistence/cold-start/browser E2E/production-authority verification.
+
+## NEXT_ACTION
+- Manually deploy latest main through a Vercel Git-aware UI/CLI/API path that can target Production without re-enabling Git auto-deploy. Once the new deployment appears, verify only FIRST GATE first; do not run full career smoke until `/api/v1/session` is healthy.
+
+## RELATED_PRS
+- #49 merged: Vercel direct-module import circularity fix
+- #48 merged: web npm lockfile fix
+- #45 merged: Vercel Python packaging fix
+- #44 merged: Neon production schema + Vercel handoff
+- #43 merged: P0 production persistence wiring
+- #42 merged: Web ↔ Python vertical slice
 
 ## GATES
 - PR45_MERGED = PASS
 - PR48_LOCKFILE_FIX_MERGED = PASS
-- WEB_NPM_LOCKFILE_CURRENT_MAIN = PASS
-- NEWER_PRODUCTION_DEPLOYMENT_FOUND = PASS
-- VERCEL_CURRENT_DEPLOYMENT_READY = FAIL
-- VERCEL_DEPLOYED_SHA_CONTAINS_PR45 = PASS
-- PRODUCTION_API_SESSION_ROUTE = FAIL
-- FULL_PRODUCTION_SMOKE = NOT_RUN
+- PR49_RUNTIME_IMPORT_FIX_MERGED = PASS
+- VERCEL_GIT_AUTO_DEPLOY = OFF
+- VERCEL_RUNTIME_ROOT_CAUSE_IDENTIFIED = PASS
+- VERCEL_DIRECT_IMPORT_REGRESSION = PASS
+- VERCEL_CURRENT_MAIN_BUILD = OPEN
+- VERCEL_DEPLOYED_SHA_VERIFIED = OPEN
+- PRODUCTION_API_SESSION_ROUTE = OPEN
+- PRODUCTION_DATABASE_URL_VISIBLE = OPEN
+- VERCEL_PRODUCTION_WIRING = OPEN
 - PRODUCTION_SESSION_PERSISTENCE = OPEN
 - PRODUCTION_REVISION_CAS = OPEN
 - PRODUCTION_IDEMPOTENCY = OPEN
