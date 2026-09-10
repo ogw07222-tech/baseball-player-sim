@@ -2,48 +2,52 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
-SOURCE_OF_TRUTH: main@9512e407d83bf13be608fa3f46fc7f2581b5b1bc
+SOURCE_OF_TRUTH: main@8a6f48c9ab833ab5412cc246e31b6b6c09275296
 STATE: BLOCKED
 CURRENT_TASK: Post-Redeploy Production Verification
-RESULT: OPEN — user reports Production DATABASE_URL was added and Vercel was redeployed, but the connected Vercel capability still exposes zero teams/projects and cannot fetch the known production domain (403). Production runtime HTTP E2E therefore remains unverified. Neon production DB currently contains zero session rows and zero idempotency rows, so there is not yet durable production-smoke evidence.
+RESULT: FAIL/OPEN — Vercel access is restored, but the deployable P0 root project is not running successfully. `baseball-player-sim` targets current main but its production build fails before runtime; `baseball-player-sim-ui` is READY only on stale pre-P0 commit `44b4bbb9113e351ceb35aac75f02a8ee6eab3723` and returns 404 for `/api/v1/session`. Neon production has no session/idempotency rows, so deployed persistence evidence does not exist yet.
 
 ## LAST_COMPLETED
-- Re-read latest main at task start: `9512e407d83bf13be608fa3f46fc7f2581b5b1bc`.
-- Re-read the 07 workstream status and retained prior Neon production PASS evidence.
-- Rechecked Vercel account visibility after the user completed DATABASE_URL configuration and redeploy; the connected capability still returns zero teams/projects.
-- Tried authenticated fetch of the known production domain `baseball-player-sim-ui.vercel.app`; Vercel capability returned 403 and could not create an authenticated/share fetch.
-- Independent container HTTP access is unavailable in this environment because the domain cannot be DNS-resolved there; no production HTTP assertions were fabricated.
-- Queried the actual Neon production database `baseball_sim` on branch `production`: `baseball_sim_sessions` has 0 rows and `baseball_sim_idempotency` has 0 rows, with no latest production update timestamp.
-- No application, gameplay, ratings, growth, injury, events, KBO rules, stat formulas, UI, advance breadth, persistence code, schema, or deployment configuration was changed.
+- Re-read task-start main `8a6f48c9ab833ab5412cc246e31b6b6c09275296` and the 07 status file.
+- Vercel connector access is now restored. Team `ogw` resolves to slug `ogw2` / team ID `team_Zklx7aawqjHXpgeXNmagdqaP`.
+- Confirmed three projects: `baseball-player-sim`, `baseball-player-sim-ui`, and `baseball-player-sim-ui-preview`.
+- Identified `baseball-player-sim` as the P0 repository-root/FastAPI-capable production project: framework `python`, linked to `ogw07222-tech/baseball-player-sim`, latest target `production`, Git SHA `8a6f48c9ab833ab5412cc246e31b6b6c09275296`.
+- Its latest production deployment `dpl_AWR72LW2KX6UQ23LcpRBmHFQXvz9` is `ERROR`. Build log root cause: Vercel Python build runs `uv lock` and fails because root `pyproject.toml` has `[tool.vercel]` but no required `[project]` table.
+- Confirmed `baseball-player-sim-ui` is a separate Vite project with canonical domain `baseball-player-sim-ui.vercel.app`; its latest production deployment `dpl_CxT7av75RwmkCZEipRqEnHRffLo3` is `READY` but redeploys stale commit `44b4bbb9113e351ceb35aac75f02a8ee6eab3723` (`Merge pull request #17...`), predating PR #42/#43/#44 P0 backend work.
+- Production request `GET https://baseball-player-sim-ui.vercel.app/api/v1/session` returned Vercel HTTP 404 `NOT_FOUND`, proving this READY deployment does not expose the P0 FastAPI route.
+- Confirmed `baseball-player-sim-ui-preview` latest production-target deployment is also `ERROR` and is not the production authority.
+- Queried actual Neon production `baseball_sim`: 0 session rows, max revision NULL, 0 idempotency rows, no latest update timestamps. Therefore no deployed P0 mutation has reached Neon production.
+- No gameplay, rating, growth, injury, event, KBO rule, stat formula, UI, advance breadth, persistence logic, or feature code was changed during this verification task.
 
 ## CURRENT_FINDINGS
-- User-reported deployment action: `DATABASE_URL` added to Vercel Production and production redeploy completed.
-- Vercel management evidence: unavailable from this connection. Project, latest deployment, deployed commit SHA, root directory, and environment-variable target cannot currently be independently inspected.
-- Runtime evidence: unavailable because the connected Vercel domain fetch is unauthorized and this execution environment cannot reach the public domain directly.
-- Neon production resource remains READY and schema remains previously validated.
-- Neon production currently has no session/idempotency rows, so no production smoke request has yet produced durable database state that can be independently observed here.
-- Prior PostgreSQL/Neon adapter validation remains valid for persistence, CAS, and idempotency semantics, but it is not a substitute for deployed Vercel E2E evidence.
-- `MockGameDataProvider` remains non-production authority by merged code/CI evidence; deployed browser authority cannot be re-proven until the production deployment is reachable.
+- Failure classification: `J. deployed SHA mismatch` on the READY UI project plus `C. deployment root/config issue` on the current-main root project.
+- The current-main P0 code is present in GitHub but not successfully running on Vercel production. The repository-root project clones the correct SHA and fails during Python dependency/build preparation before FastAPI starts.
+- Root `pyproject.toml` currently contains only `[tool.vercel] entrypoint = "src.api.app:app"` and the Vite build script. Vercel's current Python runtime invokes `uv lock`, which requires a valid `[project]` table; this is the direct build blocker observed in production logs.
+- The READY `baseball-player-sim-ui` deployment is not usable for P0 verification because it is stale and `/api/v1/session` is absent.
+- `DATABASE_URL` secret value was not exposed. Because the current-main deployment fails before runtime and the available Vercel tool surface does not enumerate project env variables, Production-scope presence cannot be independently proven from runtime behavior yet.
+- Prior Neon/Postgres adapter/schema/CAS/idempotency validation remains PASS, but production Vercel -> FastAPI -> Neon evidence is absent.
 
 ## BLOCKERS
-- Connected Vercel authorization still exposes no team/project and returns 403 for the known production deployment URL.
-- No alternate outbound HTTP/browser capability in this execution environment can reach the production domain, so create/state/next_game/replay/409 runtime requests cannot be executed truthfully.
-- Because no production HTTP smoke can be issued, the Neon production database remains empty and cannot provide post-redeploy persistence/cold-start evidence.
+- `baseball-player-sim` production build failure: Vercel Python `uv lock` rejects the current root `pyproject.toml` because it has no `[project]` metadata table.
+- The only READY canonical UI production deployment is stale SHA `44b4bbb9113e351ceb35aac75f02a8ee6eab3723`, so it cannot expose the P0 backend routes.
+- Until a current-main production deployment reaches READY, session/create/state/next_game/revision/idempotency/stale-409/cold-start/browser E2E cannot be executed truthfully.
 
 ## OPEN_ITEMS
-- Restore Vercel project/deployment visibility to this connected capability, or otherwise provide a production deployment URL that the runtime verification tool can access.
-- Verify latest production deployment status, deployed Git SHA, repository-root configuration, and existence of `DATABASE_URL` with Production target without exposing its value.
-- Execute production smoke: GET session -> create career -> GET state -> next_game -> revision +1/state change -> GET state -> reconnect/later invocation -> same state -> same-key replay with no duplicate game -> stale expected_revision 409 -> API error schema.
-- After smoke, verify Neon production session row, revision increment, updated_at change, idempotency row, and absence of duplicate mutation without exposing full save payload/session secret.
-- Execute deployed browser E2E and verify backend DTO authority / no MockGameDataProvider production authority.
+- Resolve the minimal Vercel Python packaging/deployment-config blocker for the repository-root project without changing simulation/domain behavior.
+- Produce a READY production deployment from current main (or the minimal deployment-config-fix successor) on the repository-root FastAPI project.
+- Verify `DATABASE_URL` is available to that deployment with Production scope without exposing the secret value.
+- Execute production smoke: session -> career create -> state -> next_game -> revision +1 -> state -> same-key replay -> stale revision 409 -> API error schema.
+- Verify Neon production session row, revision/updated_at change, idempotency row, and duplicate-mutation absence.
+- Execute separate invocation/cold-start persistence and deployed browser E2E; verify frontend renders backend DTOs and MockGameDataProvider is not production authority.
 
 ## DEPENDENCIES
-- Neon production PostgreSQL: READY.
-- Vercel Production DATABASE_URL/redeploy: user reports COMPLETE, independent verification OPEN.
-- Vercel account/project authorization for inspection and runtime fetch: BLOCKED.
+- Neon production PostgreSQL/schema: READY and previously validated.
+- Vercel team/project access: RESTORED.
+- Vercel current-main production deployment: BLOCKED by Python packaging config.
+- 06 Web UI contract remains unchanged; no frontend feature work is needed.
 
 ## NEXT_ACTION
-- As soon as Vercel deployment access is visible, inspect the current production deployment and run the complete deployed HTTP/browser/cold-start smoke against the already-prepared Neon production database. Do not change simulation behavior while resolving access.
+- Fix only the repository-root Vercel Python packaging metadata needed for the current Python runtime, redeploy latest main on `baseball-player-sim`, then immediately resume the existing deployed P0 smoke and Neon/browser verification. Do not change gameplay/domain/UI behavior.
 
 ## RELATED_PRS
 - #44 merged: Neon production schema + Vercel handoff
@@ -67,11 +71,14 @@ RESULT: OPEN — user reports Production DATABASE_URL was added and Vercel was r
 - PRODUCTION_FAIL_CLOSED = PASS
 - PRODUCTION_SECURE_SESSION_COOKIE = PASS
 - MOCK_NOT_PRODUCTION_AUTHORITY_CODE = PASS
-- VERCEL_REDEPLOY_USER_REPORTED = PASS
-- VERCEL_PROJECT_ACCESS = BLOCKED
-- VERCEL_DEPLOYED_SHA_VERIFIED = OPEN
+- VERCEL_PROJECT_ACCESS = PASS
+- VERCEL_PRODUCTION_PROJECT_IDENTIFIED = PASS
+- VERCEL_CURRENT_MAIN_DEPLOY_ATTEMPT = PASS
+- VERCEL_CURRENT_MAIN_BUILD = FAIL
+- VERCEL_DEPLOYED_SHA_VERIFIED = FAIL
 - VERCEL_DATABASE_URL_PRODUCTION_SCOPE_VERIFIED = OPEN
-- VERCEL_PRODUCTION_WIRING = OPEN
+- VERCEL_PRODUCTION_WIRING = FAIL
+- PRODUCTION_API_SESSION_ROUTE = FAIL
 - PRODUCTION_SESSION_PERSISTENCE = OPEN
 - PRODUCTION_REVISION_CAS = OPEN
 - PRODUCTION_IDEMPOTENCY = OPEN
