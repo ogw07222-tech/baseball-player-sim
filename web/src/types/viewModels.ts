@@ -11,15 +11,15 @@ export interface AbilityViewModel {
 
 export interface PlayerViewModel {
   name: string
-  number: number
+  number: number | null
   age: number
   position: string
   batsThrows: string
-  team: string
+  team: string | null
   rosterLevel: string
-  careerYear: number
+  careerYear: number | null
   form: string
-  avatarUrl?: string
+  avatarUrl?: string | null
 }
 
 export interface SeasonStatsViewModel {
@@ -32,7 +32,7 @@ export interface SeasonStatsViewModel {
   hr: number
   rbi: number
   sb: number
-  war: number
+  war: number | null
 }
 
 export interface RecentGamePoint {
@@ -41,27 +41,43 @@ export interface RecentGamePoint {
   outcome: string
 }
 
+export interface RecentGamesViewModel {
+  metric: string | null
+  avg: number | null
+  hr: number | null
+  ops: number | null
+  points: RecentGamePoint[]
+}
+
 export interface TraitViewModel {
   name: string
   category: string
   tone: TraitTone
 }
 
+export interface SeasonProgressViewModel {
+  year: number | null
+  game: number | null
+  totalGames: number | null
+  date: string | null
+  progress: number | null
+}
+
 export interface NextGameViewModel {
   homeTeam: string
   awayTeam: string
-  homeRank: number
-  awayRank: number
-  homeRecord: string
-  awayRecord: string
+  homeRank: number | null
+  awayRank: number | null
+  homeRecord: string | null
+  awayRecord: string | null
   date: string
-  time: string
-  stadium: string
-  opposingStarter: string
-  throwingHand: string
-  era: number
-  homeAway: 'HOME' | 'AWAY'
-  expectedLineupSpot?: number
+  time: string | null
+  stadium: string | null
+  opposingStarter: string | null
+  throwingHand: string | null
+  era: number | null
+  homeAway: 'HOME' | 'AWAY' | null
+  expectedLineupSpot?: number | null
 }
 
 export interface StoryEventViewModel {
@@ -82,14 +98,14 @@ export interface LeaderboardEntry {
 
 export interface DashboardViewModel {
   league: { code: string; name: string }
-  season: { year: number; game: number; totalGames: number; date: string; progress: number }
+  season: SeasonProgressViewModel
   player: PlayerViewModel
   abilities: AbilityViewModel[]
   seasonStats: SeasonStatsViewModel
-  recentGames: { metric: string; avg: number; hr: number; ops: number; points: RecentGamePoint[] }
-  status: { condition: string; fatigue: number; injury: string; form: string }
+  recentGames: RecentGamesViewModel
+  status: { condition: string; fatigue: number; injury: string | null; form: string }
   traits: TraitViewModel[]
-  nextGame: NextGameViewModel
+  nextGame: NextGameViewModel | null
   seasonStory: StoryEventViewModel[]
   titleRace: Record<string, LeaderboardEntry[]>
 }
@@ -134,7 +150,7 @@ export interface TeamBattingRow {
   obp: number
   slg: number
   ops: number
-  war: number
+  war: number | null
   isUser?: boolean
 }
 
@@ -146,12 +162,12 @@ export interface TeamMetric {
 
 export interface SeasonViewModel {
   league: { code: string; name: string }
-  season: DashboardViewModel['season']
+  season: SeasonProgressViewModel
   standings: StandingRow[]
   hittingLeaderboards: Record<string, LeaderboardEntry[]>
   pitchingLeaderboards: Record<string, LeaderboardEntry[]>
   recentResults: RecentResult[]
-  teamName: string
+  teamName: string | null
   teamBatting: TeamBattingRow[]
   teamMetrics: TeamMetric[]
 }
