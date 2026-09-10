@@ -2,55 +2,50 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
-SOURCE_OF_TRUTH: main@4510578409a2107bfa3486d4a78292432294f9c0
-STATE: BLOCKED
-CURRENT_TASK: P0 Final Production Deployment Verification
-RESULT: BLOCKED — Vercel connector access is working, but the current Production deployment is still the stale failed deployment `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg`. It is `ERROR`, points to Git SHA `8a6f48c9ab833ab5412cc246e31b6b6c09275296`, and therefore does not contain PR #45 merge `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2`. Build inspection reconfirmed the old pre-fix `No project table found in pyproject.toml` failure. `GET /api/v1/session` returned HTTP 302 Vercel SSO redirect rather than FastAPI JSON. A connector production redeploy was attempted, but the available deploy action requires an explicit file bundle and cannot redeploy the existing Git-linked project/commit directly in this session; no new deployment was created. Per gate policy, full production smoke was not run.
+SOURCE_OF_TRUTH: main@20368ed279702c316b03d8c11a5113d331e1b7ea
+STATE: WAITING
+CURRENT_TASK: Correct Stale-Deployment Gate Semantics + Wait for New Production Deployment
+RESULT: WAITING — current GitHub main contains PR #45, but no new Vercel Production deployment sourced from current main exists yet. The only visible Production deployment remains historical stale deployment `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg` at `8a6f48c9ab833ab5412cc246e31b6b6c09275296`. Its historical failure is preserved separately and is not reused as a current-main production FAIL. Current-main Vercel build/SHA/session-route gates therefore remain OPEN until a new Production deployment appears.
 
 ## LAST_COMPLETED
-- Task-start main verified: `4510578409a2107bfa3486d4a78292432294f9c0`.
-- Re-read this workstream status before deployment probing.
-- Vercel connector access succeeded for the `ogw` team and `baseball-player-sim` project.
-- Latest Production deployment verified as `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg`, target `production`, state/readyState `ERROR`.
-- Deployment Git SHA verified as `8a6f48c9ab833ab5412cc246e31b6b6c09275296`.
-- PR #45 merge remains `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2`; deployed SHA is older and does not contain it.
-- Deployment details and build logs reconfirmed failure at Vercel buildStep: `uv lock` failed because the stale deployed `pyproject.toml` had no `[project]` table.
-- `GET https://baseball-player-634by6u9s-ogw2.vercel.app/api/v1/session` returned HTTP 302 to Vercel SSO, not application JSON.
-- Attempted connector production deployment. The exposed deployment operation requires `target`, `name`, and a non-empty `files` bundle; with no supported Git-source/redeploy input, the existing linked repository cannot be safely redeployed from current main through this connector action.
-- Because FIRST GATE failed, career/state/next_game/Neon/idempotency/stale-revision/cold-start/browser smoke was intentionally not executed.
-- No application code, gameplay formulas, ratings, growth, injury, events, pitcher usage, KBO rules, stat formulas, UI, Neon schema, or unrelated cleanup was changed.
+- Verified latest main at task start: `20368ed279702c316b03d8c11a5113d331e1b7ea`.
+- Re-read this workstream status.
+- Queried Vercel Production deployments for `baseball-player-sim` without re-running smoke against the stale deployment.
+- Confirmed no Production deployment newer than historical `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg` exists yet.
+- Corrected gate semantics so historical stale deployment failures are separated from current-main production verification.
+- No code, config, feature, refactor, gameplay, ratings, growth, injury, events, pitcher usage, KBO rules, stat formulas, UI, or Neon schema changes were made.
 
 ## CURRENT_FINDINGS
-- `VERCEL_CONNECTOR_ACCESS = PASS` for read/inspection operations.
-- `VERCEL_CURRENT_MAIN_BUILD = FAIL`: latest Production remains `ERROR`.
-- `VERCEL_DEPLOYED_SHA_VERIFIED = FAIL`: deployed SHA `8a6f48c9...` predates PR #45 and current main.
-- `PRODUCTION_API_SESSION_ROUTE = FAIL`: current deployment did not return FastAPI session JSON.
-- Build result is FAIL on stale code with the exact packaging error PR #45 fixed in GitHub main.
-- This does not invalidate PR #45 CI/packaging PASS; it shows the fixed commit has not yet been evidenced in Vercel Production.
-- The connector's available deploy action is not sufficient to redeploy the Git-linked project from a selected Git SHA without supplying a full file bundle.
-- Full runtime verification remains OPEN until a new Production deployment containing PR #45 reaches READY and serves the session route.
+- Latest GitHub main is `20368ed279702c316b03d8c11a5113d331e1b7ea` and contains PR #45 merge `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2` in its ancestry.
+- Vercel connector read/inspection access is available.
+- No new current-main Production deployment exists yet.
+- Therefore current-main Production build, deployed-SHA verification, and `/api/v1/session` runtime status are NOT VERIFIED and remain OPEN.
+- Historical stale deployment failure remains valid historical evidence only.
+- The old `No project table found in pyproject.toml` error belongs to stale pre-PR45 deployment evidence and must not be interpreted as a current-main build failure.
+
+## HISTORICAL
+- STALE_PRODUCTION_DEPLOYMENT = FAIL
+- STALE_DEPLOYMENT_ID = `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg`
+- STALE_DEPLOYMENT_SHA = `8a6f48c9ab833ab5412cc246e31b6b6c09275296`
+- STALE_DEPLOYMENT_PACKAGING = FAIL
+- Historical failure reason: pre-PR45 packaging metadata lacked the PEP 621 `[project]` table.
 
 ## BLOCKERS
-- No Production deployment containing PR #45/current main exists yet in Vercel evidence.
-- Latest Production deployment is stale and failed.
-- Available connector deployment action cannot directly redeploy the existing Git-linked project from current main/commit in this session.
-- Session route on the stale failed deployment returns Vercel auth redirect rather than application response.
+- No Production deployment sourced from current main (or later main successor containing PR #45) has appeared yet.
 
 ## OPEN_ITEMS
-- Trigger a new `baseball-player-sim` Production deployment from current main (or later main successor containing PR #45) through Vercel UI/Git deployment or another supported redeploy path.
-- Verify deployment reaches `READY` and inspect its build logs/Python function.
-- Verify deployed SHA contains `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2`.
-- Verify Production `GET /api/v1/session` returns the expected FastAPI response.
-- Only then execute: career create, GET state, one `next_game`, revision +1, game/stat change, refresh/reconnect persistence, Neon session/idempotency row evidence, same-key replay without duplicate mutation, stale expected_revision 409, separate invocation/cold-start persistence, browser E2E, and runtime production-authority check.
+- Detect a new `baseball-player-sim` Production deployment newer than the historical stale deployment.
+- Run FIRST GATE only: deployment `READY`, deployed SHA contains PR #45, and `GET /api/v1/session` returns FastAPI JSON.
+- Only if all three pass, execute full production smoke: career create, GET state, one `next_game`, revision +1, refresh/reconnect persistence, Neon session row, Neon idempotency row, same-key replay without duplicate mutation, stale expected_revision 409, separate invocation/cold-start persistence, browser E2E, and production MockGameDataProvider authority absence.
 
 ## DEPENDENCIES
 - Neon production PostgreSQL/schema: READY and previously validated.
 - PR #45 packaging fix: merged and GitHub CI validated.
 - Vercel connector read/inspection access: PASS.
-- A supported production redeploy trigger for the Git-linked project: BLOCKED in this connector session.
+- New current-main Production deployment: PENDING.
 
 ## NEXT_ACTION
-- In Vercel, trigger a Production redeploy/new deployment for current `main` on project `baseball-player-sim` (not the stale `8a6f48c9...` deployment). After it appears, re-run only the FIRST GATE: `READY`, deployed SHA contains PR #45, and `/api/v1/session` returns FastAPI JSON. If all pass, immediately continue with the existing full production smoke. Do not expose `DATABASE_URL`, cookies, or secrets.
+- Wait for/detect a new Production deployment sourced from current main. Do not retest historical `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg`. When a new deployment appears, run only the FIRST GATE. Proceed to full smoke only if all three FIRST GATE checks pass.
 
 ## RELATED_PRS
 - #45 merged: minimal Vercel Python PEP 621/uv packaging fix
@@ -81,10 +76,9 @@ RESULT: BLOCKED — Vercel connector access is working, but the current Producti
 - PR45_CI = PASS
 - PR45_MERGED = PASS
 - VERCEL_CONNECTOR_ACCESS = PASS
-- VERCEL_REDEPLOY_ACTION = BLOCKED
-- VERCEL_CURRENT_MAIN_BUILD = FAIL
-- VERCEL_DEPLOYED_SHA_VERIFIED = FAIL
-- PRODUCTION_API_SESSION_ROUTE = FAIL
+- VERCEL_CURRENT_MAIN_BUILD = OPEN
+- VERCEL_DEPLOYED_SHA_VERIFIED = OPEN
+- PRODUCTION_API_SESSION_ROUTE = OPEN
 - VERCEL_DATABASE_URL_PRODUCTION_SCOPE_VERIFIED = OPEN
 - VERCEL_PRODUCTION_WIRING = OPEN
 - PRODUCTION_SESSION_PERSISTENCE = OPEN
