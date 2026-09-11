@@ -4,9 +4,10 @@ WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
 TASK_START_MAIN: `f336b9be10f252300971be3d146b51ad7ff91537`
 P1_INTEGRATION_BASE: `2fadd1e2295cdb42b8da70adb845c4b1fa9d9a20`
-STATE: P1_UI_BACKEND_CONTRACT_VALIDATED
+P1_MERGE_SHA: `559ee4cb3a61fa80e949e70dff1c4f7f65118fc7`
+STATE: P1_UI_BACKEND_CONTRACT_MERGED
 CURRENT_TASK: P1 UI ↔ Backend Contract Expansion
-RESULT: PASS — next_game/week/month now share one typed, transactional production HTTP contract; automatic season advance remains intentionally OPEN.
+RESULT: PASS — PR #52 merged; next_game/week/month now share one typed, transactional production HTTP contract; automatic season advance remains intentionally OPEN.
 
 ## P0 BASELINE
 P0 production evidence remains valid and was not reimplemented in this task:
@@ -32,7 +33,7 @@ Existing production transport at task start:
 Current UI can truthfully consume player summary, abilities, season batting line, status, traits/story, progress, user team batting, revision/session state, and nullable/empty presentation collections. League-wide standings/leaderboards, next-game scouting data, and other optional datasets are still not modeled by the backend and were not fabricated.
 
 ## P1 CHANGES — PR #52
-PR: #52 `P1 integration: expand UI/backend mutation contract`
+PR #52 `P1 integration: expand UI/backend mutation contract` merged as `559ee4cb3a61fa80e949e70dff1c4f7f65118fc7`.
 
 ### Advance response
 Successful `/api/v1/advance` now returns the authoritative snapshot plus an additive mutation envelope:
@@ -102,7 +103,7 @@ PR #51 `Web UI: production-backed career interaction hardening` merged before fi
 Current UI still intentionally exposes only Next Game. Backend `week` and `month` are now ready for 06 to expose when UX chooses to restore those controls. No 06 visual/layout files were changed by PR #52.
 
 ## VALIDATION
-Final implementation head before this status-only update: `135d5618e125e2584428c1efd5846eae3e827778`
+Final implementation head before status-only documentation: `135d5618e125e2584428c1efd5846eae3e827778`
 Workflow: tests run #736 (`34580368274`)
 
 PASS:
@@ -136,17 +137,18 @@ Contract-specific validation covers:
 No production deployment was consumed for this validation.
 
 ## MERGE ORDER
-Completed/required order:
+Completed order:
 1. PR #50 — 03 domain breadth — MERGED
 2. PR #51 — 06 production UI hardening — MERGED
-3. PR #52 — 07 HTTP/DTO/transaction integration — READY TO MERGE after CI PASS
+3. PR #52 — 07 HTTP/DTO/transaction integration — MERGED
 
-After PR #52, 06 may independently expose week/month controls against the published contract. Season UI remains blocked on a later explicit lifecycle contract.
+06 may now independently expose week/month controls against the published contract. Season UI remains blocked on a later explicit lifecycle contract.
 
 ## GATES
 - P1_CONTRACT_AUDIT = PASS
 - PR50_03_DOMAIN_BREADTH = PASS_MERGED
 - PR51_06_UI_HARDENING = PASS_MERGED
+- PR52_07_INTEGRATION = PASS_MERGED
 - SESSION_STATE_DTO = PASS
 - CREATE_CAREER_CONTRACT = PASS
 - ADVANCE_NEXT_GAME_CONTRACT = PASS
@@ -163,7 +165,7 @@ After PR #52, 06 may independently expose week/month controls against the publis
 - PRODUCTION_PROVIDER_COMPATIBILITY = PASS
 - AUTOMATIC_SEASON_COMMAND = OPEN
 - FORCED_COLD_START_EVIDENCE = OPEN_NON_BLOCKING
-- P1_UI_BACKEND_CONTRACT_EXPANSION = PASS
+- P1_UI_BACKEND_CONTRACT_EXPANSION = PASS_MERGED
 
 ## NEXT_ACTION
-Merge PR #52. Then hand the stable `week`/`month` transport contract to 06 for optional UI exposure. Keep automatic season advancement closed until the explicit season-finalization/offseason state contract is approved.
+Hand the stable `week`/`month` transport contract to 06 for optional UI exposure. Keep automatic season advancement closed until the explicit season-finalization/offseason state contract is approved. Batch any later production deployment with the next intentional release; no deployment is required for this contract-only merge validation.
