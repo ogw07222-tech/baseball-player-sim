@@ -4,7 +4,7 @@ import type {
   BackendSnapshotDto,
 } from '../types/backendPresentation'
 import type { NewCareerRequest } from '../types/newCareer'
-import type { BackendPresentationGateway } from './GameDataProvider'
+import type { BackendAdvancePresentation, BackendPresentationGateway } from './GameDataProvider'
 
 export class BackendTransportError extends Error {
   constructor(
@@ -120,6 +120,22 @@ export class HttpBackendPresentationGateway implements BackendPresentationGatewa
     throw new Error('unreachable advance retry state')
   }
 
+  private requireAdvanceMutation(snapshot: BackendSnapshotDto): BackendAdvancePresentation {
+    if (!snapshot.mutation || snapshot.mutation.kind !== 'advance') {
+      throw new BackendTransportError(
+        502,
+        'INVALID_RESPONSE',
+        'advance response is missing mutation result',
+        false,
+        snapshot.meta.revision,
+      )
+    }
+    return {
+      dashboard: snapshot.data.dashboard,
+      result: snapshot.mutation.result,
+    }
+  }
+
   private async advance(command: 'next_game' | 'week' | 'month' | 'season') {
     if (this.revision === null) {
       const snapshot = await this.loadState()
@@ -143,7 +159,7 @@ export class HttpBackendPresentationGateway implements BackendPresentationGatewa
       idempotency_key: idempotencyKey,
     })
     const snapshot = this.remember(await this.postAdvance(body))
-    return snapshot.data.dashboard
+    return this.requireAdvanceMutation(snapshot)
   }
 
   advanceNextGame() { return this.advance('next_game') }
