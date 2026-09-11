@@ -2,92 +2,168 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
-DEPLOYED_SOURCE_OF_TRUTH: `b3ca2fe9cd6c84f400d7d301a2c30176bf0978cc`
-CURRENT_MAIN_AT_VALIDATION: `e1418f0c69e84d5c038a1a0b860296e24c55102f` (later status-documentation commits only; no application-code delta from deployed SHA)
-STATE: VALIDATED_WITH_OPEN_COLD_START_GATE
-CURRENT_TASK: Full Production Smoke after FIRST GATE PASS
-RESULT: PRODUCTION API / NEON / BROWSER SMOKE PASS — explicit forced cold-start persistence remains OPEN because the available runtime telemetry does not expose function-instance identity or a deterministic cold-start trigger.
+TASK_START_MAIN: `f336b9be10f252300971be3d146b51ad7ff91537`
+P1_INTEGRATION_BASE: `2fadd1e2295cdb42b8da70adb845c4b1fa9d9a20`
+STATE: P1_UI_BACKEND_CONTRACT_VALIDATED
+CURRENT_TASK: P1 UI ↔ Backend Contract Expansion
+RESULT: PASS — next_game/week/month now share one typed, transactional production HTTP contract; automatic season advance remains intentionally OPEN.
 
-## PRODUCTION DEPLOYMENT
-- Production project: `baseball-player-sim` (`prj_5m6Qi5Ljj0ebBtZPcWbZjQADj1ZD`).
-- Validated deployment: `dpl_FZZyPNWuSTDzscY4hndgNZD2sdyc`.
-- Deployment state: `READY`.
-- Deployed Git SHA: `b3ca2fe9cd6c84f400d7d301a2c30176bf0978cc`.
-- Deployed SHA contains PR #49, PR #48, and PR #45.
-- Current main is ahead only by workstream-status documentation; deployed application code is the validated production code.
-- `git.deploymentEnabled=false` remains preserved.
+## P0 BASELINE
+P0 production evidence remains valid and was not reimplemented in this task:
+- FastAPI production runtime: PASS
+- Neon production persistence: PASS
+- create career/state/next_game: PASS
+- revision CAS/stale 409: PASS
+- idempotency replay: PASS
+- separate-client/browser reload persistence: PASS
+- production HTTP provider authority: PASS
+- strict forced cold-start evidence: OPEN, non-blocking for P1
+- Vercel Git auto-deploy remains OFF
 
-## FIRST GATE
-- `GET /api/v1/session` = HTTP 200 with FastAPI JSON `{ "has_career": false, "revision": null }` on a fresh production session.
-- Previous circular-import `FUNCTION_INVOCATION_FAILED` is resolved.
-- Previous fail-closed `SAVE_FAILED: external transactional durable store is required in production` is resolved after Production `DATABASE_URL` configuration/redeployment.
-- Neon/Postgres adapter initialization is operational.
+## CONTRACT AUDIT
+Existing production transport at task start:
+- `GET /api/v1/session` -> `{has_career, revision}`
+- `POST /api/v1/career` -> authoritative Dashboard + Season snapshot + `meta.revision`
+- `GET /api/v1/state` -> atomic authoritative Dashboard + Season snapshot + `meta.revision`
+- `POST /api/v1/advance` -> transactional `expected_revision` + `idempotency_key`; only `next_game` was exposed
+- `POST /api/v1/save` -> revision-checked checkpoint
+- errors -> typed envelope with `error.code/message/retryable/details` and `meta.revision`
 
-## FULL API SMOKE
-A temporary validation-only GitHub Actions branch ran the repository's existing `tools/deployed_p0_smoke.py` directly against `https://baseball-player-sim.vercel.app`. No validation workflow was merged to main and no production application code was changed.
+Current UI can truthfully consume player summary, abilities, season batting line, status, traits/story, progress, user team batting, revision/session state, and nullable/empty presentation collections. League-wide standings/leaderboards, next-game scouting data, and other optional datasets are still not modeled by the backend and were not fabricated.
 
-Observed PASS sequence:
-- fresh session reported no career;
-- `POST /api/v1/career` returned 201 and created revision 1;
-- `GET /api/v1/state` returned the created authoritative state;
-- one `next_game` mutation returned 200 and revision advanced 1 -> 2;
-- persisted game/stat state changed (game 1 and real batting aggregate changes);
-- replay with the same idempotency key returned the same committed result with no duplicate mutation;
-- stale `expected_revision` returned HTTP 409 `REVISION_CONFLICT`;
-- a new HTTP client carrying only the production session cookie recovered the same revision-2 state;
-- unknown API route returned normal JSON 404 rather than frontend fallback.
+## P1 CHANGES — PR #52
+PR: #52 `P1 integration: expand UI/backend mutation contract`
 
-Vercel runtime logs independently show the production sequence `session 200 -> career 201 -> state 200 -> advance 200 -> replay advance 200 -> stale advance 409 -> state 200` on deployment `dpl_FZZyPNWuSTDzscY4hndgNZD2sdyc`.
+### Advance response
+Successful `/api/v1/advance` now returns the authoritative snapshot plus an additive mutation envelope:
+- `mutation.kind = advance`
+- `mutation.command`
+- `mutation.result`
 
-## NEON PRODUCTION EVIDENCE
-- Neon project: `baseball-player-sim-production` (`soft-paper-34017307`).
-- Production/default branch: `br-muddy-morning-a5gtu4wg`.
-- Database: `baseball_sim`.
-- `baseball_sim_sessions` contains the production smoke session at revision 2, save_version 3.
-- The saved payload contains `games_completed = 1`, a persisted recent game, and non-zero farm/overall batting aggregates, proving game/stat mutation was durably stored.
-- `baseball_sim_idempotency` contains exactly one row for the smoke mutation key with `resulting_revision = 2`; replay did not create a duplicate row.
-- Session identifiers were inspected only via one-way hash; no cookie/session secret or database credential was exposed.
+`mutation.result` reuses the existing `AdvanceResultViewModel` contract:
+- period label/date range
+- games played
+- hitter/pitcher period line
+- team record delta
+- season total line
+- notable events
+- rating changes
 
-## BROWSER E2E
-- A validation-only headless Playwright workflow exercised the real Production URL.
-- Browser opened the Production frontend and observed the NEW CAREER page.
-- Browser created player `BrowserE2E` through the actual UI.
-- Dashboard rendered `GAME 0 / 144`.
-- Browser clicked `다음 경기` and observed `GAME 1 / 144`.
-- Browser reloaded the page and the same player/career remained at `GAME 1 / 144`.
-- Final browser result: PASS — production browser create/advance/reload persistence.
-- An earlier validation attempt failed only because the test supplied a 13-character name while the UI intentionally enforces `maxLength=12`; the corrected test passed without application changes.
+Create/state reads remain clean snapshots and do not include a mutation result.
 
-## PRODUCTION PROVIDER AUTHORITY
-- Production bootstrap in `web/src/main.tsx` explicitly constructs `ProductionPresentationProvider(new HttpBackendPresentationGateway())` and injects it into `App`.
-- `App` has a mock fallback only when no provider is injected; the Production bootstrap does inject the HTTP production provider.
-- Therefore `MockGameDataProvider` is not the Production authority.
+### Supported commands
+After 03 PR #50 merged, the HTTP dispatcher exposes only proven domain methods:
+- `next_game` -> `ProductionAdvanceService.advance_one_game()`
+- `week` -> `ProductionAdvanceService.advance_one_week()`
+- `month` -> `ProductionAdvanceService.advance_one_month()`
 
-## COLD-START / SEPARATE INVOCATION
-- Separate-client persistence = PASS: a new HTTP client using the same opaque session cookie recovered the exact revision-2 state from Neon-backed production storage.
-- Multiple independent Vercel serverless HTTP invocations also read/write the same durable state successfully.
-- Forced cold-start persistence = OPEN: current Vercel connector/runtime logs do not expose serverless instance identity and no deterministic function recycle/cold-start control is available in this session. Do not relabel this as PASS without explicit cold-start evidence.
+Automatic `season` remains rejected without mutation. 07 does not invent finalize/start-next-season semantics.
+
+### Completed-season boundary
+03 `SeasonCompleteError` is mapped to HTTP 409 `SEASON_COMPLETE`, `retryable=false`.
+The error propagates out of the SessionStore transaction before update/idempotency insertion, so persisted payload and revision remain unchanged.
+
+### DTO / transport compatibility
+Frontend transport types now explicitly model:
+- session
+- revision metadata
+- progress
+- atomic snapshot
+- advance mutation/result
+- error envelope
+
+The progress DTO keeps legacy optional presentation fields compatible while the current backend still sends its full canonical progress object.
+
+### Retry / exactly-once boundary
+`HttpBackendPresentationGateway` now preserves one generated idempotency key and identical serialized mutation request across one retryable transport retry. A lost response can therefore resolve through server replay rather than becoming a second logical mutation.
+
+Merged 06 PR #51 behavior is preserved:
+- typed `NETWORK_ERROR`
+- typed backend conflict metadata
+- authoritative revision conflict recovery at the UI layer
+- required production provider injection / no implicit production mock authority
+- duplicate-click mutation lock
+
+## 03 DEPENDENCY
+PR #50 `Growth/Career: P1 production advance breadth` merged before final 07 integration.
+
+Accepted 03 contract:
+- week/month are exact compositions of canonical scheduled-game advancement
+- save/load deterministic equivalence is covered
+- near season end stops at game 144
+- completed-season game/week/month reject before mutation
+- automatic season transition remains OPEN pending offseason pitcher-usage/lifecycle integration policy
+
+07 changes only HTTP/store/presentation wiring around those methods.
+
+## 06 DEPENDENCY
+PR #51 `Web UI: production-backed career interaction hardening` merged before final 07 integration.
+
+Current UI still intentionally exposes only Next Game. Backend `week` and `month` are now ready for 06 to expose when UX chooses to restore those controls. No 06 visual/layout files were changed by PR #52.
+
+## VALIDATION
+Final implementation head before this status-only update: `135d5618e125e2584428c1efd5846eae3e827778`
+Workflow: tests run #736 (`34580368274`)
+
+PASS:
+- web install
+- TypeScript/Vite production build
+- web tests
+- Python dependency/Vercel packaging contract
+- Python compile
+- external Postgres durable-store tests
+- Vercel FastAPI entrypoint smoke
+- API vertical-slice tests
+- related production integration tests
+- full Python unit suite
+- auto-career smoke
+- balance smoke
+- high-school/draft calibration gate
+
+Contract-specific validation covers:
+- next_game mutation result payload
+- week/month through the same CAS/idempotency mutation path
+- exact replay response with no second revision
+- restart persistence after period advances
+- stale revision 409
+- same idempotency key with different fingerprint conflict
+- automatic season rejection with unchanged stored payload/revision
+- `SEASON_COMPLETE` rollback with unchanged stored payload/revision
+- atomic Dashboard + Season frontend snapshot
+- retryable mutation retry reusing the same idempotency key/body
+- typed backend/network error compatibility
+
+No production deployment was consumed for this validation.
+
+## MERGE ORDER
+Completed/required order:
+1. PR #50 — 03 domain breadth — MERGED
+2. PR #51 — 06 production UI hardening — MERGED
+3. PR #52 — 07 HTTP/DTO/transaction integration — READY TO MERGE after CI PASS
+
+After PR #52, 06 may independently expose week/month controls against the published contract. Season UI remains blocked on a later explicit lifecycle contract.
 
 ## GATES
-- PR45_MERGED = PASS
-- PR48_LOCKFILE_FIX_MERGED = PASS
-- PR49_RUNTIME_IMPORT_FIX_MERGED = PASS
-- VERCEL_GIT_AUTO_DEPLOY = OFF
-- VERCEL_CURRENT_MAIN_BUILD = PASS
-- VERCEL_DEPLOYED_SHA_VERIFIED = PASS
-- PRODUCTION_API_ROUTE_REACHED = PASS
-- PRODUCTION_API_SESSION_ROUTE = PASS
-- PRODUCTION_DATABASE_URL_VISIBLE = PASS
-- VERCEL_PRODUCTION_WIRING = PASS
-- PRODUCTION_SESSION_PERSISTENCE = PASS
-- PRODUCTION_REVISION_CAS = PASS
-- PRODUCTION_IDEMPOTENCY = PASS
-- DEPLOYED_NEXT_GAME_E2E = PASS
-- SEPARATE_CLIENT_PERSISTENCE = PASS
-- DEPLOYED_BROWSER_E2E = PASS
-- MOCK_NOT_PRODUCTION_AUTHORITY = PASS
-- COLD_START_PERSISTENCE = OPEN
-- P0_WEB_PYTHON_PRODUCTION_COMPLETE = OPEN (only explicit forced-cold-start evidence remains open)
+- P1_CONTRACT_AUDIT = PASS
+- PR50_03_DOMAIN_BREADTH = PASS_MERGED
+- PR51_06_UI_HARDENING = PASS_MERGED
+- SESSION_STATE_DTO = PASS
+- CREATE_CAREER_CONTRACT = PASS
+- ADVANCE_NEXT_GAME_CONTRACT = PASS
+- ADVANCE_WEEK_CONTRACT = PASS
+- ADVANCE_MONTH_CONTRACT = PASS
+- ADVANCE_MUTATION_RESULT_DTO = PASS
+- REVISION_CAS = PASS
+- IDEMPOTENCY_REPLAY = PASS
+- SAME_KEY_TRANSPORT_RETRY = PASS
+- STALE_REVISION_409 = PASS
+- PERSISTENCE_RESTART = PASS
+- SEASON_COMPLETE_ROLLBACK = PASS
+- WEB_TYPE_BUILD_COMPATIBILITY = PASS
+- PRODUCTION_PROVIDER_COMPATIBILITY = PASS
+- AUTOMATIC_SEASON_COMMAND = OPEN
+- FORCED_COLD_START_EVIDENCE = OPEN_NON_BLOCKING
+- P1_UI_BACKEND_CONTRACT_EXPANSION = PASS
 
 ## NEXT_ACTION
-Obtain explicit cold-start/recycled-instance evidence without changing application semantics. If that evidence confirms the same session survives a fresh serverless instance, mark `COLD_START_PERSISTENCE = PASS` and close `P0_WEB_PYTHON_PRODUCTION_COMPLETE`.
+Merge PR #52. Then hand the stable `week`/`month` transport contract to 06 for optional UI exposure. Keep automatic season advancement closed until the explicit season-finalization/offseason state contract is approved.

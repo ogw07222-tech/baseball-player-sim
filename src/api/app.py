@@ -1,4 +1,4 @@
-"""FastAPI bridge for the P0 browser -> authoritative Python vertical slice."""
+"""FastAPI bridge for the browser -> authoritative Python production slice."""
 from __future__ import annotations
 
 import hashlib
@@ -21,8 +21,9 @@ from ..application.season_service import SeasonService
 from ..career import CareerEngine
 from ..persistence import deserialize_game, serialize_game
 from ..player import Player
-from ..production_advance import ProductionAdvanceService
+from ..production_advance import ProductionAdvanceService, SeasonCompleteError
 from ..rng import RNG
+from ..time_advance import AdvanceResultViewModel
 from .store import (
     IdempotencyConflict,
     PostgresSessionStore,
@@ -154,14 +155,22 @@ def _progress(engine: CareerEngine) -> dict[str, object]:
     }
 
 
-def _presentation(engine: CareerEngine, revision: int) -> dict[str, object]:
+def _presentation(
+    engine: CareerEngine,
+    revision: int,
+    *,
+    mutation: dict[str, object] | None = None,
+) -> dict[str, object]:
     progress = _progress(engine)
     dashboard = DashboardService().build(engine.player, year=engine.year, progress=progress).as_dict()
     season = SeasonService().build(engine.player, year=engine.year, progress=progress).as_dict()
-    return {
+    payload: dict[str, object] = {
         "data": {"dashboard": dashboard, "season": season},
         "meta": {"revision": revision},
     }
+    if mutation is not None:
+        payload["mutation"] = mutation
+    return payload
 
 
 def _fingerprint(request: AdvanceRequest) -> str:
@@ -267,20 +276,35 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
     @app.post("/api/v1/advance")
     def advance(body: AdvanceRequest, request: Request, response: Response):
         session_id = _session_id(request, response)
-        if body.command != "next_game":
+        if body.command == "season":
             raise ApiProblem(
                 400,
                 "INVALID_REQUEST",
-                "P0 vertical slice supports command=next_game only",
+                "automatic season advance is not available; season finalization remains explicit",
                 revision=body.expected_revision,
             )
 
         def mutate(payload: dict[str, object]):
             engine = deserialize_game(payload)
             service = ProductionAdvanceService(engine)
-            service.advance_one_game()
+            if body.command == "next_game":
+                summary = service.advance_one_game()
+            elif body.command == "week":
+                summary = service.advance_one_week()
+            elif body.command == "month":
+                summary = service.advance_one_month()
+            else:  # Pydantic constrains this branch; keep fail-closed for type drift.
+                raise ApiProblem(400, "INVALID_REQUEST", f"unsupported advance command: {body.command}")
             next_payload = serialize_game(engine)
-            response_payload = _presentation(engine, body.expected_revision + 1)
+            response_payload = _presentation(
+                engine,
+                body.expected_revision + 1,
+                mutation={
+                    "kind": "advance",
+                    "command": body.command,
+                    "result": AdvanceResultViewModel.from_summary(summary).as_dict(),
+                },
+            )
             return next_payload, response_payload
 
         try:
@@ -307,6 +331,14 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
                 "SIMULATION_CONFLICT",
                 str(exc),
                 revision=current.revision if current else None,
+            ) from exc
+        except SeasonCompleteError as exc:
+            raise ApiProblem(
+                409,
+                "SEASON_COMPLETE",
+                str(exc),
+                retryable=False,
+                revision=body.expected_revision,
             ) from exc
         return commit.response
 

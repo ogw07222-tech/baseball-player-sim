@@ -60,6 +60,15 @@ export interface BackendTeamBattingDto {
   is_user?: boolean
 }
 
+export type BackendProgressDto = Record<string, unknown> & {
+  year: number
+  game: number
+  total_games: number
+  games_completed?: number
+  current_date?: string | null
+  progress?: number
+}
+
 export interface BackendDashboardDto {
   player: BackendPlayerSummaryDto
   abilities: BackendAbilityDto[]
@@ -75,7 +84,7 @@ export interface BackendDashboardDto {
   next_game: Record<string, unknown> | null
   season_story: Record<string, unknown>[]
   title_race: Record<string, Record<string, unknown>[]>
-  progress: Record<string, unknown>
+  progress: BackendProgressDto
 }
 
 export interface BackendSeasonDto {
@@ -89,5 +98,61 @@ export interface BackendSeasonDto {
   team_name: string | null
   team_batting: BackendTeamBattingDto[]
   team_metrics: Record<string, unknown>[]
-  progress: Record<string, unknown>
+  progress: BackendProgressDto
+}
+
+export interface BackendRevisionMetaDto {
+  revision: number
+}
+
+export interface BackendSessionDto {
+  has_career: boolean
+  revision: number | null
+}
+
+export interface BackendAdvanceEventDto {
+  date: string | null
+  kind: string
+  message: string
+}
+
+export interface BackendAdvanceResultDto {
+  period_label: string
+  date_range: string
+  games_played: number
+  hitter_period_line: Record<string, unknown>
+  pitcher_period_line: Record<string, unknown>
+  team_record_delta: { wins: number; losses: number; ties: number } | null
+  season_total_line: Record<string, unknown>
+  notable_events: BackendAdvanceEventDto[]
+  rating_changes: Record<string, number>
+}
+
+export type BackendAdvanceCommandDto = 'next_game' | 'week' | 'month' | 'season'
+
+export interface BackendAdvanceMutationDto {
+  kind: 'advance'
+  command: BackendAdvanceCommandDto
+  result: BackendAdvanceResultDto
+}
+
+export interface BackendSnapshotDto {
+  data: {
+    dashboard: BackendDashboardDto
+    season: BackendSeasonDto
+  }
+  meta: BackendRevisionMetaDto
+  mutation?: BackendAdvanceMutationDto
+}
+
+export interface BackendErrorEnvelopeDto {
+  error?: {
+    code?: string
+    message?: string
+    retryable?: boolean
+    details?: unknown
+  }
+  meta?: {
+    revision?: number | null
+  }
 }
