@@ -2,216 +2,207 @@
 
 WORKSTREAM: 04 - Events & Story
 UPDATED_AT: 2026-09-11
-SOURCE_OF_TRUTH: main@21a7621763a85268a4e2fb68cad9194854c4c601
+TASK_START_MAIN: `b4e836eb747aea42a5782fed71c39fcb3a982f17`
+LATEST_INTEGRATION_BASE: `58f662324b99505ae6f73bb8188cdfb65224157d`
+IMPLEMENTATION_HEAD: `2d6ec0cadadc3522897cc3bd13f87a50955e170d`
 STATE: ACTIVE
-CURRENT_TASK: P1 Progression Event Timeline Contract audit/design
-RESULT: FAIL_CONTRACT_GAP_DESIGN_READY
+CURRENT_TASK: P1 Canonical Progression Event Timeline v1
+RESULT: PASS_WITH_OPEN_EVENT_CATEGORIES
 
-## TASK_START_SOURCE
-- Task-start latest main: `21a7621763a85268a4e2fb68cad9194854c4c601`.
-- Audited production advance, time aggregation, HTTP transactional mutation, event scheduler/resolution, injury/form/roster flow, career_history, save/load and current tests.
-
-## CURRENT_ARCHITECTURE
-- `next_game`, `week`, and `month` all flow through `ProductionAdvanceService` / `AdvanceOrchestrator`.
-- WEEK/MONTH iterate scheduled games and append only each `GamePerformance.notable_events` into `AdvanceSummary.major_events`.
-- Current `CareerEventSummary` is only `{date, kind, message}`.
-- `AdvanceResultViewModel.notable_events` serializes `AdvanceSummary.major_events` directly.
-- Production game `notable_events` are gameplay-result strings such as game/pitcher markers; they are not the general career-event bus.
-- Roster is sampled only before and after the whole period for `roster_changes`; intermediate FARM/FIRST transitions can disappear if the final level returns to the starting level.
-- v0.4 choice events resolve into `player.event_history` and `last_event_resolutions`; `last_event_resolutions` is not a durable timeline contract.
-- Draft/entry/callup/debut/demotion observational facts persist in append-only `player.career_history`.
-- Injury creation persists in `injury_history`, but generic recovery completion is currently state clearing rather than a canonical persistent event.
-- Form/slump/hot changes, rating deltas, coach changes, awards and growth are represented in separate state/history channels rather than one ordered advance timeline.
-
-## P1_FINDING
-Current `mutation.result.notable_events` is insufficient as a canonical progression-event timeline.
-
-Main failure modes:
-1. Only `GamePerformance.notable_events` are accumulated per internal game.
-2. Career events resolved in `_postgame()` are not automatically added to `AdvanceSummary.major_events`.
-3. Injury/recovery/form/trait/growth/coach/award state changes are not normalized into the same timeline.
-4. Period-level before/after roster comparison loses intermediate transitions such as FARM->FIRST->FARM.
-5. Current event items lack stable logical ids, sequence, category, effects and retention metadata.
-6. `last_event_resolutions` is process state, not serialized durable history.
-7. A no-game/off-day event channel does not exist in the current week/month orchestrator.
+## LAST_COMPLETED
+- Implemented CanonicalEventDTO v1 on `feature/p1-canonical-event-timeline-v1` / PR #53.
+- Rebased/merged latest main before final validation; PR #53 is mergeable against current main.
+- Added deterministic per-command event capture before/after each canonical game advance without changing gameplay/growth/roster formulas.
+- WEEK/MONTH now preserve every captured internal-game event instead of reconstructing career transitions from period-final state.
+- Existing FastAPI mutation envelope is unchanged; `AdvanceResultViewModel.notable_events` passes canonical DTO dictionaries through its existing event serialization path.
+- Final CI run #765 (`34582277850`) is fully green: packaging/compile, external PostgreSQL store, Vercel entrypoint, API vertical slice, related production integration, full unit suite, auto-career smoke, balance smoke, draft calibration/artifact, web build/tests.
 
 ## CANONICAL_EVENT_DTO_V1
-Recommended transport/domain DTO:
-- `event_id: str` — stable logical event id, not presentation text.
-- `event_type: str`
-- `category: str`
-- `occurred_at: str | null` — ISO date when known.
-- `season: int | null`
-- `game_number: int | null`
-- `sequence: int` — deterministic order within one advance mutation.
-- `title: str`
-- `summary: str`
-- `importance: info | normal | major | critical`
-- `player_id: str | null`
-- `team_id: str | null`
-- `related_entity_ids: list[str]`
-- `state_effects: dict | null`
-- `rating_changes: dict[str,int] | null`
-- `injury_effect: dict | null`
-- `trait_changes: list[dict] | null`
-- `source_command: next_game | week | month | lifecycle | system`
-- `presentation_priority: int`
-- `persistence: transient | career_history`
-- `dedupe_key: str`
+Implemented fields:
+- `event_id`
+- `event_type`
+- `category`
+- `occurred_at`
+- `season`
+- `game_number`
+- `sequence`
+- `title`
+- `summary`
+- `importance`
+- `player_id` nullable
+- `team_id` nullable
+- `related_entity_ids`
+- `state_effects`
+- `rating_changes`
+- `injury_effect`
+- `trait_changes`
+- `source_command`
+- `presentation_priority`
+- `persistence`
+- `dedupe_key`
+- additive ordering metadata: `phase`, internal `source_ordinal`
 
-Nullable fields are allowed; consumers must not infer missing simulation semantics.
+No random UUID is used.
 
-## EVENT_ID_AND_DEDUPE
-- Persistent career events should reuse their stable `career_history` dedupe key/logical identity.
-- Transient game events should derive identity from committed mutation context plus deterministic event coordinates, e.g. `season:game_number:phase:ordinal:type`.
-- Never use random UUID generation inside simulation/event rendering.
-- Replay of the same committed idempotency key must return the stored response unchanged; it must not regenerate ids or append history again.
-- Different commands producing the same already-persisted career event must expose the same persistent logical event id/dedupe key.
+## NORMALIZED_SOURCES
+Production timeline currently normalizes only existing semantics:
+- `GamePerformance.notable_events` -> transient `gameplay_notable` events.
+- append-only `player.career_history` delta -> persistent roster/debut/recovery/system-mirror events.
+- `player.event_history` delta -> persistent v0.4 career-event result including stat/rating, injury and Trait changes already recorded there.
+- game-origin `player.injury_history` delta -> persistent injury-start facts; event-caused injuries are not duplicated because their authoritative event_history result is used instead.
+- authoritative form before/after state -> transient `form_changed` event when final postgame form differs.
 
-## ORDERING_POLICY
-Canonical ordering for one mutation response:
-1. `occurred_at` / simulated date
-2. `game_number` (`null` off-day/lifecycle events ordered by explicit phase)
+Existing draft/pro-entry facts remain durable in career_history but normally occur during career creation, not game/week/month advance.
+
+## RECOVERY_PERSISTENCE
+Generic injury recovery previously cleared state without a durable fact.
+P1 v1 adds an observational `injury_recovered` system-mirror entry to the existing `career_history` only when an injury existed before the canonical game advance and is cleared after recovery.
+- no injury formula change
+- no recovery-speed change
+- deterministic dedupe key: season + game + injury identity
+- existing career_history is reused; no second persistent event store/table
+- RNG-free deterministic template news
+
+## COMPOSITE_CAPTURE
+`CareerGameAdvanceProvider` now owns one mutation-local timeline cursor:
+- period start snapshots authoritative history lengths + form/injury state before lifecycle setup;
+- every internal `advance_game()` captures new source facts after gameplay/postgame processing;
+- cursor advances after each game, preventing already-observed source facts from being emitted twice;
+- composite provider accumulates every internal-game canonical event;
+- finalization performs deterministic sort + dedupe + contiguous `sequence` assignment.
+
+This preserves intermediate transitions such as:
+`FARM -> FIRST -> FARM`
+even when the period starts and ends in FARM.
+Period-level final roster comparison is not used as the canonical event source.
+
+## ORDERING_AND_DEDUPE
+Canonical order:
+1. `occurred_at`
+2. `game_number`
 3. phase rank: `pre_game < in_game < post_game < off_day < lifecycle`
 4. source-local ordinal
-5. deterministic `event_id` tie-breaker
+5. deterministic `event_id`
 
-`sequence` is assigned only after canonical sort and is contiguous from 0.
-Same save + same seed + same actions must produce byte-equivalent ordered event facts, excluding explicitly noncanonical presentation metadata.
+After sorting:
+- first occurrence of each deterministic `dedupe_key` is retained;
+- `sequence` is reassigned contiguously `0..N-1`;
+- `source_command` is fixed to `next_game`, `week`, or `month` for that mutation.
 
-## COMPOSITE_ADVANCE_SEMANTICS
-- `next_game` returns all canonical events emitted by that game advance.
-- `week` / `month` must compose the canonical timelines from every internal game plus any explicit off-day/lifecycle event hooks in the period.
-- Aggregation is append + canonical sort + dedupe, never last-event-wins.
-- Intermediate state transitions must be retained even when final state equals initial state.
-- Near season end, the timeline contains only events from games actually advanced before the boundary; no fabricated future events.
-- No-event periods return `notable_events: []`.
+Persistent career events reuse existing source-history logical/dedupe identities. Transient gameplay IDs derive from deterministic season/game/phase/ordinal/type coordinates.
 
-## TRANSIENT_VS_PERSISTENT_POLICY
-Transient-only by default:
-- low-level game notable markers
-- routine lineup/role flavor when no durable career meaning exists
-- low-importance temporary presentation notices
+## TRANSIENT_VS_PERSISTENT
+Transient response-only:
+- gameplay notable markers
+- current form-change presentation fact
 
-Persistent career history required when production semantics exist and the event matters after the response:
-- draft / pro entry / first-team debut
-- roster promotion/demotion
-- major injury and recovery completion once a recovery event is defined
-- Trait gain/loss
-- major award / record / milestone once implemented
-- team transfer / contract / retirement once 03 exposes authoritative state
+Persistent source histories:
+- career_history: roster promotion/demotion, debut, recovery and existing early-career spine
+- event_history: v0.4 event resolution, including represented rating/Trait/injury effects
+- injury_history: game-origin injury starts
 
-Do not persist every transient marker. Persistent history must remain append-only and deduped; mutation timeline may include both transient and newly persisted events.
+Transient DTOs are never appended to persistent histories solely for presentation.
+No Neon/event table/schema was added.
 
-## CURRENT_EVENT_CLASS_STATUS
-- injury: PARTIAL — creation state/history exists; not in canonical advance timeline.
-- recovery: MISSING timeline contract; generic recovery completion is not persistently emitted.
-- slump/hot: PARTIAL — form state exists; no canonical event timeline.
-- breakout: PARTIAL — v0.4 breakthrough events exist but ownership/model cleanup remains separate.
-- development/growth: PARTIAL — state changes exist; no ordered advance event contract.
-- rating change: PARTIAL — period net delta exists; intermediate changes are not eventized.
-- trait gain/loss: PARTIAL — history exists; no timeline integration.
-- coach interaction/change: PARTIAL — event/coach history exists; no unified timeline.
-- roster promotion/demotion: PERSISTENT FACT EXISTS; composite mutation aggregation missing.
-- lineup/role change: MISSING canonical career semantics.
-- rivalry: MISSING production semantics.
-- milestone/record: MISSING production semantics.
-- award: PARTIAL — award state exists; timeline/news integration missing.
-- team/career news: PARTIAL — deterministic career news exists for early-career spine only.
-- draft/pro entry/pro debut: PERSISTENT FACT EXISTS; mutation timeline integration missing.
-- season lifecycle: PARTIAL — lifecycle state exists; canonical timeline integration not complete.
+## FARM_SEMANTICS
+FARM timeline events describe only authoritative roster state transitions.
+They do not claim or imply a newly implemented full second-team league simulation.
 
-## OWNERSHIP_AND_REQUIRED_CHANGES
-03 Growth & Career:
-- Emit/return authoritative state-transition facts for injury recovery, form transitions, roster/lifecycle and future contract/team/retirement states rather than requiring 04 to infer them from final snapshots.
-- Keep gameplay/growth/roster formulas owned by 03/01; event DTO construction must not change those formulas.
-- Provide explicit event coordinates (season/game/phase/local ordinal) at transition time.
+## VALIDATION
+New `tests/test_event_timeline_v1.py` covers:
+- empty/no-event canonical list
+- deterministic same-day ordering
+- duplicate suppression
+- dense sequence assignment
+- FARM -> FIRST -> FARM retaining both transitions
+- deterministic transient gameplay identity
+- recovery persistent exactly-once
+- recovery save/load persistence
+- same-seed + same-actions byte-stable canonical event facts
+- WEEK/MONTH dense ordered sequences and correct `source_command`
+- partial period near season end stops at committed final game
 
-04 Events & Story:
-- Normalize source facts into CanonicalEventDTO v1.
-- Define retention, importance, deterministic title/summary and dedupe contracts.
-- Reuse `career_history` for durable story facts rather than introducing duplicate persistent truth.
+Existing suites retained and passed:
+- WEEK/MONTH exact canonical game composition
+- API same-idempotency-key exact response replay
+- stale revision 409 before committed mutation
+- external SessionStore CAS/idempotency/restart tests
+- career spine history/dedupe/save-load tests
+- existing v0.4 event tests
 
-07 Integration & GitHub:
-- Preserve `mutation.result.notable_events` as an ordered list in the HTTP contract.
-- Aggregate per-game timeline events for WEEK/MONTH; do not derive them from final snapshots.
-- Keep aggregation inside the transactional mutator so stale revision failures commit no state/events.
-- Idempotency replay must return the previously committed response/timeline unchanged.
-- No Neon schema change is required for v1 if durable events continue to live inside canonical save payload (`career_history` / existing histories).
+Final validation: workflow #765 (`34582277850`) = PASS across all jobs/steps.
 
-06 Web UI:
-- Treat backend order/sequence as authoritative.
-- Render all returned events for week/month; never collapse by category or keep only the last event.
-- Importance controls emphasis only, not retention.
-- UI must not infer injury/recovery/callup/milestone triggers from final state.
-- Support empty, single and multi-event timelines and multiple events on the same game/date.
+## TRANSACTIONAL_BEHAVIOR
+No FastAPI/store code changed.
+Existing transactional semantics remain authoritative:
+- stale revision -> mutator is not committed, so no new history/timeline commit;
+- success -> state/history and response are generated in one existing mutation transaction;
+- same idempotency key/fingerprint -> stored response replay, no simulation rerun and no duplicate persistent history;
+- save/load preserves persistent histories and RNG state.
 
-## TRANSACTIONAL_SAFETY
-Current store CAS/idempotency architecture is reusable:
-- stale revision is rejected before the mutator executes/commits;
-- failed mutation rolls back;
-- successful response is stored with the idempotency record;
-- replay returns stored response without re-running simulation.
-Timeline generation must remain inside this existing transaction boundary.
+## 07_HANDOFF
+PR #53 supplies the domain/source event contract that 07 status was blocking on.
+After merge, 07 should:
+- treat `mutation.result.notable_events` as CanonicalEventDTO v1 dictionaries;
+- preserve backend array order/sequence exactly;
+- update typed HTTP/frontend transport DTO definitions from legacy `{date,kind,message}` to the additive canonical shape;
+- keep timeline generation inside the existing transactional mutator;
+- make no new Neon table/event store;
+- retain current idempotency and revision semantics.
 
-## REQUIRED_TESTS
-Must add contract tests for:
-- no-event week -> empty ordered list
-- one-event week
-- multiple-event week
-- multiple events same game/day with deterministic sequence
-- month with many games/events and no loss
-- WEEK/MONTH timeline equals concatenated canonical NEXT_GAME timelines from equivalent seed/save
-- FARM->FIRST->FARM within one composite period preserves both transitions
-- same idempotency key returns byte-equivalent timeline and no duplicate persistent history
-- stale revision creates no event/history side effect
-- save/load preserves persistent career history and deterministic future event sequence
-- partial week/month near season end returns only committed events
-- persistent event side effect/history append occurs exactly once
-- transient events are not accidentally persisted
+07 must not re-detect roster/injury/form/event semantics from final snapshots.
 
-## DESIGN_DECISION
-Do not overload current `CareerEventSummary {date,kind,message}` further as the long-term contract. Introduce a typed canonical progression-event DTO and make `AdvanceSummary.major_events` / `AdvanceResultViewModel.notable_events` carry that shape. Existing simple gameplay notable strings can be adapted into transient canonical events for backward-compatible presentation.
+## 06_HANDOFF
+06 should consume `mutation.result.notable_events: CanonicalEventDTO[]` after 07 transport typing is updated.
+UI requirements:
+- backend order/`sequence` is authoritative;
+- support empty, single and multi-event results;
+- multiple events on one game/date are valid;
+- never collapse to the last event or one event per category;
+- `importance` / `presentation_priority` control visual emphasis only, not semantic filtering;
+- display FARM promotion/demotion as roster-state movement only, not full minor-league simulation;
+- do not infer narrative triggers from final Dashboard/Season state.
 
-No production code was changed in this audit because source event emission hooks span 03 and 07 ownership and require coordinated implementation to avoid duplicate state/history writes.
+04 does not implement UI.
 
-## PASS_FAIL_OPEN
-PASS:
-- next_game/week/month canonical state advancement composition
-- transaction/CAS/idempotency foundation
-- idempotency response replay
-- stale revision no-commit semantics
-- persistent early-career `career_history` dedupe model
+## UNSUPPORTED_OR_OPEN_EVENT_CATEGORIES
+No placeholder production events were fabricated for absent semantics.
+Still OPEN:
+- off-day event source channel
+- lineup/role-change canonical career semantics
+- rivalry
+- milestone / record
+- award timeline during explicit season finalization
+- contract / FA / transfer
+- retirement timeline
+- manager-specific interactions
+- complete intra-game source-fact emission for every possible intermediate form state; v1 emits deterministic postgame form delta plus any causal v0.4 event result
+- subsystem-wide RNG stream isolation outside the already RNG-free observational/template layer
 
-FAIL:
-- canonical progression event DTO in production
-- complete week/month career-event aggregation
-- intermediate roster transition preservation in mutation result
-- unified injury/recovery/form/trait/growth/coach timeline
-- stable event identity/sequence contract for `notable_events`
-
-OPEN:
-- off-day event production semantics
-- lineup/role canonical semantics
-- rivalry/milestone/record production semantics
-- award timeline integration
-- future contract/FA/transfer/retirement timeline hooks from 03
-- subsystem-wide RNG isolation beyond the RNG-free observational news layer
+## RELATED_PRS
+- #39 — early-career observational spine (merged before this task)
+- #50 — P1 Growth/Career production advance breadth (merged)
+- #52 — P1 UI/backend mutation contract expansion (merged)
+- #53 — P1 Canonical Progression Event Timeline v1 (current implementation)
 
 ## NEXT_ACTION
-Coordinate a bounded P1 implementation batch across 03/04/07:
-1. add CanonicalEventDTO v1 + deterministic ordering/dedupe helpers;
-2. capture per-game before/after source facts at transition time;
-3. aggregate every internal game timeline for WEEK/MONTH;
-4. bridge existing `career_history` callup/demotion/debut facts into mutation timeline without double-persisting;
-5. add transactional/idempotency/composition tests;
-6. hand ordered DTOs to 06 for week/month presentation.
+- Merge/integrate PR #53 through 07.
+- 07 updates transport typings to CanonicalEventDTO v1 without changing transaction semantics.
+- 06 then exposes week/month controls and renders ordered event timelines.
+- Next 04 narrative-domain batch after P1 integration: Award / Milestone timeline only after authoritative lifecycle semantics are defined.
 
 ## GATES
-- P1_EVENT_TIMELINE_AUDIT = PASS
-- P1_EVENT_TIMELINE_PRODUCTION_CONTRACT = FAIL
-- P1_COMPOSITE_EVENT_RETENTION = FAIL
-- P1_TRANSACTIONAL_EVENT_SAFETY_FOUNDATION = PASS
-- P1_EVENT_ID_DETERMINISM = DESIGN_READY
-- P1_TRANSIENT_PERSISTENT_POLICY = DESIGN_READY
-- P1_UI_HANDOFF_CONTRACT = DESIGN_READY
+- P1_CANONICAL_EVENT_DTO_V1 = PASS
+- P1_EVENT_ID_DETERMINISM = PASS
+- P1_COMPOSITE_EVENT_RETENTION = PASS
+- P1_ORDERING_AND_DEDUPE = PASS
+- P1_TRANSIENT_PERSISTENT_POLICY = PASS
+- P1_RECOVERY_PERSISTENCE = PASS
+- P1_SAVE_LOAD_HISTORY = PASS
+- P1_SAME_SEED_TIMELINE_DETERMINISM = PASS
+- P1_TRANSACTIONAL_EVENT_SAFETY = PASS_INHERITED_AND_REGRESSION_GREEN
+- P1_FASTAPI_CHANGE_REQUIRED = NO
+- P1_NEON_SCHEMA_CHANGE_REQUIRED = NO
+- P1_UI_IMPLEMENTATION = NOT_04_SCOPE
+- P1_EVENT_TIMELINE_PRODUCTION_CONTRACT = PASS
+- P1_UNSUPPORTED_EVENT_CATEGORIES = OPEN
