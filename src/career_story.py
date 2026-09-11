@@ -119,6 +119,13 @@ def render_career_news(
             f"{player_name}, 2군 이동",
             f"{team}이 {player_name}을 2군으로 이동시켰다.",
         )
+    if event_id == "injury_recovered":
+        injury_name = str(facts.get("injury_name", "부상"))
+        return CareerNews(
+            "career.injury_recovered.v1",
+            f"{player_name}, 부상 복귀",
+            f"{player_name}이 {injury_name}에서 회복해 출전 가능한 상태로 돌아왔다.",
+        )
     raise ValueError(f"unsupported observational career event: {event_id}")
 
 
