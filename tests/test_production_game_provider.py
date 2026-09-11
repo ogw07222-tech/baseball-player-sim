@@ -230,8 +230,8 @@ class ProductionAdvanceTests(unittest.TestCase):
 class ProtectedFormulaTests(unittest.TestCase):
     EXPECTED_BLOBS = {
         "src/simulation.py": "b441fbe2fd8bf2aac9239a4648636a2ec67ceb53",
-        "src/hitting/model.py": "b2f2f70a91c2534a99cf6ce299764804ef3484d6",
-        "src/hitting/parameters.py": "f249ecf46bcebe057d774188b873b1d41335d90a",
+        "src/hitting/model.py": "e61dc0899b357915c535c2b6bed2ea023a768cb4",
+        "src/hitting/parameters.py": "3127eabf4d20ea4aae32e38cc3f742b1a82f1eaa",
         "src/hitting/baserunning.py": "2a383ce61fb6938ae30973be210159baa1d76726",
         "src/hitting/defense.py": "279f6282ef41c53e709839dbbe791e16836eaf53",
         "src/natural_events.py": "e13f093d646ac6eb0409c3d0b633ba17073cf877",
