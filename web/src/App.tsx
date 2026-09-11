@@ -159,7 +159,7 @@ export function App({ provider }: { provider:GameDataProvider }) {
         <button className="icon-button" aria-label="검색">⌕</button><button className="icon-button" aria-label="설정">⚙</button>
       </header>
       <main>
-        {error && <ErrorState message={error} onRetry={()=>void load(false)}/ >}
+        {error && <ErrorState message={error} onRetry={()=>void load(false)}/>}
         {content}
       </main>
     </div>
