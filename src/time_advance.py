@@ -203,12 +203,21 @@ class AdvanceResultViewModel:
 
     @classmethod
     def from_summary(cls, summary: AdvanceSummary) -> "AdvanceResultViewModel":
+        from .event_timeline import canonical_timeline_for_advance
+
         team_record = ({"wins": summary.team_wins,"losses": summary.team_losses,"ties": summary.team_ties} if summary.team_result_supported else None)
         period = summary.player_period_stats.as_dict(include_derived=True)
         overall = _mapping(period.get("overall"))
         season = summary.season_after.as_dict(include_derived=True)
         _assert_raw_rating_payload(summary.rating_delta)
-        return cls(period_label=summary.period_type,date_range=f"{summary.start_date.isoformat()}~{summary.end_date.isoformat()}",games_played=summary.games_played,hitter_period_line=_mapping(overall.get("hitter")),pitcher_period_line=_mapping(overall.get("pitcher")),team_record_delta=team_record,season_total_line=season,notable_events=tuple(event.as_dict() for event in summary.major_events),rating_changes=summary.rating_delta)
+        source_command = {"GAME": "next_game", "WEEK": "week", "MONTH": "month"}.get(summary.period_type, summary.period_type.lower())
+        canonical_events = canonical_timeline_for_advance(
+            source_facts=summary.source_facts,
+            gameplay_events=summary.major_events,
+            source_command=source_command,
+            season=summary.season_after.year,
+        )
+        return cls(period_label=summary.period_type,date_range=f"{summary.start_date.isoformat()}~{summary.end_date.isoformat()}",games_played=summary.games_played,hitter_period_line=_mapping(overall.get("hitter")),pitcher_period_line=_mapping(overall.get("pitcher")),team_record_delta=team_record,season_total_line=season,notable_events=tuple(event.as_dict() for event in canonical_events),rating_changes=summary.rating_delta)
 
     def as_dict(self) -> dict[str, object]:
         return {"period_label":self.period_label,"date_range":self.date_range,"games_played":self.games_played,"hitter_period_line":dict(self.hitter_period_line),"pitcher_period_line":dict(self.pitcher_period_line),"team_record_delta":dict(self.team_record_delta) if self.team_record_delta is not None else None,"season_total_line":dict(self.season_total_line),"notable_events":[dict(event) for event in self.notable_events],"rating_changes":dict(self.rating_changes)}
