@@ -2,75 +2,90 @@
 
 WORKSTREAM: 08 - Baseball Data & Research
 UPDATED_AT: 2026-09-12
-SOURCE_OF_TRUTH: main@0e2d00afa399e319110b337e65cc412a97984c69
+SOURCE_OF_TRUTH: main@105ef5ef3716f262e732939a97f6cc465d5a58c2
 STATE: ACTIVE
-CURRENT_TASK: Phase 2C KBO stadium geometry and wall-reference research
-RESULT: PARTIAL_BUT_IMPLEMENTATION_READY_WITH_QUALITY_FLAGS
+CURRENT_TASK: Phase 2D catch probability and defensive-range reference research
+RESULT: VERIFIED_FOR_ARCHITECTURE_PARTIAL_FOR_KBO_CALIBRATION
 
 ## LAST_COMPLETED
 - Public data provenance/usage policy remains in place.
-- `docs/phase2b-lightweight-trajectory-reference.md` remains the Phase 2B trajectory reference.
-- Added `docs/phase2c-kbo-stadium-wall-geometry-reference.md` for 2026 KBO stadium use, wall-radius/height evidence, O(1) radial model design support, generic fallback, wall-intersection contract, and Phase 2C validation targets.
+- `docs/phase2c-kbo-stadium-wall-geometry-reference.md` remains the Phase 2C stadium/wall reference.
+- Added `docs/phase2d-catch-probability-defense-reference.md` for Statcast Catch Probability/OAA concepts, outfield/infield reduced difficulty variables, fixed responsibility mapping, defender-rating monotonicity, error separation, and Phase 2D validation targets.
 
 ## CURRENT_FINDINGS
-- KBO 2026 schedule/current game pages confirm the active primary venue set: Jamsil, Gocheok, Incheon SSG Landers Field, Suwon KT Wiz Park, Daejeon Hanwha Life Ballpark, Daegu Samsung Lions Park, Gwangju-KIA Champions Field, Sajik, Changwon NC Park. LG/Doosan share Jamsil; 2026 is the current Jamsil stadium's final regular-season year before the planned 2027 temporary transition.
-- Strong primary distance evidence: Jamsil LF/RF 100 m and CF 125 m; Gocheok LF/RF 99 m and CF 122 m with 4 m wall; Gwangju LF/RF 99 m and CF 121 m; Daejeon LF 99 m, RF 95 m, ordinary wall ~2.4 m plus an 8 m right-side Monster Wall.
-- Daejeon full five-anchor geometry is widely reported as 99/115/122/112/95 m; endpoints/wall heights are primary-verified but LC/CF/RC remain PARTIAL until an official plan/drawing is recovered.
-- Incheon 95/115/120/115/95 m with ~2.8 m wall, Suwon 98/115/120/115/98 m with ~4 m wall, Daegu LF/RF ~99.5 m and CF ~122.5 m with ~3.6 m wall, Sajik ~95.8/113/121/113/95.8 m with ~6 m wall, and Changwon LF/RF ~101.2 m / CF 122 m with ~3.3 m wall are usable APPROXIMATED references but are not uniformly primary-verified.
-- Jamsil wall height is CONFLICTING: older Seoul official comparison material gives 2.7 m while 2026 Yonhap reports 2.6 m. Do not silently collapse this to one VERIFIED value.
-- Daegu detailed LC/RC geometry is definition-sensitive because of its polygonal wall; secondary references expose conflicting-looking ~107 m vs ~123.4 m sector labels. Do not force a five-scalar model as authoritative.
-- No authoritative stadium-altitude pack was recovered. Keep altitude UNAVAILABLE and Phase 2B neutral-air assumption separate.
-- Recommended runtime stadium representation: fixed angular anchors with piecewise-linear interpolation. Five anchors are sufficient for simple/generic parks; support ~7-9 fixed anchors for Daejeon/Daegu/Changwon and variable wall height. Precompute sector dispatch so each BIP remains O(1) without an anchor scan.
-- `carry_distance > wall_radius` alone is not a valid HR test. Phase 2C needs trajectory height at wall radius. Phase 2B should expose fixed-size O(1) height-at-horizontal-distance coefficients or an equivalent lookup descriptor.
-- Generic fallback is explicitly `GENERIC_ENGINEERING_BASELINE`, not a claimed KBO average: 100/115/122/115/100 m with 3.0 m wall.
-- Geometry and empirical park factor remain separate layers. Implement physical wall distance/height first; later park-factor correction requires a double-counting audit.
+- Official MLB Statcast outfield Catch Probability is based on distance needed, opportunity time, movement direction, and wall proximity. Distance needed is shortest/optimal distance rather than actual route distance, which strongly supports an O(1) reduced difficulty model without simulating fielder paths.
+- Statcast public difficulty bands: 5 Star 0-25%, 4 Star 30-50%, 3 Star 55-75%, 2 Star 80-90%, 1 Star 95%; >95% is easier than the one-star bucket. Public values are reported in 5-point bands because 1-point precision overstates certainty.
+- Outfield OAA accumulates actual catch result relative to baseline Catch Probability, so baseline BIP difficulty and defender skill should be architecturally separable.
+- Statcast opportunity time starts at pitch release, not bat contact. Project Phase 2D hang time is therefore a strong proxy but not definition-identical; any pre-contact read allowance is future calibration, not fixed by 08.
+- MLB standard outfield positioning under neutral conditions provides useful nominal start zones: LF roughly 260-320 ft / -33 to -21 deg, CF 280-350 ft / -8 to +7 deg, RF 260-320 ft / +21 to +33 deg. This supports fixed nominal start anchors and one Euclidean required-distance proxy rather than dynamic starting-position simulation.
+- Direction matters at equal distance/time. Statcast explicitly penalizes going back on the ball, and wall context can materially change difficulty. A published wall-update example changed an opportunity from ~49% under the old model to ~6% with wall context.
+- Statcast Jump decomposes outfield range into reaction, burst, and route. Seasonal leaderboards show several feet of spread above/below MLB average, supporting a meaningful defender-rating effect on borderline plays while not justifying a direct feet-to-rating mapping.
+- MLB infield OAA uses a distinct model: distance to intercept point, time available, distance from intercept to target base, and runner speed on force plays. Therefore ground-ball/infield conversion should not reuse the outfield fly-catch surface.
+- Official KBO Defense Award methodology confirms that KBO uses range-adjusted UZR/KUZR-type metrics plus official records/errors. Public KBO basic defense exposes E/PO/A/DP/FPCT, but no play-level Catch Probability surface was recovered.
+- Recommended Phase 2D runtime model: fixed responsibility lookup -> reduced physical difficulty -> average-defender baseline probability surface -> defender-rating adjustment in log-odds/logistic space -> one RNG roll. No movement simulation/search loop is required.
+- Outfield recommended reduced inputs: hang time, landing x/y, fixed nominal OF start, derived required-distance proxy, direction class, wall context, defender rating. EV/LA should be secondary once trajectory outputs already encode them.
+- Infield/ground recommended reduced inputs: direction/spray sector, EV or ground-speed class, first-impact depth, fixed IF role, defender rating; optional batter speed can be added later if throw-to-first timing is modeled.
+- Position ownership should use fixed location buckets with predeclared adjacent blends at LF/CF, CF/RF, 3B/SS, SS/2B, 2B/1B boundaries. No nearest-player pathfinding is necessary.
+- Defender effect requirements: same BIP + higher rating => non-decreasing out probability; largest practical effect around intermediate difficulty; impossible/easy extremes remain near 0/1. Exact rating-point -> probability shift remains OPEN.
+- Error/misplay probability should ultimately remain separate from range/catch difficulty. Phase 2D V1 may combine reach+attempt success, but should preserve interfaces to split ROE/error later.
 
 ## SOURCE / DEFINITION QUALITY
-- VERIFIED: 2026 KBO venue use; Jamsil LF/RF/CF; Gocheok LF/RF/CF/wall; Gwangju LF/RF/CF; Daejeon LF/RF and 2.4/8 m wall structure.
-- APPROXIMATED: Incheon/Suwon detailed anchors, Daegu detailed wall polygon, Sajik detailed geometry, Changwon sector detail, several wall heights.
-- CONFLICTING: Jamsil wall 2.6 vs 2.7 m; Daegu LC/RC scalar conventions.
-- UNAVAILABLE: reliable current power-alley values for Jamsil/Gocheok/Gwangju, stadium elevation pack, exact Daejeon Monster Wall angular boundaries, full sector wall-height maps.
+- VERIFIED MLB: Catch Probability inputs and star bands; OAA accounting; standard OF positioning zones; Jump reaction/burst/route concept; infield OAA input structure.
+- PARTIAL KBO: official KBO UZR/KUZR use and public basic defense outcomes support the existence of range and error components but not a public probability surface.
+- OPEN KBO: catch rate by hang time/distance, starting-position distribution, landing-zone conversion surface, ground-out probability by EV/direction, raw KUZR calibration, error by opportunity difficulty.
 
-## GENERIC / MODEL POLICY
-- Generic neutral V1 = 100/115/122/115/100 m, wall 3.0 m, open-air; metadata must say `GENERIC_ENGINEERING_BASELINE`, `is_real_stadium=false`.
-- Standard wall model = `wall_anchor(theta, radius, height, source_status)` + fixed-sector linear interpolation.
-- Simple parks: 5 anchors at -45/-22.5/0/+22.5/+45 deg.
-- Complex parks: fixed 7-9 anchor schema with extra polygon/height-transition vertices.
-- No runtime loops or per-BIP anchor scanning are required.
+## MODEL POLICY
+- Preferred model = small average-defender probability surface + defender-rating logit shift.
+- Secondary model = single monotonic logistic function if implementation needs an initial minimal form.
+- Do not use a full dynamic movement model, route simulation, search loop, or per-BIP nearest-player search.
+- Maintain separate `base_catch_probability`, `defender_adjusted_probability`, `responsible_position`, `difficulty_bucket`, and optional `error_probability` observables.
 
 ## OWNER HANDOFF
-- 01 Gameplay Engine: use season-versioned stadium objects; fixed-anchor O(1) radial wall model; separate wall radius/height; require O(1) `height_at_horizontal_distance(r)` from trajectory; physical HR requires wall reach + wall clearance. Do not merge empirical park factor into the initial physical wall gate. Stadium fair-line coordinates may be exposed, but Phase 2A fair/foul authority migration remains a separate integration decision.
-- 05 Balance Lab: validate generic neutral, Jamsil-like, and Daejeon-asymmetric fixtures using identical deterministic BIP corpus. Measure wall reached/clear/contact, HR by sector, clearance margin, near-wall non-HR, park-to-park ratios, wall-height/radius sensitivity, mirror invariants, and impossible-HR count. Geometry-only park ratios are not empirical park factors.
-- 00 Game Design HQ: no gameplay coefficient decision requested. If necessary, approve stadium versioning/fallback policy and timing of physical fair/foul authority migration.
+- 01 Gameplay Engine: implement separate OF and IF difficulty paths. OF: landing/hang + fixed nominal OF start -> required-distance proxy + direction/wall -> baseline probability -> rating shift -> one RNG. IF: spray/impact sector + EV/speed + impact depth + fixed IF role -> baseline probability -> rating shift -> one RNG. Use fixed ownership tables and predeclared adjacent blends only. Do not bind current project rating scale numerically from this research.
+- 05 Balance Lab: validate catch/out rate by BIP type, hang-time, distance/depth, direction, wall context, position, and defender-rating bucket; IF ground-out rate by EV/direction/depth; monotonic sweeps; model calibration curve; BABIP/hit-type impact; error/ROE if separated.
+- 00 Game Design HQ: no coefficient decision required from 08. If necessary, decide whether V1 uses the recommended baseline-surface+logit architecture or a minimal single-logistic scaffold.
+
+## SANITY / VALIDATION POLICY
+- same BIP, higher defender rating must not lower P(out).
+- same OF state except more hang/opportunity time must not lower P(catch).
+- same time except larger required distance must not increase P(catch).
+- same time/distance: going back should not be easier than forward unless a separately justified condition exists.
+- wall-proximity difficulty must not accidentally improve otherwise identical opportunities.
+- all probabilities finite and clamped/bounded [0,1].
+- gap-sector responsibility should be continuous and deterministic.
+- MLB star bands are difficulty labels/sanity references only, not KBO target shares.
 
 ## BLOCKERS / DATA_GAPS
-- Primary full wall polygons for Incheon/Suwon/Daegu/Sajik/Changwon.
-- Official LC/RC for Jamsil/Gocheok/Gwangju.
-- Exact Daejeon Monster Wall angular extent.
-- Sector-specific wall-height maps.
-- Stadium altitudes and season-version history for renovations.
-- Foul-pole heights/ground-rule-specific geometry.
+- KBO play-level catch-probability/time-distance surface.
+- KBO nominal OF/IF positioning by game state.
+- KBO BIP conversion by landing zone/spray/depth.
+- KBO ground-out probability by EV/direction.
+- transparent KUZR/UZR probability calibration details.
+- KBO error probability conditioned on opportunity difficulty.
+- machine-readable MLB time x distance catch-rate surface suitable for a provisional derived baseline under usage constraints.
 
 ## NEXT_ACTION
-- Phase 2C is research-unblocked for architecture and generic/asymmetric fixture implementation. Highest-value follow-up is a primary-source full-wall drawing for Daejeon/Daegu and current detailed geometry for the remaining secondary-only parks.
+- Phase 2D is research-unblocked at the architecture level. Highest-value next data is a KBO or MLB-derived reduced catch surface that can calibrate the baseline average-defender probabilities without changing the runtime contract.
 
 ## RELATED_DOCS
+- `docs/phase2d-catch-probability-defense-reference.md`
 - `docs/phase2c-kbo-stadium-wall-geometry-reference.md`
 - `docs/phase2b-lightweight-trajectory-reference.md`
-- `docs/phase2a-ev-la-timing-spray-fair-foul-reference.md`
 
 ## GATES
 - PUBLIC_DATA_POLICY = PASS
-- KBO_2026_STADIUM_SET = VERIFIED
-- PRIMARY_LF_RF_CF_COVERAGE = PARTIAL_STRONG
-- PRIMARY_POWER_ALLEY_COVERAGE = PARTIAL
-- WALL_HEIGHT_COVERAGE = PARTIAL_CONFLICTING
-- STADIUM_ALTITUDE_PACK = OPEN
-- GENERIC_ENGINEERING_STADIUM = READY
-- FIXED_ANCHOR_RADIAL_MODEL = RECOMMENDED
-- O1_STADIUM_LOOKUP = SATISFIABLE
-- TRAJECTORY_HEIGHT_AT_WALL_CONTRACT = REQUIRED
-- GEOMETRY_PARK_FACTOR_SEPARATION = PASS
-- FAIR_FOUL_MIGRATION_AUTOMATIC = NO
-- PHASE2C_VALIDATION_METRIC_PACK = PASS
-- PHASE2C_KBO_STADIUM_GEOMETRY_REFERENCE = PARTIAL_BUT_IMPLEMENTATION_READY_WITH_QUALITY_FLAGS
+- MLB_OUTFIELD_CATCH_PROBABILITY_STRUCTURE = VERIFIED
+- MLB_CATCH_DIFFICULTY_BANDS = VERIFIED
+- MLB_OUTFIELD_OAA_STRUCTURE = VERIFIED
+- MLB_INFIELD_OAA_STRUCTURE = VERIFIED
+- KBO_RANGE_METRIC_EXISTENCE = VERIFIED_PARTIAL
+- KBO_CATCH_PROBABILITY_SURFACE = OPEN
+- FIXED_NOMINAL_POSITION_PROXY = RECOMMENDED
+- OF_IF_MODEL_SEPARATION = RECOMMENDED
+- FIXED_POSITION_RESPONSIBILITY = RECOMMENDED
+- DEFENDER_RATING_MONOTONICITY = REQUIRED
+- BASELINE_SURFACE_PLUS_LOGIT_ADJUSTMENT = RECOMMENDED
+- ERROR_RANGE_SEPARATION = RECOMMENDED
+- O1_ONE_RNG_RUNTIME_CONTRACT = SATISFIABLE
+- PHASE2D_VALIDATION_METRIC_PACK = PASS
+- PHASE2D_CATCH_PROBABILITY_REFERENCE = VERIFIED_FOR_ARCHITECTURE_PARTIAL_FOR_KBO_CALIBRATION
