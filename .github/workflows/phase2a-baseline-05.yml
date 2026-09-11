@@ -1,0 +1,42 @@
+name: phase2a-baseline-05
+
+on:
+  push:
+    branches:
+      - validation/phase2a-baseline-05
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile
+        run: python -m compileall -q src tools/phase2a_validation_harness.py tools/offense_pitch_diagnostic.py
+      - name: Phase 2A pre-baseline and harness
+        run: |
+          mkdir -p reports/phase2a
+          python tools/phase2a_validation_harness.py \
+            --seed 20260911 \
+            --pa 200000 \
+            --games 10000 \
+            --variance-games 1000 \
+            --perf-pa 50000 \
+            --perf-games 500 \
+            --output reports/phase2a/pre-phase2-baseline.json
+      - name: Phase 1 deterministic/count regressions
+        run: python -m unittest tests.test_phase1_count_situational -v
+      - name: Production integration regressions
+        run: python -m unittest tests.test_production_game_provider tests.test_production_integration_consolidation tests.test_stat_aggregation_advance -v
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2a-baseline-${{ github.run_id }}-${{ github.sha }}
+          path: reports/phase2a
