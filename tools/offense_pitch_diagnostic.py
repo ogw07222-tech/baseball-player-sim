@@ -77,6 +77,7 @@ class TracedHittingEngine(HittingEngine):
         self.current = {
             "pitch": pitch,
             "swing": False,
+            "protective_swing": False,
             "finalized": False,
             "contact_result": None,
         }
@@ -104,11 +105,19 @@ class TracedHittingEngine(HittingEngine):
                 self.c["count_3_2_reached"] += 1
         return super()._swing_probability(pitch, balls, strikes)
 
-    def _contact_resolution(self, pitch, strikes):
-        result = super()._contact_resolution(pitch, strikes)
+    def _contact_resolution(self, pitch, strikes, protective_swing=False):
+        result = super()._contact_resolution(
+            pitch, strikes, protective_swing=protective_swing
+        )
         if self.current:
-            self.current.update(swing=True, finalized=True, contact_result=result[0])
+            self.current.update(
+                swing=True,
+                protective_swing=protective_swing,
+                finalized=True,
+                contact_result=result[0],
+            )
         self.c["swings"] += 1
+        self.c["protective_swings"] += int(protective_swing)
         self.c["in_zone_swings"] += int(pitch.is_strike)
         self.c["out_zone_swings"] += int(not pitch.is_strike)
         if result[0] == "miss":
@@ -184,6 +193,7 @@ def _pitch_summary(c):
             "swinging_strike_pct": _pct(c["swinging_strikes"], pitches),
             "foul_pct": _pct(c["fouls"], pitches),
             "two_strike_foul_per_PA": _pct(c["two_strike_fouls"], pa),
+            "protective_swing_per_PA": _pct(c["protective_swings"], pa),
             "BIP_pct": _pct(c["bip"], pitches),
             "swing_pct": _pct(swings, pitches),
             "take_pct": _pct(c["takes"], pitches),
@@ -213,7 +223,9 @@ def _pitch_summary(c):
             "K_looking_share": _pct(c["K_looking"], c["pa_strikeout"]),
             "HR_per_BIP": _pct(c["pa_home_run"], c["bip"]),
             "HR_per_eligible_deep_air_ball": _pct(
-                c["hr_from_batted_ball"], c["hr_eligible_batted_balls"]
+                c["hr_from_batted_ball"], c["hr_eligible_deep_air_ball"]
+                if "hr_eligible_deep_air_ball" in c
+                else c["hr_eligible_batted_balls"]
             ),
         },
     }

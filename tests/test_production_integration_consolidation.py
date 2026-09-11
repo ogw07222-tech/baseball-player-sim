@@ -19,8 +19,8 @@ from src.stats import PlayerStats
 
 
 PROTECTED_BLOBS = {
-    "src/hitting/model.py": "021399628e083f607e7503dca70154a96177b6f9",
-    "src/hitting/parameters.py": "6bd5d35372297eab71d9fbf9ebcc63be615c8d1c",
+    "src/hitting/model.py": "dac5a2adedb7d272ef1ab9857d2b46621f085afa",
+    "src/hitting/parameters.py": "4687b16fa2a76ecc6f0d08a20d2c0834a729fa45",
     "src/hitting/baserunning.py": "2a383ce61fb6938ae30973be210159baa1d76726",
     "src/hitting/defense.py": "279f6282ef41c53e709839dbbe791e16836eaf53",
 }

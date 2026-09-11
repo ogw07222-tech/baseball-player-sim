@@ -36,6 +36,28 @@ ZONE_SWING_MAX = 0.91
 CHASE_MIN = 0.015
 CHASE_MAX = 0.54
 
+# A two-strike in-zone pitch that the hitter initially takes can trigger a
+# late protection swing. This is strictly an in-zone terminal-take rescue: it
+# never applies to chase pitches or to 0/1-strike counts. Better discipline and
+# easier-to-see/hittable strikes modestly improve recognition without erasing
+# hitter identity.
+TWO_STRIKE_TAKE_RESCUE_BASE = 0.280
+TWO_STRIKE_TAKE_RESCUE_HITTABLE_WEIGHT = 0.080
+TWO_STRIKE_TAKE_RESCUE_DISCIPLINE_WEIGHT = 0.0010
+TWO_STRIKE_TAKE_RESCUE_MIN = 0.18
+TWO_STRIKE_TAKE_RESCUE_MAX = 0.42
+
+# Rescued swings are late defensive attempts, not normal offensive swings.
+# They mostly redistribute called strikeouts into swinging strikeouts/fouls;
+# they do not create a direct fair-contact or hit bonus.
+TWO_STRIKE_PROTECTIVE_TOUCH_SCALE = 0.25
+TWO_STRIKE_PROTECTIVE_TOUCH_MIN = 0.10
+TWO_STRIKE_PROTECTIVE_TOUCH_MAX = 0.38
+TWO_STRIKE_PROTECTIVE_MISS_TO_FOUL = 0.06
+TWO_STRIKE_PROTECTIVE_FOUL_BONUS = 0.30
+TWO_STRIKE_PROTECTIVE_FOUL_MIN = 0.45
+TWO_STRIKE_PROTECTIVE_FOUL_MAX = 0.78
+
 # Miss rescue moves a bounded share of swings to foul contact, not directly to
 # fair balls/hits. Two-strike rescue is additive and keeps the count alive.
 MISS_TO_FOUL_ZONE_BASE = 0.240

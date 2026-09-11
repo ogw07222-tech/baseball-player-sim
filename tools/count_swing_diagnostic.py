@@ -45,12 +45,17 @@ class CountTracedHittingEngine(TracedHittingEngine):
             self.current["count"] = count
         return super()._swing_probability(pitch, balls, strikes)
 
-    def _contact_resolution(self, pitch, strikes):
+    def _contact_resolution(self, pitch, strikes, protective_swing=False):
         count = None if self.current is None else self.current.get("count")
-        result = super()._contact_resolution(pitch, strikes)
+        result = super()._contact_resolution(
+            pitch, strikes, protective_swing=protective_swing
+        )
         if count is not None:
             balls, count_strikes = count
             self.c[f"count_{balls}_{count_strikes}_swings"] += 1
+            self.c[f"count_{balls}_{count_strikes}_protective_swings"] += int(
+                protective_swing
+            )
             if pitch.is_strike:
                 self.c[f"count_{balls}_{count_strikes}_zone_swings"] += 1
             else:
@@ -59,7 +64,16 @@ class CountTracedHittingEngine(TracedHittingEngine):
 
     def simulate_plate_appearance(self):
         self._count_reached_seen = set()
-        return super().simulate_plate_appearance()
+        result = super().simulate_plate_appearance()
+        if result.result == "strikeout" and self.current is not None:
+            count = self.current.get("count")
+            if count is not None:
+                balls, strikes = count
+                if self.current.get("swing") and self.current.get("contact_result") == "miss":
+                    self.c[f"count_{balls}_{strikes}_swinging_k"] += 1
+                else:
+                    self.c[f"count_{balls}_{strikes}_looking_k"] += 1
+        return result
 
 
 def count_summary(counters: Counter) -> dict[str, dict[str, float | int]]:
@@ -67,18 +81,26 @@ def count_summary(counters: Counter) -> dict[str, dict[str, float | int]]:
     out: dict[str, dict[str, float | int]] = {}
     for balls, strikes in ALL_COUNTS:
         key = f"{balls}-{strikes}"
+        reached = counters[f"count_{balls}_{strikes}_reached"]
         opp = counters[f"count_{balls}_{strikes}_opportunities"]
         zone = counters[f"count_{balls}_{strikes}_zone_opportunities"]
         balls_seen = counters[f"count_{balls}_{strikes}_ball_opportunities"]
         swings = counters[f"count_{balls}_{strikes}_swings"]
         zone_swings = counters[f"count_{balls}_{strikes}_zone_swings"]
         chases = counters[f"count_{balls}_{strikes}_chases"]
+        protective = counters[f"count_{balls}_{strikes}_protective_swings"]
+        looking_k = counters[f"count_{balls}_{strikes}_looking_k"]
+        swinging_k = counters[f"count_{balls}_{strikes}_swinging_k"]
         out[key] = {
-            "reached_pct": _pct(counters[f"count_{balls}_{strikes}_reached"], pa),
+            "reached_pct": _pct(reached, pa),
             "opportunities": opp,
             "swing_pct": _pct(swings, opp),
+            "take_pct": _pct(opp - swings, opp),
             "z_swing_pct": _pct(zone_swings, zone),
             "chase_pct": _pct(chases, balls_seen),
+            "protective_swing_per_reach": _pct(protective, reached),
+            "looking_k_per_reach": _pct(looking_k, reached),
+            "swinging_k_per_reach": _pct(swinging_k, reached),
         }
     return out
 

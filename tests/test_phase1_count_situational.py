@@ -52,6 +52,48 @@ class Phase1CountSituationalTests(unittest.TestCase):
         self.assertLessEqual(e._swing_probability(ball, 1, 2), e._swing_probability(ball, 1, 1) + .01)
         self.assertLessEqual(e._swing_probability(ball, 2, 2), e._swing_probability(ball, 2, 1))
 
+    def test_two_strike_take_rescue_is_zone_only_and_identity_sensitive(self):
+        strike = pitch(True, .72)
+        ball = pitch(False, -.82)
+        poor = self.engine(75)._two_strike_take_rescue_probability(strike)
+        neutral = self.engine(100)._two_strike_take_rescue_probability(strike)
+        good = self.engine(125)._two_strike_take_rescue_probability(strike)
+        self.assertEqual(self.engine()._two_strike_take_rescue_probability(ball), 0.0)
+        self.assertGreater(good, neutral)
+        self.assertGreater(neutral, poor)
+        self.assertGreater(neutral, .20)
+        self.assertLess(neutral, .40)
+
+    def test_two_strike_take_rescue_uses_hittability_not_chase(self):
+        e = self.engine()
+        edge = pitch(True, -.20)
+        middle = pitch(True, .72)
+        self.assertGreater(
+            e._two_strike_take_rescue_probability(middle),
+            e._two_strike_take_rescue_probability(edge),
+        )
+        # The existing swing model itself is untouched by the rescue mechanism.
+        self.assertEqual(
+            e._swing_probability(pitch(False, -.82), 3, 2),
+            self.engine()._swing_probability(pitch(False, -.82), 3, 2),
+        )
+
+    def test_protective_contact_is_late_defense_not_fair_contact_bonus(self):
+        e = self.engine()
+        strike = pitch(True, .72)
+        normal_touch = P.BIP_BASE
+        protective_touch = max(
+            P.TWO_STRIKE_PROTECTIVE_TOUCH_MIN,
+            min(
+                P.TWO_STRIKE_PROTECTIVE_TOUCH_MAX,
+                normal_touch * P.TWO_STRIKE_PROTECTIVE_TOUCH_SCALE,
+            ),
+        )
+        self.assertLess(protective_touch, normal_touch)
+        self.assertLessEqual(P.TWO_STRIKE_PROTECTIVE_MISS_TO_FOUL, P.MISS_TO_FOUL_ZONE_BASE)
+        self.assertGreater(P.TWO_STRIKE_PROTECTIVE_FOUL_BONUS, 0.0)
+        self.assertTrue(strike.is_strike)
+
     def test_discipline_identity_survives_same_count(self):
         ball = pitch(False, -.82)
         for count in ((0, 0), (2, 0), (3, 0), (3, 1), (0, 2), (3, 2)):
@@ -92,23 +134,28 @@ class Phase1CountSituationalTests(unittest.TestCase):
         self.assertLess(by_count["3-2"]["chase_pct"], by_count["0-2"]["chase_pct"])
         self.assertLess(by_count["3-0"]["chase_pct"], .12)
 
-        # Guardrails: this task should reshape counts, not destroy the Phase-1 global profile.
+        for count in ("0-2", "1-2", "2-2", "3-2"):
+            self.assertGreater(by_count[count]["protective_swing_per_reach"], .01, count)
+            self.assertLess(by_count[count]["looking_k_per_reach"], .14, count)
+            self.assertGreater(by_count[count]["swinging_k_per_reach"], .10, count)
+
+        # Guardrails: reduce looking K without destroying the accepted Phase-1 environment.
         self.assertGreater(global_rates["swing_pct"], .42)
-        self.assertLess(global_rates["swing_pct"], .52)
+        self.assertLess(global_rates["swing_pct"], .53)
         self.assertGreater(global_rates["out_zone_swing_pct"], .16)
         self.assertLess(global_rates["out_zone_swing_pct"], .24)
-        self.assertGreater(global_rates["in_zone_swing_pct"], .62)
-        self.assertLess(global_rates["in_zone_swing_pct"], .72)
-        self.assertGreater(global_rates["contact_pct"], .75)
-        self.assertLess(global_rates["contact_pct"], .82)
+        self.assertGreater(global_rates["in_zone_swing_pct"], .68)
+        self.assertLess(global_rates["in_zone_swing_pct"], .76)
         self.assertGreater(global_rates["BB_pct"], .07)
         self.assertLess(global_rates["BB_pct"], .11)
-        self.assertGreater(global_rates["K_pct"], .14)
-        self.assertLess(global_rates["K_pct"], .21)
+        self.assertGreater(global_rates["K_pct"], .16)
+        self.assertLess(global_rates["K_pct"], .20)
         self.assertGreater(global_rates["HBP_pct"], .006)
         self.assertLess(global_rates["HBP_pct"], .020)
         self.assertGreater(global_rates["pitches_per_PA"], 3.0)
         self.assertLess(global_rates["pitches_per_PA"], 3.8)
+        self.assertLess(global_rates["K_looking_share"], .47)
+        self.assertGreater(global_rates["K_swinging_share"], .53)
 
 
 if __name__ == "__main__":

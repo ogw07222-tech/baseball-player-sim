@@ -134,6 +134,20 @@ class HittingEngine:
             P.CHASE_MIN, P.CHASE_MAX,
         )
 
+    def _two_strike_take_rescue_probability(self, pitch: Pitch) -> float:
+        """Late protection chance for a taken in-zone pitch with two strikes."""
+        if not pitch.is_strike:
+            return 0.0
+        discipline_delta = clamp(self.hitter.discipline - 100.0, -30.0, 40.0)
+        hittable = clamp(pitch.hittable_quality, -0.50, 1.00)
+        return clamp(
+            P.TWO_STRIKE_TAKE_RESCUE_BASE
+            + hittable * P.TWO_STRIKE_TAKE_RESCUE_HITTABLE_WEIGHT
+            + discipline_delta * P.TWO_STRIKE_TAKE_RESCUE_DISCIPLINE_WEIGHT,
+            P.TWO_STRIKE_TAKE_RESCUE_MIN,
+            P.TWO_STRIKE_TAKE_RESCUE_MAX,
+        )
+
     def _hit_by_pitch_probability(self, pitch: Pitch) -> float:
         if pitch.is_strike:
             return 0.0
@@ -151,7 +165,7 @@ class HittingEngine:
         return self.rng.random() < self._hit_by_pitch_probability(pitch)
 
     def _contact_resolution(
-        self, pitch: Pitch, strikes: int
+        self, pitch: Pitch, strikes: int, protective_swing: bool = False
     ) -> tuple[str, float, float]:
         contact_delta = 0.0
         power_delta = 0.0
@@ -167,15 +181,24 @@ class HittingEngine:
         )
         contact_score = cdelta * P.CONTACT_SCALE - difficulty
         touch_probability = clamp(P.BIP_BASE + contact_score * .22, .28, .965)
-        if self.rng.random() > touch_probability:
-            rescue = (
-                P.MISS_TO_FOUL_ZONE_BASE
-                if pitch.is_strike else P.MISS_TO_FOUL_BALL_BASE
+        if protective_swing:
+            touch_probability = clamp(
+                touch_probability * P.TWO_STRIKE_PROTECTIVE_TOUCH_SCALE,
+                P.TWO_STRIKE_PROTECTIVE_TOUCH_MIN,
+                P.TWO_STRIKE_PROTECTIVE_TOUCH_MAX,
             )
-            if strikes == 2:
-                discipline_delta = clamp(self.hitter.discipline - 100.0, -20.0, 40.0)
-                rescue += P.TWO_STRIKE_FOUL_RESCUE_BASE
-                rescue += discipline_delta * P.TWO_STRIKE_FOUL_DISCIPLINE_WEIGHT
+        if self.rng.random() > touch_probability:
+            if protective_swing:
+                rescue = P.TWO_STRIKE_PROTECTIVE_MISS_TO_FOUL
+            else:
+                rescue = (
+                    P.MISS_TO_FOUL_ZONE_BASE
+                    if pitch.is_strike else P.MISS_TO_FOUL_BALL_BASE
+                )
+                if strikes == 2:
+                    discipline_delta = clamp(self.hitter.discipline - 100.0, -20.0, 40.0)
+                    rescue += P.TWO_STRIKE_FOUL_RESCUE_BASE
+                    rescue += discipline_delta * P.TWO_STRIKE_FOUL_DISCIPLINE_WEIGHT
             if self.rng.random() < clamp(rescue, 0.0, P.MISS_TO_FOUL_CAP):
                 return "foul", contact_delta, power_delta
             return "miss", contact_delta, power_delta
@@ -184,6 +207,12 @@ class HittingEngine:
             + max(0, -contact_score) * .05,
             .22, .52,
         )
+        if protective_swing:
+            foul_probability = clamp(
+                foul_probability + P.TWO_STRIKE_PROTECTIVE_FOUL_BONUS,
+                P.TWO_STRIKE_PROTECTIVE_FOUL_MIN,
+                P.TWO_STRIKE_PROTECTIVE_FOUL_MAX,
+            )
         if self.rng.random() < foul_probability:
             return "foul", contact_delta, power_delta
         return "bip", contact_delta, power_delta
@@ -376,19 +405,32 @@ class HittingEngine:
             if self._is_hit_by_pitch(pitch):
                 return PlateAppearanceOutcome("hit_by_pitch")
             swing_probability = self._swing_probability(pitch, balls, strikes)
+            protective_swing = False
             if self.rng.random() >= swing_probability:
-                if pitch.is_strike:
-                    strikes += 1
-                    if strikes >= 3:
-                        return PlateAppearanceOutcome("strikeout")
+                if (
+                    pitch.is_strike
+                    and strikes == 2
+                    and self.rng.random() < self._two_strike_take_rescue_probability(pitch)
+                ):
+                    protective_swing = True
                 else:
-                    balls += 1
-                    if balls >= 4:
-                        return PlateAppearanceOutcome("walk")
-                continue
-            contact_result, contact_delta, power_delta = self._contact_resolution(
-                pitch, strikes
-            )
+                    if pitch.is_strike:
+                        strikes += 1
+                        if strikes >= 3:
+                            return PlateAppearanceOutcome("strikeout")
+                    else:
+                        balls += 1
+                        if balls >= 4:
+                            return PlateAppearanceOutcome("walk")
+                    continue
+            if protective_swing:
+                contact_result, contact_delta, power_delta = self._contact_resolution(
+                    pitch, strikes, protective_swing=True
+                )
+            else:
+                contact_result, contact_delta, power_delta = self._contact_resolution(
+                    pitch, strikes
+                )
             if contact_result == "miss":
                 strikes += 1
                 if strikes >= 3:
