@@ -1,0 +1,41 @@
+name: production-browser-smoke-temporary
+
+on:
+  push:
+    branches:
+      - validation/prod-full-smoke-20260911
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Run production browser E2E
+        run: |
+          python - <<'PY'
+          from playwright.sync_api import sync_playwright, expect
+
+          base_url = 'https://baseball-player-sim.vercel.app'
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              context = browser.new_context()
+              page = context.new_page()
+              page.goto(base_url, wait_until='networkidle', timeout=60000)
+              expect(page.get_by_role('heading', name='NEW CAREER')).to_be_visible(timeout=30000)
+              page.locator('#player-name').fill('Browser Smoke')
+              page.get_by_role('button', name='커리어 시작').click()
+              expect(page.get_by_role('heading', name='Browser Smoke')).to_be_visible(timeout=30000)
+              expect(page.locator('.game-count')).to_contain_text('GAME 0 /', timeout=30000)
+              page.get_by_role('button', name='▶ 다음 경기').click()
+              expect(page.locator('.game-count')).to_contain_text('GAME 1 /', timeout=60000)
+              page.reload(wait_until='networkidle', timeout=60000)
+              expect(page.get_by_role('heading', name='Browser Smoke')).to_be_visible(timeout=30000)
+              expect(page.locator('.game-count')).to_contain_text('GAME 1 /', timeout=30000)
+              print('PASS: production browser create/advance/reload persistence')
+              browser.close()
+          PY
