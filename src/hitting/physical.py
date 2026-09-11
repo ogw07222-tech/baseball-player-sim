@@ -82,14 +82,20 @@ def is_fair_spray(
     return left_foul_line <= spray_angle <= right_foul_line
 
 
-def _fork_seed(parent_rng: RNG, namespace: int = 0x503241) -> int:
+def _fork_seed(parent_rng, namespace: int = 0x503241) -> int:
     """Fingerprint parent state without consuming it.
 
-    The MT state index changes as the canonical stream advances; a handful of
-    state words plus that index are enough to create a stable 64-bit child seed
-    while avoiding the cost of serializing the full random state on every BIP.
+    Production uses the project ``RNG`` interface while a few calibration/test
+    adapters pass ``random.Random`` directly. Both expose the same underlying
+    MT state through different accessor names, so support both without drawing
+    from either parent stream.
     """
-    state = parent_rng.get_state()
+    if hasattr(parent_rng, "get_state"):
+        state = parent_rng.get_state()
+    elif hasattr(parent_rng, "getstate"):
+        state = parent_rng.getstate()
+    else:
+        raise TypeError("parent_rng must expose get_state() or getstate()")
     internal = state[1]
     indices = (0, 1, 7, 31, 127, 313, len(internal) - 2, len(internal) - 1)
     seed = namespace & 0xFFFFFFFFFFFFFFFF
@@ -234,7 +240,7 @@ def generate_batted_ball_state(
     pitch_movement_quality: float,
     pitch_location_quality: float,
     pitch_hittable_quality: float,
-    parent_rng: RNG,
+    parent_rng,
 ) -> BattedBallState:
     """Generate Phase-2A initial state without consuming the canonical RNG.
 
