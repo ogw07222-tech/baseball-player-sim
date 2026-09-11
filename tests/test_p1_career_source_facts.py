@@ -73,10 +73,13 @@ class CareerSourceFactTests(unittest.TestCase):
         self.assertEqual(len(promotions), 1)
         fact = promotions[0]
         self.assertEqual(fact["game_number"], 10)
-        self.assertEqual(fact["before"], {"roster_level": "FARM"})
-        self.assertEqual(fact["after"], {"roster_level": "FIRST"})
-        self.assertEqual(fact["persistence_hint"], "career_history")
-        self.assertTrue(str(fact["existing_identity"]).startswith("roster:"))
+        self.assertEqual(fact["before_state"], {"roster_level": "FARM"})
+        self.assertEqual(fact["after_state"], {"roster_level": "FIRST"})
+        self.assertEqual(fact["existing_history_kind"], "career_history")
+        self.assertTrue(str(fact["existing_dedupe_key"]).startswith("roster:"))
+        self.assertIn("player_id", fact)
+        self.assertIn("team_id", fact)
+        self.assertIn("state_delta", fact)
         self.assertNotIn("title", fact)
         self.assertNotIn("summary", fact)
         self.assertNotIn("importance", fact)
@@ -122,8 +125,9 @@ class CareerSourceFactTests(unittest.TestCase):
         summary = ProductionAdvanceService(engine).advance_one_game()
         injuries = [f for f in summary.source_facts if f.fact_type == "injury_created"]
         self.assertEqual(len(injuries), 1)
-        self.assertIsNone(injuries[0].before["injury"])
-        self.assertIsNotNone(injuries[0].after["injury"])
+        self.assertIsNone(injuries[0].before_state["injury"])
+        self.assertIsNotNone(injuries[0].after_state["injury"])
+        self.assertEqual(injuries[0].existing_history_kind, "injury_history")
         self.assertEqual(injuries[0].persistence_hint, "injury_history")
 
     def test_recovery_completion_fact(self):
@@ -133,8 +137,9 @@ class CareerSourceFactTests(unittest.TestCase):
         summary = ProductionAdvanceService(engine).advance_one_game()
         recovery = [f for f in summary.source_facts if f.fact_type == "injury_recovery_completed"]
         self.assertEqual(len(recovery), 1)
-        self.assertIsNotNone(recovery[0].before["injury"])
-        self.assertIsNone(recovery[0].after["injury"])
+        self.assertIsNotNone(recovery[0].before_state["injury"])
+        self.assertIsNone(recovery[0].after_state["injury"])
+        self.assertIsNone(recovery[0].existing_history_kind)
         self.assertIsNone(engine.player.injury)
 
     def test_save_load_same_actions_produce_same_ordered_source_facts(self):
@@ -144,6 +149,15 @@ class CareerSourceFactTests(unittest.TestCase):
         loaded_summary = ProductionAdvanceService(loaded).advance_one_week()
         self.assertEqual(fact_dicts(direct_summary), fact_dicts(loaded_summary))
         self.assertEqual(serialize_game(direct), serialize_game(loaded))
+
+    def test_repeated_same_seed_actions_are_equivalent(self):
+        left = make_engine(9111)
+        right = make_engine(9111)
+        left_summary = ProductionAdvanceService(left).advance_one_month()
+        right_summary = ProductionAdvanceService(right).advance_one_month()
+        self.assertEqual(fact_dicts(left_summary), fact_dicts(right_summary))
+        self.assertEqual(serialize_game(left), serialize_game(right))
+        self.assertEqual(left.rng.get_state(), right.rng.get_state())
 
     def test_ordering_coordinates_are_deterministic(self):
         engine = make_engine(9107)
