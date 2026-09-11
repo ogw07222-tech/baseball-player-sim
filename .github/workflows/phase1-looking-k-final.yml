@@ -1,0 +1,40 @@
+name: phase1-looking-k-final
+
+on:
+  push:
+    branches:
+      - validation/phase1-looking-k-final
+
+jobs:
+  phase1-looking-k-final:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      PYTHONPATH: .
+    steps:
+      - name: Checkout exact validation source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Record source
+        run: |
+          mkdir -p reports/integration-local
+          printf '{"sha":"%s","run_id":"%s","seed":20260906,"games":10000,"samples":200000}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" > reports/integration-local/metadata.json
+      - name: Compile diagnostic dependencies
+        run: python -m compileall -q src tools/offense_pitch_diagnostic.py tools/count_swing_diagnostic.py
+      - name: Heavy offense diagnostic
+        run: python tools/offense_pitch_diagnostic.py --games 10000 --pa-samples 200000 --seed 20260906 --output reports/integration-local/offense.json
+      - name: Heavy neutral count diagnostic
+        run: python tools/count_swing_diagnostic.py --pa 200000 --seed 20260906 > reports/integration-local/count-neutral.json
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-looking-k-final-${{ github.run_id }}-${{ github.sha }}
+          path: reports/integration-local/
+          if-no-files-found: error
+          retention-days: 30
