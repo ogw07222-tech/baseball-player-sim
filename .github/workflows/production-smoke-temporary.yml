@@ -1,0 +1,18 @@
+name: production-smoke-temporary
+
+on:
+  push:
+    branches:
+      - validation/prod-full-smoke-20260911
+
+jobs:
+  api-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'httpx>=0.27,<1'
+      - name: Run deployed P0 smoke
+        run: python tools/deployed_p0_smoke.py https://baseball-player-sim.vercel.app
