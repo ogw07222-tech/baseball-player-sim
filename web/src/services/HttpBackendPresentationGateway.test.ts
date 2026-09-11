@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { HttpBackendPresentationGateway } from './HttpBackendPresentationGateway'
+import { BackendTransportError, HttpBackendPresentationGateway } from './HttpBackendPresentationGateway'
 import type { BackendDashboardDto, BackendSeasonDto } from '../types/backendPresentation'
 
 const dashboard: BackendDashboardDto = {
@@ -52,5 +52,27 @@ describe('HttpBackendPresentationGateway',()=>{
     expect(body.command).toBe('next_game')
     expect(body.expected_revision).toBe(7)
     expect(typeof body.idempotency_key).toBe('string')
+    expect(String(body.idempotency_key).length).toBeGreaterThan(10)
+  })
+
+  it('maps backend conflict envelopes to a typed transport error with authoritative revision', async()=>{
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(()=>response({has_career:true,revision:7}))
+      .mockImplementationOnce(()=>response({error:{code:'REVISION_CONFLICT',message:'expected_revision is stale',retryable:false,details:null},meta:{revision:8}},409))
+    vi.stubGlobal('fetch', fetchMock)
+    const gateway = new HttpBackendPresentationGateway()
+    await gateway.hasCareer()
+    await expect(gateway.advanceNextGame()).rejects.toMatchObject({
+      name:'BackendTransportError', status:409, code:'REVISION_CONFLICT', retryable:false, revision:8,
+    })
+  })
+
+  it('maps fetch failures to retryable NETWORK_ERROR without fabricating backend state', async()=>{
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('offline')))
+    const gateway = new HttpBackendPresentationGateway()
+    let caught: unknown
+    try { await gateway.hasCareer() } catch (error) { caught = error }
+    expect(caught).toBeInstanceOf(BackendTransportError)
+    expect(caught).toMatchObject({status:0,code:'NETWORK_ERROR',retryable:true,revision:null})
   })
 })
