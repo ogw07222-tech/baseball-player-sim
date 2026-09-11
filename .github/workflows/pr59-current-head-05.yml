@@ -1,0 +1,71 @@
+name: pr59-current-head-05
+
+on:
+  push:
+    branches:
+      - validation/pr59-current-head-05
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      PYTHONPATH: .
+      PR59_HEAD: 26ef621342a92b190000d0784fc39874407f052e
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Assert production identity with PR59 merge target
+        run: |
+          test "$(git rev-parse HEAD:src/hitting/physical.py)" = "$(git rev-parse ${PR59_HEAD}:src/hitting/physical.py)"
+          test "$(git rev-parse HEAD:src/hitting/model.py)" = "$(git rev-parse ${PR59_HEAD}:src/hitting/model.py)"
+          test "$(git rev-parse HEAD:src/hitting/physical_parameters.py)" = "$(git rev-parse ${PR59_HEAD}:src/hitting/physical_parameters.py)"
+          printf 'physical=%s\nmodel=%s\nparameters=%s\n' \
+            "$(git rev-parse HEAD:src/hitting/physical.py)" \
+            "$(git rev-parse HEAD:src/hitting/model.py)" \
+            "$(git rev-parse HEAD:src/hitting/physical_parameters.py)" \
+            | tee production-blobs.txt
+      - name: Compile
+        run: python -m compileall -q src tools/phase2a_validation_harness.py tools/phase2a_physical_distribution_validation.py tools/pr59_rng_compatibility_validation.py
+      - name: RNG interface compatibility
+        run: python tools/pr59_rng_compatibility_validation.py | tee rng-compatibility.json
+      - name: Phase 2A physical distributions
+        run: |
+          mkdir -p reports/pr59-current-head
+          python tools/phase2a_physical_distribution_validation.py \
+            --seed 20260911 --pa 200000 --sensitivity-n 20000 \
+            --output reports/pr59-current-head/physical.json
+      - name: Phase 1 environment and performance
+        run: |
+          python tools/phase2a_validation_harness.py \
+            --seed 20260911 --pa 200000 --games 10000 \
+            --variance-games 1000 --perf-pa 50000 --perf-games 500 \
+            --output reports/pr59-current-head/offense-and-performance.json
+      - name: Targeted Phase 2A tests
+        run: python -m unittest tests.test_phase2a_physical_batted_ball -v
+      - name: Phase 1 count regression
+        run: python -m unittest tests.test_phase1_count_situational -v
+      - name: Production integration tests
+        run: python -m unittest tests.test_production_game_provider tests.test_production_integration_consolidation tests.test_stat_aggregation_advance -v
+      - name: Full repository suite context
+        shell: bash
+        run: |
+          set +e
+          python -m unittest discover -s tests -v 2>&1 | tee reports/pr59-current-head/full-suite.txt
+          code=${PIPESTATUS[0]}
+          echo "$code" | tee reports/pr59-current-head/full-suite-exit-code.txt
+          exit 0
+      - name: Upload validation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr59-current-head-05-${{ github.run_id }}-${{ github.sha }}
+          path: |
+            reports/pr59-current-head
+            production-blobs.txt
+            rng-compatibility.json
