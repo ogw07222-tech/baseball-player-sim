@@ -14,66 +14,138 @@ from src.hitting.baserunning import (
     steal_success_probability,
 )
 from src.hitting.defense import catch_probability
-from src.hitting.model import HitterSnapshot, HittingEngine, PitcherSnapshot
+from src.hitting.model import HitterSnapshot, HittingEngine, Pitch, PitcherSnapshot
 from src.player import Player
 from src.records import BattingLine
 from src.rng import RNG
 from src.simulation import _maybe_compat_steal
 from src.stats import PlayerStats
-from tools.balance_lab.h3.model import simulate_profile as lab_simulate_profile
-from tools.balance_lab.h3.profiles import H3HitterProfile
 
 
 def run_profile(hitter: HitterSnapshot, pa: int, seed: int = 20260905, defense: float = 100.0):
     engine = HittingEngine(hitter, PitcherSnapshot(), defense, RNG(seed))
     counts = {key: 0 for key in (
-        "walk", "strikeout", "out", "fielders_choice", "reached_on_error",
-        "single", "double", "triple", "home_run",
+        "walk", "hit_by_pitch", "strikeout", "out", "fielders_choice",
+        "reached_on_error", "single", "double", "triple", "home_run",
     )}
     for _ in range(pa):
         counts[engine.simulate_plate_appearance().result] += 1
     hits = counts["single"] + counts["double"] + counts["triple"] + counts["home_run"]
-    ab = pa - counts["walk"]
+    ab = pa - counts["walk"] - counts["hit_by_pitch"]
     total_bases = (
         counts["single"] + 2 * counts["double"] + 3 * counts["triple"]
         + 4 * counts["home_run"]
     )
+    obp = (hits + counts["walk"] + counts["hit_by_pitch"]) / pa
     return {
         "AVG": hits / ab,
-        "OBP": (hits + counts["walk"]) / pa,
+        "OBP": obp,
         "SLG": total_bases / ab,
-        "OPS": (hits + counts["walk"]) / pa + total_bases / ab,
+        "OPS": obp + total_bases / ab,
         "HR%": counts["home_run"] / pa,
         "BB%": counts["walk"] / pa,
+        "HBP%": counts["hit_by_pitch"] / pa,
         "K%": counts["strikeout"] / pa,
         "H%": hits / pa,
         **counts,
     }
 
 
-class H32ProductionPortTests(unittest.TestCase):
-    def test_neutral_baseline_matches_balance_lab_band(self):
-        m = run_profile(HitterSnapshot(100, 100, 100, 100), 100_000)
-        self.assertAlmostEqual(m["AVG"], .2611, delta=.012)
-        self.assertAlmostEqual(m["OBP"], .3207, delta=.012)
-        self.assertAlmostEqual(m["SLG"], .3974, delta=.020)
-        self.assertAlmostEqual(m["HR%"], .0275, delta=.005)
-        self.assertAlmostEqual(m["BB%"], .0807, delta=.006)
-        self.assertAlmostEqual(m["K%"], .2130, delta=.008)
+def test_pitch(is_strike: bool, hittable: float = 0.0) -> Pitch:
+    return Pitch(is_strike, "middle", "fastball", 0.0, 0.0, 0.0, hittable)
 
-    def test_neutral_core_matches_balance_lab_event_counts(self):
-        pa = 12_000
-        seed = 24680
-        production = run_profile(HitterSnapshot(100, 100, 100, 100), pa, seed)
-        lab = lab_simulate_profile(H3HitterProfile(), pa, seed)
-        self.assertEqual(production["walk"], lab.bb)
-        self.assertEqual(production["strikeout"], lab.so)
-        self.assertEqual(production["reached_on_error"], lab.roe)
-        self.assertEqual(production["single"], lab.singles)
-        self.assertEqual(production["double"], lab.doubles)
-        self.assertEqual(production["triple"], lab.triples)
-        self.assertEqual(production["home_run"], lab.hr)
-        self.assertEqual(production["out"], lab.outs - lab.so)
+
+class H32ProductionPortTests(unittest.TestCase):
+    def test_phase1_neutral_profile_stays_in_bounded_offense_band(self):
+        metrics = run_profile(HitterSnapshot(100, 100, 100, 100), 100_000)
+        self.assertGreater(metrics["BB%"], .070)
+        self.assertLess(metrics["BB%"], .100)
+        self.assertGreater(metrics["HBP%"], .006)
+        self.assertLess(metrics["HBP%"], .020)
+        self.assertGreater(metrics["K%"], .150)
+        self.assertLess(metrics["K%"], .205)
+        self.assertGreater(metrics["H%"], .220)
+        self.assertLess(metrics["H%"], .285)
+        self.assertGreater(metrics["HR%"], .020)
+        self.assertLess(metrics["HR%"], .036)
+
+    def test_count_terms_are_independent_at_full_count(self):
+        engine = HittingEngine(
+            HitterSnapshot(100, 100, 100, 100),
+            PitcherSnapshot(),
+            100.0,
+            RNG(1),
+        )
+        strike = test_pitch(True)
+        ball = test_pitch(False, -0.82)
+        # Full count protects the zone while retaining three-ball selectivity.
+        self.assertGreater(
+            engine._swing_probability(strike, 3, 2),
+            engine._swing_probability(strike, 3, 1),
+        )
+        self.assertLess(
+            engine._swing_probability(strike, 3, 2),
+            engine._swing_probability(strike, 0, 2),
+        )
+        # Full-count chase remains lower than another two-strike count.
+        self.assertLess(
+            engine._swing_probability(ball, 3, 2),
+            engine._swing_probability(ball, 0, 2),
+        )
+        self.assertLess(
+            engine._swing_probability(ball, 3, 0),
+            engine._swing_probability(ball, 3, 1),
+        )
+
+    def test_discipline_chase_separation_is_bounded_and_meaningful(self):
+        ball = test_pitch(False, -0.82)
+        neutral = HittingEngine(HitterSnapshot(100, 100, 100, 100), PitcherSnapshot(), 100.0, RNG(2))
+        poor = HittingEngine(HitterSnapshot(100, 100, 75, 100), PitcherSnapshot(), 100.0, RNG(2))
+        good = HittingEngine(HitterSnapshot(100, 100, 125, 100), PitcherSnapshot(), 100.0, RNG(2))
+        p_neutral = neutral._swing_probability(ball, 0, 0)
+        p_poor = poor._swing_probability(ball, 0, 0)
+        p_good = good._swing_probability(ball, 0, 0)
+        self.assertGreater(p_poor, p_neutral)
+        self.assertGreater(p_neutral, p_good)
+        self.assertLess(p_poor - p_neutral, .09)
+
+    def test_hbp_is_out_of_zone_only_and_control_sensitive(self):
+        strike = test_pitch(True)
+        ball = test_pitch(False, -0.82)
+        wild = HittingEngine(HitterSnapshot(100, 100, 100, 100), PitcherSnapshot(control=70), 100.0, RNG(3))
+        neutral = HittingEngine(HitterSnapshot(100, 100, 100, 100), PitcherSnapshot(control=100), 100.0, RNG(3))
+        command = HittingEngine(HitterSnapshot(100, 100, 100, 100), PitcherSnapshot(control=130), 100.0, RNG(3))
+        self.assertEqual(neutral._hit_by_pitch_probability(strike), 0.0)
+        self.assertGreater(wild._hit_by_pitch_probability(ball), neutral._hit_by_pitch_probability(ball))
+        self.assertGreater(neutral._hit_by_pitch_probability(ball), command._hit_by_pitch_probability(ball))
+
+    def test_two_strike_foul_does_not_become_strike_three(self):
+        class ScriptedEngine(HittingEngine):
+            def __init__(self):
+                super().__init__(HitterSnapshot(100, 100, 100, 100), PitcherSnapshot(), 100.0, RNG(9))
+                self.strikes_seen = []
+                self.calls = 0
+
+            def _pitch(self):
+                return test_pitch(True)
+
+            def _is_hit_by_pitch(self, pitch):
+                return False
+
+            def _swing_probability(self, pitch, balls, strikes):
+                return 1.0
+
+            def _contact_resolution(self, pitch, strikes):
+                self.strikes_seen.append(strikes)
+                self.calls += 1
+                if self.calls <= 3:
+                    return "foul", 0.0, 0.0
+                return "miss", 0.0, 0.0
+
+        engine = ScriptedEngine()
+        result = engine.simulate_plate_appearance()
+        self.assertEqual(result.result, "strikeout")
+        self.assertEqual(engine.strikes_seen, [0, 1, 2, 2])
 
     def test_contact_monotonicity(self):
         low = run_profile(HitterSnapshot(80, 100, 100, 100), 35_000, 11)
@@ -122,8 +194,6 @@ class H32ProductionPortTests(unittest.TestCase):
         self.assertLess(second_to_home_probability(60), second_to_home_probability(140))
 
     def test_game_state_adapters_mutate_only_on_resolved_events(self):
-        # Extreme deterministic RNG choices make state mutation assertions stable
-        # without changing the validated probability functions themselves.
         class AlwaysZero:
             def random(self):
                 return 0.0

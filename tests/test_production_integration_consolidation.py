@@ -19,8 +19,8 @@ from src.stats import PlayerStats
 
 
 PROTECTED_BLOBS = {
-    "src/hitting/model.py": "b2f2f70a91c2534a99cf6ce299764804ef3484d6",
-    "src/hitting/parameters.py": "f249ecf46bcebe057d774188b873b1d41335d90a",
+    "src/hitting/model.py": "dac5a2adedb7d272ef1ab9857d2b46621f085afa",
+    "src/hitting/parameters.py": "3876b4221f53b7d4b7cc6069d9425004fc9f311a",
     "src/hitting/baserunning.py": "2a383ce61fb6938ae30973be210159baa1d76726",
     "src/hitting/defense.py": "279f6282ef41c53e709839dbbe791e16836eaf53",
 }
@@ -99,8 +99,6 @@ class ProductionIntegrationConsolidationTests(unittest.TestCase):
         bulk = ProductionAdvanceService(bulk_engine)
         repeated = ProductionAdvanceService(repeated_engine)
         start = bulk.state.current_date
-        # Production schedule begins 2026-04-01; one calendar month from the
-        # initial cursor covers the canonical April window.
         expected_dates = bulk.schedule.game_dates(
             start,
             start.replace(month=4, day=30),

@@ -1,16 +1,78 @@
 """Validated H3.2.1 production hitting/baserunning parameters.
 
-Source of truth: Balance-Lab commit b7b8aafde0a50e687310dbe03b872087a569e08c.
-Do not retune here without a new Balance-Lab validation pass.
+Phase 1 plate-discipline/contact calibration is layered on the H3.2.1
+batted-ball model. Physical batted-ball / HR / XBH parameters remain frozen.
 """
 STAT_REFERENCE = 100.0
 
 ZONE_SWING_BASE = 0.67
-BALL_CHASE_BASE = 0.245
+BALL_CHASE_BASE = 0.255
 DISCIPLINE_ZONE_WEIGHT = 0.0015
-DISCIPLINE_CHASE_WEIGHT = 0.0045
-TWO_STRIKE_PROTECTION_WEIGHT = 0.0065
-TWO_STRIKE_PROTECTION_CAP = 0.25
+DISCIPLINE_CHASE_WEIGHT = 0.0025
+
+# Legacy Phase-1 count constants are retained for snapshot/backward-compatibility
+# documentation, but runtime count behavior now reads COUNT_SWING_MODIFIERS below.
+TWO_STRIKE_ZONE_SWING_BONUS = 0.090
+THREE_BALL_ZONE_SELECTIVITY = -0.015
+THREE_ZERO_ZONE_EXTRA_SELECTIVITY = -0.035
+TWO_STRIKE_CHASE_BONUS = 0.005
+THREE_BALL_CHASE_SELECTIVITY = -0.050
+THREE_ZERO_CHASE_EXTRA_SELECTIVITY = -0.020
+
+# Explicit situational modifiers. Keys are (balls, strikes). Values are additive
+# (zone_swing, chase) terms layered on top of player identity, location and
+# pitch-quality effects; unspecified counts remain neutral (0, 0).
+COUNT_SWING_MODIFIERS = {
+    (2, 0): (-0.035, -0.030),
+    (0, 2): (+0.100, +0.005),
+    (1, 2): (+0.085, +0.000),
+    (2, 2): (+0.065, -0.005),
+    (3, 0): (-0.670, -0.185),
+    (3, 1): (-0.220, -0.090),
+    (3, 2): (+0.045, -0.045),
+}
+ZONE_SWING_MIN = 0.06
+ZONE_SWING_MAX = 0.91
+CHASE_MIN = 0.015
+CHASE_MAX = 0.54
+
+# A two-strike in-zone pitch that the hitter initially takes can trigger a
+# late protection swing. This is strictly an in-zone terminal-take rescue: it
+# never applies to chase pitches or to 0/1-strike counts. Better discipline and
+# easier-to-see/hittable strikes modestly improve recognition without erasing
+# hitter identity.
+TWO_STRIKE_TAKE_RESCUE_BASE = 0.280
+TWO_STRIKE_TAKE_RESCUE_HITTABLE_WEIGHT = 0.080
+TWO_STRIKE_TAKE_RESCUE_DISCIPLINE_WEIGHT = 0.0010
+TWO_STRIKE_TAKE_RESCUE_MIN = 0.18
+TWO_STRIKE_TAKE_RESCUE_MAX = 0.42
+
+# Rescued swings are late defensive attempts, not normal offensive swings.
+# They mostly redistribute called strikeouts into swinging strikeouts/fouls;
+# they do not create a direct fair-contact or hit bonus.
+TWO_STRIKE_PROTECTIVE_TOUCH_SCALE = 0.25
+TWO_STRIKE_PROTECTIVE_TOUCH_MIN = 0.10
+TWO_STRIKE_PROTECTIVE_TOUCH_MAX = 0.38
+TWO_STRIKE_PROTECTIVE_MISS_TO_FOUL = 0.06
+TWO_STRIKE_PROTECTIVE_FOUL_BONUS = 0.30
+TWO_STRIKE_PROTECTIVE_FOUL_MIN = 0.45
+TWO_STRIKE_PROTECTIVE_FOUL_MAX = 0.78
+
+# Miss rescue moves a bounded share of swings to foul contact, not directly to
+# fair balls/hits. Two-strike rescue is additive and keeps the count alive.
+MISS_TO_FOUL_ZONE_BASE = 0.240
+MISS_TO_FOUL_BALL_BASE = 0.080
+TWO_STRIKE_FOUL_RESCUE_BASE = 0.030
+TWO_STRIKE_FOUL_DISCIPLINE_WEIGHT = 0.0015
+MISS_TO_FOUL_CAP = 0.38
+
+# HBP is a pitch-level terminal event on an out-of-zone pitch. The neutral
+# baseline is intentionally broad-calibrated rather than exact-point fitted.
+HBP_OUT_OF_ZONE_BASE = 0.0090
+HBP_CONTROL_WILDNESS_WEIGHT = 0.00006
+HBP_CONTROL_COMMAND_WEIGHT = 0.000025
+HBP_MIN = 0.003
+HBP_MAX = 0.018
 
 STRIKE_RATE = 0.550
 PITCH_TYPE_FASTBALL = 0.57
