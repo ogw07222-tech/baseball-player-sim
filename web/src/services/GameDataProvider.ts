@@ -8,7 +8,7 @@ import type {
 import { adaptDashboardDto, adaptSeasonDto } from './presentationAdapter'
 
 export interface AdvancePresentationResult extends DashboardViewModel {
-  advanceResult: BackendAdvanceResultDto
+  advanceResult?: BackendAdvanceResultDto
 }
 
 export interface BackendAdvancePresentation {
