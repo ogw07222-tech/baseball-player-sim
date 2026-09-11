@@ -1,0 +1,41 @@
+name: phase1-final-signoff-05
+
+on:
+  push:
+    branches:
+      - validation/phase1-final-signoff-05
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Metadata
+        run: |
+          mkdir -p reports/phase1-final
+          printf '{"sha":"%s","seed":20260911,"neutral_pa":200000,"generated_pa":200000,"games":10000}\n' "$GITHUB_SHA" > reports/phase1-final/metadata.json
+      - name: Compile
+        run: python -m compileall -q src tools/offense_pitch_diagnostic.py tools/count_swing_diagnostic.py tools/phase1_discipline_bucket_validation.py
+      - name: Count-specific neutral 200k
+        run: python tools/count_swing_diagnostic.py --seed 20260911 --pa 200000 > reports/phase1-final/count-neutral-200k.json
+      - name: Neutral/generated 200k plus production 10k
+        run: python tools/offense_pitch_diagnostic.py --seed 20260911 --pa-samples 200000 --games 10000 --output reports/phase1-final/offense-pitch-10k.json
+      - name: Discipline buckets 200k
+        run: python tools/phase1_discipline_bucket_validation.py > reports/phase1-final/discipline-buckets.json
+      - name: Phase 1 deterministic/count regressions
+        run: python -m unittest tests.test_phase1_count_situational
+      - name: Production integration regressions
+        run: bash tools/run_production_integration_checks.sh
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-final-signoff-${{ github.run_id }}-${{ github.sha }}
+          path: reports/phase1-final
