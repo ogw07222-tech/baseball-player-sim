@@ -1,7 +1,8 @@
-"""Production H3.1/H3.2.1 pitch-to-batted-ball engine.
+"""Production pitch-to-batted-ball engine.
 
-Phase 1 calibrates pitch/count/swing/contact semantics while preserving the
-existing batted-ball quality, HR, XBH, and defense model.
+Phase 1 owns pitch/count/swing/contact/foul semantics. Phase 2A now generates a
+shadow physical initial state for every legacy fair-contact BIP while preserving
+the existing HR/XBH/defense result resolver until later Phase-2 stages.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ import math
 from typing import Callable
 from . import parameters as P
 from .defense import catch_probability, clamp, difficulty_tier, suppress_candidate
+from .physical import BattedBallState, generate_batted_ball_state
 
 @dataclass(frozen=True)
 class HitterSnapshot:
@@ -46,6 +48,7 @@ class BattedBall:
     distance: float
     difficulty_score: float
     difficulty_tier: str
+    physical_state: BattedBallState | None = None
 
 @dataclass(frozen=True)
 class PlateAppearanceOutcome:
@@ -249,7 +252,11 @@ class HittingEngine:
         return side, quality_bonus
 
     def _batted_ball(
-        self, pitch: Pitch, contact_delta: float, power_delta: float
+        self,
+        pitch: Pitch,
+        contact_delta: float,
+        power_delta: float,
+        physical_state: BattedBallState | None = None,
     ) -> BattedBall:
         side, approach_bonus = self._direction(pitch)
         contact = self.hitter.contact + contact_delta
@@ -305,7 +312,7 @@ class HittingEngine:
         )
         return BattedBall(
             quality, exit_quality, ball_type, side, depth, distance,
-            score, difficulty_tier(score),
+            score, difficulty_tier(score), physical_state,
         )
 
     def _is_home_run(self, ball: BattedBall) -> bool:
@@ -441,7 +448,21 @@ class HittingEngine:
                     strikes += 1
                 continue
 
-            ball = self._batted_ball(pitch, contact_delta, power_delta)
+            physical_state = generate_batted_ball_state(
+                hitter_contact=self.hitter.contact + contact_delta,
+                hitter_power=self.hitter.power + power_delta,
+                batter_side=self.hitter.handedness,
+                approach=self.hitter.approach,
+                pitch_zone=pitch.zone,
+                pitch_velocity_quality=pitch.velocity_quality,
+                pitch_movement_quality=pitch.movement_quality,
+                pitch_location_quality=pitch.location_quality,
+                pitch_hittable_quality=pitch.hittable_quality,
+                parent_rng=self.rng,
+            )
+            ball = self._batted_ball(
+                pitch, contact_delta, power_delta, physical_state=physical_state
+            )
             if self._is_home_run(ball):
                 return PlateAppearanceOutcome("home_run", batted_ball=ball)
 
@@ -467,5 +488,10 @@ class HittingEngine:
                 if raw in {"3B_candidate", "2B_candidate"} else raw
             )
             result = self._speed_resolve(resolved, ball)
-            return PlateAppearanceOutcome(result, batted_ball=ball, raw_candidate=raw,resolved_candidate=resolved)
+            return PlateAppearanceOutcome(
+                result,
+                batted_ball=ball,
+                raw_candidate=raw,
+                resolved_candidate=resolved,
+            )
         return PlateAppearanceOutcome("out")
