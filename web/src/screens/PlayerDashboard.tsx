@@ -69,8 +69,7 @@ export function PlayerDashboard({ data, onAdvanceNextGame, mutationLoading }: { 
     </div>
 
     <nav className="advance-controls" aria-label="시간 진행">
-      <button className="primary" disabled={mutationLoading} aria-busy={mutationLoading} onClick={()=>void onAdvanceNextGame()}>{mutationLoading?'경기 진행 중…':'▶ 다음 경기'}</button>
-      <span className="advance-note">현재 production에서는 다음 경기 진행을 지원합니다.</span>
+      <button className="primary" style={{gridColumn:'1 / -1'}} disabled={mutationLoading} aria-busy={mutationLoading} onClick={()=>void onAdvanceNextGame()}>{mutationLoading?'경기 진행 중…':'▶ 다음 경기'}</button>
     </nav>
   </div>
 }
