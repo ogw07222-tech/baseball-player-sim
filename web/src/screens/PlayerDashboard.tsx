@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import type { DashboardViewModel } from '../types/viewModels'
 import { AbilityBar, Leaderboard, Panel, ProgressRing, Tabs } from '../components/ui'
-import type { AdvanceCommand } from '../services/GameDataProvider'
 
 const fmt3 = (v:number) => v.toFixed(3).replace(/^0/, '')
 const fmtWar = (v:number|null) => v === null ? '—' : v.toFixed(1)
 const fmtOptional = (v:string|number|null|undefined) => v === null || v === undefined || v === '' ? '—' : String(v)
 
-export function PlayerDashboard({ data, onAdvance }: { data:DashboardViewModel; onAdvance:(command:AdvanceCommand)=>void }) {
+export function PlayerDashboard({ data, onAdvanceNextGame, mutationLoading }: { data:DashboardViewModel; onAdvanceNextGame:()=>Promise<void>; mutationLoading:boolean }) {
   const [titleMetric,setTitleMetric] = useState('HR')
   const stats = data.seasonStats
   const recent = data.recentGames
@@ -62,7 +61,7 @@ export function PlayerDashboard({ data, onAdvance }: { data:DashboardViewModel; 
             <div className="matchup"><div><strong>{data.nextGame.awayTeam}</strong><small>{fmtOptional(data.nextGame.awayRank)}위 · {fmtOptional(data.nextGame.awayRecord)}</small></div><b>VS</b><div><strong>{data.nextGame.homeTeam}</strong><small>{fmtOptional(data.nextGame.homeRank)}위 · {fmtOptional(data.nextGame.homeRecord)}</small></div></div>
             <p className="game-meta">{data.nextGame.date}{data.nextGame.time ? ` ${data.nextGame.time}` : ''}<br/>{data.nextGame.stadium ?? '경기장 미정'}</p>
             <div className="starter-card"><span>예상 선발</span><strong>{data.nextGame.opposingStarter ?? '미정'} · {data.nextGame.throwingHand ?? '—'}</strong><small>ERA {data.nextGame.era === null ? '—' : data.nextGame.era.toFixed(2)}{data.nextGame.expectedLineupSpot?` · 예상 ${data.nextGame.expectedLineupSpot}번 타순`:''}</small></div>
-          </> : <div className="empty-tab">현재 provider가 다음 경기 정보를 제공하지 않습니다.</div>}
+          </> : <div className="empty-tab">현재 backend가 다음 경기 세부 정보를 제공하지 않습니다.</div>}
         </Panel>
         <Panel title="시즌 스토리">{data.seasonStory.length ? <div className="timeline">{data.seasonStory.map(event=><div className="timeline-row" key={`${event.date}-${event.title}`}><time>{event.date}</time><span className={`timeline-dot ${event.category.toLowerCase()}`}/><div><strong>{event.title}</strong><small>{event.detail}</small></div></div>)}</div> : <div className="empty-tab">현재 시즌에 기록된 스토리가 없습니다.</div>}</Panel>
         <Panel title="타이틀 경쟁" action={titleMetrics.length && activeTitleMetric ? <Tabs items={titleMetrics} value={activeTitleMetric} onChange={setTitleMetric} ariaLabel="타이틀 경쟁 지표"/> : undefined}><Leaderboard rows={activeTitleMetric ? data.titleRace[activeTitleMetric] ?? [] : []}/></Panel>
@@ -70,10 +69,7 @@ export function PlayerDashboard({ data, onAdvance }: { data:DashboardViewModel; 
     </div>
 
     <nav className="advance-controls" aria-label="시간 진행">
-      <button className="primary" onClick={()=>onAdvance('nextGame')}>▶ 다음 경기</button>
-      <button onClick={()=>onAdvance('week')}>1주 진행</button>
-      <button onClick={()=>onAdvance('month')}>1개월 진행</button>
-      <button onClick={()=>onAdvance('season')}>▶▶ 시즌 끝까지</button>
+      <button className="primary" style={{gridColumn:'1 / -1'}} disabled={mutationLoading} aria-busy={mutationLoading} onClick={()=>void onAdvanceNextGame()}>{mutationLoading?'경기 진행 중…':'▶ 다음 경기'}</button>
     </nav>
   </div>
 }

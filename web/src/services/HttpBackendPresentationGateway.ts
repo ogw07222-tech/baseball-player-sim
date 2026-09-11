@@ -33,11 +33,16 @@ export class HttpBackendPresentationGateway implements BackendPresentationGatewa
   constructor(private readonly baseUrl = '/api/v1') {}
 
   private async json<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
-      ...init,
-    })
+    let response: Response
+    try {
+      response = await fetch(`${this.baseUrl}${path}`, {
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+        ...init,
+      })
+    } catch {
+      throw new BackendTransportError(0, 'NETWORK_ERROR', 'backend network request failed', true, this.revision)
+    }
     if (!response.ok) {
       let payload: ErrorPayload = {}
       try { payload = await response.json() as ErrorPayload } catch { /* non-JSON fallback */ }
@@ -103,7 +108,7 @@ export class HttpBackendPresentationGateway implements BackendPresentationGatewa
       this.revision = snapshot.meta.revision
     }
     const expectedRevision = this.revision
-    if (expectedRevision === null) throw new Error('cannot advance without a backend revision')
+    if (expectedRevision === null) throw new BackendTransportError(409, 'NO_REVISION', 'cannot advance without a backend revision', false, null)
     const snapshot = this.remember(await this.json<Snapshot>('/advance', {
       method: 'POST',
       body: JSON.stringify({

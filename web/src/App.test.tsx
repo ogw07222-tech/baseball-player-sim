@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { App } from './App'
 import { MockGameDataProvider } from './mock/mockGameDataProvider'
 import type { GameDataProvider } from './services/GameDataProvider'
+import { BackendTransportError } from './services/HttpBackendPresentationGateway'
 
 class FailingProvider extends MockGameDataProvider {
   constructor(){ super({hasCareer:true}) }
@@ -13,6 +14,35 @@ class SlowProvider extends MockGameDataProvider {
   constructor(){ super({hasCareer:true}) }
   async getDashboard() { await new Promise(resolve=>setTimeout(resolve,20)); return super.getDashboard() }
   async getSeason() { await new Promise(resolve=>setTimeout(resolve,20)); return super.getSeason() }
+}
+
+class SlowAdvanceProvider extends MockGameDataProvider {
+  advanceCalls = 0
+  private releaseAdvance: (()=>void) | null = null
+  constructor(){ super({hasCareer:true}) }
+  async advanceNextGame() {
+    this.advanceCalls += 1
+    await new Promise<void>(resolve=>{ this.releaseAdvance = resolve })
+    return super.advanceNextGame()
+  }
+  release(){ this.releaseAdvance?.() }
+}
+
+class ConflictProvider extends MockGameDataProvider {
+  dashboardReads = 0
+  private conflict = true
+  constructor(){ super({hasCareer:true}) }
+  async getDashboard() {
+    this.dashboardReads += 1
+    return super.getDashboard()
+  }
+  async advanceNextGame() {
+    if(this.conflict) {
+      this.conflict = false
+      throw new BackendTransportError(409,'REVISION_CONFLICT','expected_revision is stale',false,48)
+    }
+    return super.advanceNextGame()
+  }
 }
 
 class EmptyOptionalDataProvider extends MockGameDataProvider {
@@ -41,7 +71,7 @@ afterEach(()=>{ window.location.hash='' })
 
 describe('web UI',()=>{
   it('renders the single-screen new career UI without catcher, wizard steps, or back button', async()=>{
-    render(<App />)
+    render(<App provider={new MockGameDataProvider()}/>)
     expect(await screen.findByRole('heading',{name:'NEW CAREER'})).toBeInTheDocument()
     expect(screen.getByLabelText('PLAYER NAME')).toBeInTheDocument()
     expect(screen.getAllByRole('button').filter(button=>['1B','2B','3B','SS','LF','CF','RF'].includes(button.textContent?.trim() ?? ''))).toHaveLength(7)
@@ -162,16 +192,41 @@ describe('web UI',()=>{
     expect(await screen.findByText(/현재 provider에 월간 집계 계약이 없어/)).toBeInTheDocument()
   })
 
-  it('refreshes dashboard and season metadata after an advance action', async()=>{
+  it('refreshes dashboard and season metadata after a production-supported next-game action', async()=>{
     const provider = existingCareerProvider()
     render(<App provider={provider}/>)
     await screen.findByRole('heading',{name:/김건우/})
     expect(screen.getByText(/GAME 47 \/ 144/)).toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:/1주 진행/})).not.toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:/1개월 진행/})).not.toBeInTheDocument()
+    expect(screen.queryByRole('button',{name:/시즌 끝까지/})).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button',{name:/다음 경기/}))
     await waitFor(()=>expect(screen.getByText(/GAME 48 \/ 144/)).toBeInTheDocument())
     expect((await provider.getSeason()).season.game).toBe(48)
-    fireEvent.click(screen.getByRole('button',{name:'리그'}))
-    expect(await screen.findByText('팀 순위')).toBeInTheDocument()
+  })
+
+  it('disables the next-game mutation and prevents duplicate clicks while a request is in flight', async()=>{
+    const provider = new SlowAdvanceProvider()
+    render(<App provider={provider}/>)
+    await screen.findByRole('heading',{name:/김건우/})
+    const advanceButton = screen.getByRole('button',{name:/다음 경기/})
+    fireEvent.click(advanceButton)
+    fireEvent.click(advanceButton)
+    await waitFor(()=>expect(provider.advanceCalls).toBe(1))
+    expect(screen.getByRole('button',{name:/경기 진행 중/})).toBeDisabled()
+    provider.release()
+    await waitFor(()=>expect(screen.getByText(/GAME 48 \/ 144/)).toBeInTheDocument())
+  })
+
+  it('reloads authoritative state after a revision conflict instead of applying optimistic state', async()=>{
+    const provider = new ConflictProvider()
+    render(<App provider={provider}/>)
+    await screen.findByRole('heading',{name:/김건우/})
+    expect(screen.getByText(/GAME 47 \/ 144/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button',{name:/다음 경기/}))
+    await waitFor(()=>expect(provider.dashboardReads).toBeGreaterThanOrEqual(2))
+    expect(screen.getByRole('alert')).toHaveTextContent('최신 서버 상태로 다시 불러왔습니다')
+    expect(screen.getByText(/GAME 47 \/ 144/)).toBeInTheDocument()
   })
 
   it('renders graceful empty states when optional collections are empty', async()=>{
@@ -195,20 +250,20 @@ describe('web UI',()=>{
     expect(screen.getAllByText('5.7').length).toBeGreaterThan(0)
   })
 
-  it('accepts a replaceable provider', async()=>{
+  it('accepts an explicitly injected provider', async()=>{
     render(<App provider={existingCareerProvider()}/>)
     expect(await screen.findByRole('heading',{name:/김건우/})).toBeInTheDocument()
   })
 
-  it('shows loading state', async()=>{
+  it('shows session loading state', async()=>{
     render(<App provider={new SlowProvider()}/>)
-    expect(screen.getByRole('status')).toHaveTextContent('데이터를 불러오는 중입니다.')
+    expect(screen.getByRole('status')).toHaveTextContent('저장된 커리어를 확인하는 중입니다.')
     await screen.findByRole('heading',{name:/김건우/})
   })
 
-  it('shows error state instead of crashing', async()=>{
+  it('shows API error state instead of crashing', async()=>{
     render(<App provider={new FailingProvider()}/>)
     await waitFor(()=>expect(screen.getByRole('alert')).toBeInTheDocument())
-    expect(screen.getByText('시즌 정보를 불러올 수 없습니다.')).toBeInTheDocument()
+    expect(screen.getByText('서버와 통신하는 중 문제가 발생했습니다.')).toBeInTheDocument()
   })
 })
