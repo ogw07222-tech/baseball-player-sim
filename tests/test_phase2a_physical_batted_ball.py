@@ -1,4 +1,5 @@
 import math
+import random
 import statistics
 import time
 import unittest
@@ -81,6 +82,26 @@ class Phase2APhysicalBattedBallTests(unittest.TestCase):
             parent_rng=parent,
         )
         self.assertEqual(before, parent.get_state())
+
+    def test_stdlib_random_parent_is_supported_without_consumption(self):
+        parent = random.Random(20260912)
+        before = parent.getstate()
+        kwargs = dict(
+            hitter_contact=100,
+            hitter_power=100,
+            batter_side="R",
+            approach="balanced",
+            pitch_zone="middle",
+            pitch_velocity_quality=0.1,
+            pitch_movement_quality=0.1,
+            pitch_location_quality=0.1,
+            pitch_hittable_quality=0.3,
+            parent_rng=parent,
+        )
+        first = generate_batted_ball_state(**kwargs)
+        second = generate_batted_ball_state(**kwargs)
+        self.assertEqual(first, second)
+        self.assertEqual(before, parent.getstate())
 
     def test_same_parent_state_replays_exactly(self):
         self.assertEqual(physical_state(77), physical_state(77))
