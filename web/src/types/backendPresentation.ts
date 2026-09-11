@@ -63,10 +63,10 @@ export interface BackendTeamBattingDto {
 export type BackendProgressDto = Record<string, unknown> & {
   year: number
   game: number
-  games_completed: number
   total_games: number
-  current_date: string | null
-  progress: number
+  games_completed?: number
+  current_date?: string | null
+  progress?: number
 }
 
 export interface BackendDashboardDto {
