@@ -2,162 +2,200 @@
 
 WORKSTREAM: 07 - Integration & GitHub
 UPDATED_AT: 2026-09-11
-SOURCE_MAIN_AT_CHECK: `58f662324b99505ae6f73bb8188cdfb65224157d`
-STATE: PRODUCTION_SMOKE_PASS_WITH_COLD_START_OPEN
-CURRENT_TASK: Vercel Production Gate
-RESULT: PASS WITH ONE OPEN EVIDENCE ITEM — a new READY Production deployment exists on an eligible post-PR-45 main SHA; FastAPI/Neon/session/create/state/advance/revision/idempotency/stale-CAS/reconnect/browser production authority are evidenced. Strict forced cold-start persistence is not directly observable from the available runtime metadata and remains OPEN.
+TASK_START_MAIN: `38aea3b5f1cc525bb0d1107d3bb8d77db51cb107`
+INTEGRATION_BASE_AFTER_04: `05a9c0b23eb8da27c4de42e4b4e16c92a559cf6a`
+STATE: P1_CANONICAL_EVENT_HTTP_VALIDATED
+CURRENT_TASK: P1 Canonical Event Timeline HTTP Integration
+RESULT: PASS — CanonicalEventDTO v1 is transported unchanged through the existing transactional advance contract; PR #57 validated and ready to merge.
 
-## NEW PRODUCTION DEPLOYMENT
-Historical stale deployment is comparison-only:
-- deployment: `dpl_E8HQViPuLgzzbuvgASB4KmtEMAfg`
-- SHA: `8a6f48c9ab833ab5412cc246e31b6b6c09275296`
-- its historical `No project table found` failure is not treated as evidence about current main.
+## DEPENDENCY RESOLUTION
+The task prompt referenced PR #53 as the 04 implementation, but current GitHub source of truth showed PR #53 already CLOSED/SUPERSEDED because it inferred event facts from histories/snapshots.
 
-New Production deployment verified:
-- project: `baseball-player-sim`
-- deployment: `dpl_FZZyPNWuSTDzscY4hndgNZD2sdyc`
-- target: Production
-- state: `READY`
-- deployed SHA: `b3ca2fe9cd6c84f400d7d301a2c30176bf0978cc`
-- source: redeploy of `dpl_zeqW4tEs1FBs95cKeZABrXSEPcCU`
+Authoritative dependency order used here:
+1. PR #54 — 03 authoritative `CareerSourceFact` emission — already merged at task start.
+2. PR #56 — 04 `CanonicalEventDTO` v1 from 03 source facts — CI run #785 PASS and merged as `05a9c0b23eb8da27c4de42e4b4e16c92a559cf6a` before 07 implementation.
+3. PR #57 — 07 HTTP/frontend transport integration — this task.
+4. 06 — UI rendering after #57.
 
-Eligibility check:
-- required floor: `0a9ad6d3aac51e3d7b4eafa8befe2fb449bee1a2`
-- GitHub compare reports deployed SHA `b3ca2fe...` is 35 commits ahead / 0 behind that floor.
-- therefore the deployment satisfies the required PR #45-containing main lineage gate.
+No 03/04 event semantics were reimplemented by 07.
 
-## FIRST THREE GATES
-1. Deployment state READY: PASS.
-2. Deployed Git SHA at/after required PR #45-containing main commit: PASS.
-3. `GET /api/v1/session` actual FastAPI JSON: PASS.
+## CONSUMED CANONICAL CONTRACT
+Public `CanonicalEventDTO` v1 fields transported by `mutation.result.notable_events`:
+- `event_id`
+- `event_type`
+- `category`
+- `occurred_at`
+- `season`
+- `game_number`
+- `sequence`
+- `title`
+- `summary`
+- `importance`
+- `player_id`
+- `team_id`
+- `related_entity_ids`
+- `state_effects`
+- `rating_changes`
+- `injury_effect`
+- `trait_changes`
+- `source_command`
+- `presentation_priority`
+- `persistence`
+- `dedupe_key`
 
-Observed on the new deployment:
-- HTTP 200
-- content type `application/json`
-- body `{"has_career":false,"revision":null}`
-- secure `baseball_sim_session` cookie issued.
+04-internal phase/source ordinals remain private and are not added to the HTTP DTO.
 
-This supersedes the earlier production `SAVE_FAILED: external transactional durable store is required in production` gate failure. Current runtime can now reach the configured external durable store.
+Current merged 04 v1 policy is authoritative: ordinary `injury_recovery_completed` is currently a transient canonical event unless a compatible durable source history already exists. 07 does not append a separate recovery history or override that persistence policy.
 
-## FULL PRODUCTION SMOKE EVIDENCE
-### Reproducible HTTP smoke
-The repository's existing `tools/deployed_p0_smoke.py` contract performs:
-- GET session
-- POST career, expect revision 1
-- GET state equal to created snapshot
-- POST one `next_game`, expect revision 2 and game 1
-- replay the same idempotency key/body and require byte-equivalent JSON
-- stale expected revision and require HTTP 409 `REVISION_CONFLICT`
-- copy the session cookie into a new HTTP client and require recovered state equal to committed advanced state
-- API 404 schema check.
+## HTTP / TRANSACTION PATH
+No FastAPI route redesign was needed.
 
-Vercel runtime logs for `dpl_FZZyPNWuSTDzscY4hndgNZD2sdyc` show the matching production sequence at 08:13:54Z–08:13:56Z:
-- GET `/api/v1/session` -> 200
-- POST `/api/v1/career` -> 201
-- GET `/api/v1/state` -> 200
-- POST `/api/v1/advance` -> 200
-- POST `/api/v1/advance` -> 200 (replay)
-- POST `/api/v1/advance` -> 409 (stale revision)
-- GET `/api/v1/state` -> 200 (new-client resume)
-- GET `/api/v1/not-a-route` -> 404.
+Merged 04 already makes `AdvanceResultViewModel.from_summary()` project `AdvanceSummary.source_facts` plus transient gameplay notable markers to the canonical ordered list. Existing FastAPI `/api/v1/advance` calls that view-model inside the existing `SessionStore.mutate()` mutator.
 
-### Neon durable state
-Production Neon project:
-- project: `baseball-player-sim-production`
-- branch: `production`
-- database: `baseball_sim`
-- PostgreSQL 16.
+Therefore a successful mutation remains one atomic logical transaction:
+- authoritative simulation/state mutation
+- existing persistent histories in the canonical save payload
+- canonical event response projection
+- serialized save payload
+- revision +1
+- idempotency response record
 
-Canonical tables exist:
-- `baseball_sim_sessions`
-- `baseball_sim_idempotency`.
+No Neon event table or schema change was added.
 
-The deployed smoke session is durably present:
-- session id `87690c68c71e4a8d8e9b2f0a9a27d878`
-- revision `2`
-- save version `3`.
+## CAS / IDEMPOTENCY
+Existing store semantics are preserved:
+- stale `expected_revision` is rejected before the mutator runs;
+- stale rejection commits no state/history/timeline/idempotency row and does not advance revision;
+- same session + key + fingerprint replays the stored response without rerunning simulation or canonical projection;
+- conflicting fingerprint with the same key retains the existing HTTP 409 simulation/idempotency conflict behavior;
+- retryable browser transport retry reuses the exact same serialized request body and idempotency key.
 
-The corresponding idempotency row is durably present:
-- key `deployment-smoke-05c9456b7b83472a8dce79e97aa5df1f`
-- resulting revision `2`
-- stored response revision `2`
-- stored response dashboard game number `1`.
+Dedicated tests verify byte-equivalent HTTP replay, stable event ids/sequences, no duplicate durable career history, and exactly one idempotency row.
 
-The idempotency table primary key is `(session_id, idempotency_key)`, and the smoke row exists once while Vercel logs show two successful advance requests followed by the stale 409. Together with the smoke script's exact replay assertion, this is production evidence of same-key replay without a second committed mutation.
+## FRONTEND TRANSPORT CHANGES
+`web/src/types/backendPresentation.ts` now explicitly models CanonicalEventDTO v1 and `BackendAdvanceResultDto.notable_events` is `BackendCanonicalEventDto[]` instead of legacy `{date,kind,message}[]`.
 
-## GAME / REVISION / PERSISTENCE
+`HttpBackendPresentationGateway` now preserves the successful authoritative mutation result instead of discarding it after extracting the dashboard. It performs no event sorting, filtering, category collapse, ID generation, sequence recalculation, title/summary rewriting, or persistence rewriting.
+
+A successful gateway mutation returns:
+- authoritative dashboard DTO
+- the exact backend `mutation.result`
+
+`ProductionPresentationProvider` adapts the dashboard as before and additionally exposes `advanceResult` to 06. Existing App/dashboard behavior remains compatible because the returned object is still a DashboardViewModel-compatible shape. No UI visual/layout file was changed.
+
+Mock-provider compatibility is retained by making transport metadata optional at the generic `GameDataProvider` level; production HTTP/provider paths always provide the backend mutation result.
+
+## COMMAND BEHAVIOR
+The same canonical event shape is used for:
+- `next_game`
+- `week`
+- `month`
+
+07 preserves backend ordering and `sequence` exactly. Composite arrays are not reconstructed from the final dashboard.
+
+Verified representative composite behavior includes:
+- injury recovery + roster promotion in the same game timeline;
+- mixed transient and persistent events;
+- FARM -> FIRST -> FARM in one month retaining both promotion and demotion in order;
+- persistent career-history rows surviving replay/restart without duplicate append.
+
+Automatic season advance remains intentionally unavailable. Lifecycle source-command support belongs to the canonical DTO but no automatic season HTTP command was introduced.
+
+## VALIDATION — PR #57
+Implementation/code HEAD validated by GitHub Actions: `36540e82ab07bb9a2d7b3826c0742f42efd064c9`
+Workflow: tests run #795 (`34591503804`)
+
 PASS:
-- career create committed revision 1
-- one next_game committed revision 2
-- game counter reached 1
-- authoritative response persisted in Neon idempotency storage
-- refresh/new-client GET state succeeded after the mutation
-- stale revision returned 409
-- session row remained revision 2 after replay/stale request.
+- web npm install/build/tests
+- Python dependency and Vercel packaging contract
+- Python compile
+- PostgreSQL external durable-store tests
+- Vercel FastAPI entrypoint smoke
+- API vertical-slice regression
+- related production integration regression
+- full Python unit suite: 348 tests / OK
+- Auto career smoke
+- Balance smoke
+- high-school/draft calibration gate
+- calibration artifact upload
 
-The smoke script validates the advanced response differs from the initial career state through the game progress contract; current durable response records game 1. No gameplay/rating tuning was involved.
+New HTTP timeline tests PASS:
+- next_game CanonicalEventDTO shape
+- week ordered mixed persistent/transient timeline
+- month FARM->FIRST->FARM retention
+- same-game event sequence preservation
+- stale CAS no state/history/event/idempotency commit
+- same-key byte-equivalent replay
+- stable persistent history across replay
+- restart durable-history equality
+- same-key different fingerprint conflict
 
-## BROWSER E2E / PRODUCTION AUTHORITY
-Runtime logs on the same new deployment show a separate browser flow at 08:14:21Z–08:14:24Z:
-- GET `/` -> 200
-- frontend JS/CSS -> 200
-- GET session -> 200
-- POST career -> 201
-- POST advance -> 200
-- browser refresh GET `/` + assets -> 304
-- GET session -> 200
-- GET state -> 200.
+Merged 04 tests retained and PASS for:
+- no-event canonical list
+- deterministic same-day ordering
+- injury creation/recovery projection
+- form/trait/rating/growth/lifecycle canonical mapping
+- deterministic transient gameplay adapter
+- save/load deterministic future timeline
+- partial period near season end
 
-A matching Neon browser session exists at revision 2 with a non-`deployment-smoke-*` UUID idempotency key, confirming browser mutations were persisted through the production backend.
+## PR
+PR #57 — `P1 integration: transport CanonicalEventDTO timelines`
 
-Deployed SHA `b3ca2fe...` `web/src/main.tsx` constructs exactly:
-`ProductionPresentationProvider(new HttpBackendPresentationGateway())`
-and injects it into `App`.
+Change scope is limited to frontend transport/types/provider compatibility, dedicated API transport tests, and this 07 status document. No gameplay/growth/rating/injury/roster/event semantics were changed.
 
-Therefore `MockGameDataProvider` is not production authority: PASS.
+## DEPLOYMENT
+No production Vercel deployment was created for this contract-only integration.
+- Git auto-deploy remains OFF.
+- No production deployment quota was intentionally consumed.
+- Batch deployment with the next intentional release.
 
-## SEPARATE INVOCATION / COLD START
-Separate invocation/reconnect persistence: PASS.
-- state recovery occurred through a new HTTP client using only the durable session cookie;
-- later browser refresh also recovered revision/state through the backend;
-- Neon is the durable authority.
+## EXACT 06 HANDOFF
+Production mutation contract:
+`mutation.result.notable_events: CanonicalEventDTO[]`
 
-Strict forced cold-start evidence: OPEN.
-- Vercel runtime output available here identifies serverless requests/deployment but does not expose a definitive cold-start marker for the resumed request.
-- no redeploy/restart was forced solely to manufacture this evidence, avoiding unnecessary production usage.
-- this does not block the verified durable persistence path, but the explicit forced-cold-start gate is not claimed PASS.
+06 consumption rules:
+- backend array order and `sequence` are authoritative;
+- render all returned events; do not collapse by category or keep only the last event;
+- do not infer event triggers from dashboard/final state;
+- support 0 / 1 / N events;
+- support multiple events on the same date/game;
+- mixed persistent/transient timelines are normal and both are displayable;
+- `importance` and `presentation_priority` control emphasis only, never retention;
+- FARM/FIRST canonical roster events mean roster movement only; UI must not invent extra league simulation implications;
+- use backend `title`/`summary`; do not regenerate narrative;
+- `source_command` is passed as `next_game`, `week`, `month`, or `lifecycle` unchanged.
 
-## PRODUCTION GATES
-- NEW_PRODUCTION_DEPLOYMENT = PASS
-- DEPLOYMENT_READY = PASS
-- DEPLOYED_SHA_ELIGIBLE = PASS
-- FASTAPI_SESSION_JSON = PASS
-- NEON_RUNTIME_CONNECTION = PASS
-- CAREER_CREATE = PASS
-- GET_STATE = PASS
-- NEXT_GAME = PASS
-- REVISION_PLUS_ONE = PASS
-- GAME_PROGRESS_CHANGE = PASS
-- REFRESH_RECONNECT_PERSISTENCE = PASS
-- NEON_SESSION_ROW = PASS
-- NEON_IDEMPOTENCY_ROW = PASS
-- SAME_KEY_REPLAY_NO_DUPLICATE_COMMIT = PASS
-- STALE_REVISION_409 = PASS
-- SEPARATE_INVOCATION_PERSISTENCE = PASS
-- STRICT_FORCED_COLD_START_EVIDENCE = OPEN
-- BROWSER_E2E = PASS
-- PRODUCTION_PROVIDER_AUTHORITY = PASS
-- MOCK_PROVIDER_PRODUCTION_AUTHORITY = PASS (meaning mock is NOT authority)
+`ProductionPresentationProvider` now exposes `advanceResult.notable_events`, so 06 can render the returned timeline after Next Game / Next Week / Next Month without new trigger logic.
 
-No application code, schema, Vercel configuration, or deployment setting was changed during this verification.
+## REMAINING OPEN
+- Actual 06 timeline UI/rendering and optional Next Week/Next Month controls.
+- Automatic season HTTP command remains OPEN.
+- Lifecycle HTTP action/response transport beyond current game/week/month advance remains future work.
+- Event categories that 03/04 have not given production semantics remain OPEN (for example future contract/FA/trade/retirement and other catalog gaps).
+- Strict forced-cold-start production evidence remains OPEN_NON_BLOCKING from the earlier P0/P1 deployment work.
 
-## PRIOR P1 CANONICAL EVENT TIMELINE STATUS
-The prior 07 task remains unchanged:
-- 04 CanonicalEventDTO v1 design is ready.
-- production canonical event HTTP integration remains blocked on 03/04 authoritative per-transition source facts.
-- 07 must not reconstruct intermediate event semantics from final snapshots.
-- no canonical-event production PR has been created yet.
-- required merge order remains 03 source facts -> 04 canonical DTO implementation -> 07 HTTP pass-through -> 06 rendering.
+## GATES
+- PR54_03_SOURCE_FACTS = PASS_MERGED
+- PR56_04_CANONICAL_EVENT_DTO_V1 = PASS_MERGED
+- CANONICAL_EVENT_HTTP_DTO = PASS
+- NEXT_GAME_TIMELINE = PASS
+- WEEK_TIMELINE = PASS
+- MONTH_TIMELINE = PASS
+- COMPOSITE_EVENT_RETENTION = PASS
+- BACKEND_SEQUENCE_PRESERVED = PASS
+- CAS_EVENT_ROLLBACK = PASS
+- IDEMPOTENCY_TIMELINE_REPLAY = PASS
+- PERSISTENT_HISTORY_NON_DUPLICATION = PASS
+- PERSISTENCE_RESTART = PASS
+- WEB_TYPE_BUILD_COMPATIBILITY = PASS
+- PRODUCTION_PROVIDER_COMPATIBILITY = PASS
+- NO_NEW_EVENT_TABLE = PASS
+- VERCEL_AUTO_DEPLOY = OFF
+- PRODUCTION_DEPLOYMENT_THIS_TASK = NOT_RUN_BY_DESIGN
+- P1_CANONICAL_EVENT_HTTP_INTEGRATION = PASS
+- 06_TIMELINE_RENDERING = OPEN
+- AUTOMATIC_SEASON_COMMAND = OPEN
 
 ## NEXT_ACTION
-Production P0/P1 transport and durable-store gate is operational on the new deployment. Keep the strict forced-cold-start evidence item OPEN until an intentional test can prove it without unnecessary deployment churn. For canonical event timeline work, wait for the coordinated 03/04 source contract before changing 07 production code.
+Merge PR #57, then hand `advanceResult.notable_events` to 06 for timeline rendering. Batch this contract with the next intentional Production release rather than creating a deployment only for this transport change.
