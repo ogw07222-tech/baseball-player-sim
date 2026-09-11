@@ -2,93 +2,79 @@
 
 WORKSTREAM: 08 - Baseball Data & Research
 UPDATED_AT: 2026-09-11
-SOURCE_OF_TRUTH: main@dc664631905c38a768820eb2dd6876f5ef3f8b6c
+SOURCE_OF_TRUTH: main@ddf5f81389c37a50994dca1e0936e314b503e738
 STATE: ACTIVE
-CURRENT_TASK: KBO Pitch / Batted-Ball / Run-Conversion Reference Pack
-RESULT: FAIL_WATCH_WITH_STRONG_REFERENCE_FINDINGS_AND_OPEN_TRACKING_GAPS
+CURRENT_TASK: KBO/MLB batted-ball physics and field-position reference pack for Phase 2
+RESULT: PARTIAL_WITH_VERIFIED_PHYSICS_AND_KBO_OUTCOME_TARGETS
 
 ## LAST_COMPLETED
 - Public data provenance/usage policy and detailed dataset provenance matrix remain in place.
 - `docs/kbo-shared-evidence-baseline.md` provides common 02/03/04/05 references.
-- `docs/kbo-roster-age-pitcher-workload-baseline.md` and pass2 provide roster/workload evidence.
-- `docs/kbo-simulation-realism-comparison-2026-09-11.md` compares the canonical full-game environment against completed 2022-2025 KBO.
-- Added `docs/kbo-pitch-batted-ball-run-conversion-reference.md` with pitch-tracking, XBH/power, HBP/GDP/SF/error, run-conversion, park-effect, and owner-routing evidence.
-
-## SIMULATION_SOURCE
-- 05 Balance Lab expanded offense/pitch diagnostic: Actions run `34580783735`, checkout `21a7621763a85268a4e2fb68cad9194854c4c601`, seed `20260906`.
-- Samples: 10,000 neutral full games; 200,000 neutral hitter-vs-neutral pitcher PAs; 200,000 `Player.random` prospect hitter-vs-neutral pitcher PAs.
-- Neutral pitch structure: zone 55.149%, swing 47.473%, chase 21.253%, Z-swing 68.797%, whiff/swing 27.385%, contact/swing 72.615%, Z-contact 74.644%, O-contact 64.540%, called strike/pitch 17.208%, BB 8.060%, K 21.247%, HR/PA 2.737%, looking-K share 54.43%.
-- Generated prospect trace: chase 33.569%, whiff 30.799%, BB 4.984%, K 26.067%.
-- 10k event structure: HBP 0, GDP 1.0289/game, SF 0.1351/game, R/H .44263, R/PA .105225, 2B/PA 3.892%, 3B/PA .193%, HR/PA 2.713%, XBH/H 28.593%, TB/H 1.5223, ISO .1354.
+- `docs/kbo-pitch-batted-ball-run-conversion-reference.md` provides Phase-1 pitch/outcome/run-conversion references.
+- Added `docs/phase2-batted-ball-physics-reference.md` for Phase 2 physical batted-ball calibration, stadium geometry, MLB Statcast structural references, defensive reach, and post-implementation validation targets.
 
 ## CURRENT_FINDINGS
-- Completed 2022-2025 KBO aggregate references: HBP/game ~1.044; HBP/PA ~1.33%; GDP/game ~1.426; SF/game ~0.655; errors/game ~1.529; 2B/PA ~4.02%; 3B/PA ~0.38%; HR/PA ~2.06%; XBH/H ~27.71%; TB/H ~1.470; ISO ~.125; R/H ~.5268; R/PA ~.1228.
-- Simulation 2B/PA is close (-3.2%) and XBH/H is close (+3.2%) -> PASS.
-- Simulation 3B/PA is ~49% low -> FAIL; HR/PA is ~31.7% high -> FAIL. Power structure is skewed toward HR rather than suffering a generic XBH shortage.
-- HBP is structurally absent versus recent KBO ~1.04/game / ~1.33% of PA -> FAIL. It is a material missing on-base path but cannot by itself be assigned the full run-scoring deficit without KBO-specific run expectancy or sensitivity evidence.
-- GDP is ~28% low -> FAIL/WATCH; SF is ~79% low -> FAIL. Error/ROE comparison remains OPEN because 05 does not expose them.
-- R/H is ~16% low and R/PA ~14.3% low -> RUN_CONVERSION FAIL remains confirmed.
-- No definition-aligned public recent KBO league aggregate was recovered for first-to-third, second-to-home, first-to-home on double, XBT, advancement-on-outs, or SF opportunity conversion. Baserunning attribution remains OPEN.
-- Best currently available KBO plate-discipline reference is 2026 in-progress secondary pitch tracking: roughly Swing 44.8%, Chase 26.7-27%, Z-Swing 64.3%, Whiff/swing 21%, Z-Contact 86.9% over the current tracked environment. This is not a completed official season aggregate.
-- Neutral Swing 47.47% is moderately high -> WATCH; neutral Chase 21.25% is low -> WATCH; generated Chase 33.57% is high -> FAIL; neutral Whiff 27.39% is high -> FAIL/WATCH; neutral Z-Contact 74.64% is materially low -> FAIL.
-- Direct league Zone% was not recovered. An algebraically implied ~48% from current separately averaged swing/chase/Z-swing values suggests neutral 55.15% may be high, but definition/weighting mismatch keeps ZONE_RATE at OPEN/WATCH.
-- No matched KBO aggregate was recovered for SwStr%, called-strike%, CSW%, first-pitch strike%, 0-2/3-0/3-2 reached rates.
-- Recent 2025 KBO-attributed team evidence shows KIA led the league in looking strikeouts with 306 of 1,128 strikeouts looking (~27.1%) at the cited snapshot. Simulation looking-K share 54.43% is unsupported and roughly double even that high-looking-K team share -> strong FAIL signal.
-- Simulation eligible-deep-air-ball -> HR conversion 26.66% has no definition-aligned KBO public counterpart. Direct comparison remains OPEN; HR/PA and approximately aligned HR/BIP proxies are high.
-- KBO play-by-play batted-ball type data show 2022-2025 approximate GB/FB structure, but type coverage is only ~70-74%, out-heavy, and not comparable to launch-angle tracking; use as trend context only.
-- Park effects are materially large across KBO venues. Current run park-factor reference spans roughly 1.206 at Daejeon to .888 at Jamsil; historical/event-specific HR factors can be much wider. Park omission matters for team/player variance and tails but does not by itself explain a +31.7% league-average HR bias in a neutral league simulation.
+- No completed-season public KBO league aggregate was recovered for batted-ball EV mean/SD/percentiles, hard-hit rate, launch-angle distribution, EVxLA hit surface, or spray distribution. These remain OPEN and MLB values must not be used as KBO calibration truth.
+- Official MLB Baseball Savant provides strong structural sanity references: 2025 MLB 124,888 batted balls, average EV 89.4 mph (~143.9 km/h), average LA 13.5 deg, Hard-Hit% 40.9%, Barrel% 8.6%; 2024 average EV 88.8 mph, LA 13.3 deg, Hard-Hit% 38.9%, Barrel% 7.8%.
+- Statcast hard-hit threshold is EV >=95 mph (~152.9 km/h); launch-angle sweet spot is 8-32 deg. Common Statcast contact-angle buckets are GB <10 deg, LD 10-25 deg, FB 25-50 deg, popup >50 deg. These are MLB definitions/structural references only.
+- Peer-reviewed batting-timing evidence supports a spray model influenced by contact timing and pitch location, with acceptable timing windows on the order of milliseconds and outside-pitch optimal contact later than inside-pitch contact. No KBO league-wide spray target was recovered.
+- Fair/foul KBO league rate, two-strike foul rate, and foul-EV distribution remain OPEN. MLB pitch-level public data make them derivable, but no compact verified league aggregate was retained in this pass.
+- Baseball-flight literature supports gravity + quadratic aerodynamic drag + spin/Magnus lift as the material lightweight force structure. A representative published 100 mph / 29 deg / 2500 rpm example travels about 397 ft with aerodynamics versus about 571 ft in vacuum, demonstrating that no-drag projectile motion has unacceptable carry bias for wall-cross modeling.
+- Research recommendation only: drag + approximate lift is the strongest lightweight V1 physical model candidate; empirical EV/LA->distance regression is useful as a cross-check but transfers poorly from MLB to KBO parks/weather. Production formula choice remains 01/00-owned.
+- KBO stadium geometry is only partially public. Stronger official dimensions were recovered for Jamsil, Gocheok, Gwangju, and major Daejeon features; Suwon/Daegu/Changwon/Sajik/Incheon detailed geometry relies more on secondary sources. Exact wall polygons, many sector wall heights, and stadium elevations remain OPEN.
+- Jamsil line/CF dimensions are 100/125/100 m with published wall height roughly 2.6-2.7 m. Gocheok is 99/122/99 m with 4 m wall and dome roof. Gwangju is 99/121/99 m and open-air. Daejeon is asymmetric with LF 99 m, RF 95 m and an 8 m Monster Wall sector; exact internal radial geometry should be represented as polygon/wall segments rather than forced scalar LC/RC distances.
+- MLB Statcast defensive structure is usable as architecture evidence only: Sprint Speed average competitive-play context ~27 ft/s; Jump decomposes early movement into reaction/burst/route components; Catch Probability uses opportunity time, distance, direction and wall context. No equivalent public KBO defensive-tracking distribution was recovered.
+- Recent completed KBO outcome gates remain directly usable for Phase 2 validation: 2B/PA ~4.02%, 3B/PA ~0.38%, HR/PA ~2.06%, XBH/H ~27.71%, plus the broader run-environment baselines. Current pre-Phase-2 simulation has 2B near target, 3B low, HR high, and HR resolution before defense/no park geometry, making wall-cross/landing-sector validation a high priority.
 
-## DEFINITION / SOURCE QUALITY
-- High confidence: 2022-2025 HBP/GDP/SF/hit-type/run totals derived from completed KBO-sourced league/team aggregates; denominator definitions are explicit.
-- Medium/low confidence: current 2026 pitch-tracking aggregate from a secondary KBO tracking presentation; season incomplete and aggregation may be qualified-hitter arithmetic rather than pitch-weighted league total.
-- OPEN rather than guessed: completed-season official Zone/O-Swing/Z-Swing/Contact/CStr/CSW/F-Strike/count-reach aggregates; exact deep-air HR conversion; runner advancement transition rates.
-- No MLB benchmark was substituted for unavailable KBO metrics.
+## SOURCE / DEFINITION QUALITY
+- VERIFIED KBO: recent completed 2B/3B/HR/XBH outcome totals; selected official stadium line/CF dimensions and major wall features.
+- PARTIAL KBO: park geometry beyond official published dimensions; PBP-derived GB/FB trend shares; event-specific park factors.
+- OPEN KBO: league EV distribution, LA distribution, EVxLA outcome surface, spray distribution, foul/contact rates, batted-ball spin, Statcast-like defensive reach/catch probability.
+- VERIFIED MLB-only: Statcast EV/LA/Hard-Hit/Barrel definitions and league aggregates; Sprint Speed/Jump/Catch Probability architecture.
+- VERIFIED physics structure: gravity, quadratic drag and spin lift/Magnus terms; exact coefficients remain model/condition dependent and are not chosen by 08.
 
 ## OWNER HANDOFF
-- 01 Gameplay Engine: review HBP absence, looking-K share, low Z-contact/high whiff structure, HR-before-defense/no-park contract, low GDP/SF, and expose base-state transition/LOB/ROE/opportunity denominators before any tuning.
-- 02 Ratings & Generation: neutral chase is low while raw generated prospects are high; neutral whiff already high. Compare a mature production-roster rating population under the same diagnostic before attributing production bias to rating generation.
-- 05 Balance Lab: next measurement-only run should expose direct CSW, true first-pitch-strike result, called strikes on takes, HBP/ROE/error/LOB, GDP and SF opportunities, base-state transition counters, and stable deep-air HR eligibility denominator. No constant changes requested.
-- 00 Game Design HQ: no immediate tuning decision. Cross-system design decision is needed only if explicit parks are added or a single calibration reference environment must be locked.
+- 01 Gameplay Engine: architect Phase 2 around continuous EV/LA/spray -> trajectory -> fair/foul/park-wall -> defense -> hit outcome. Preserve observable wall crossing, landing position, hang time and catchability. Avoid predeclaring HR before park/defense resolution. Support piecewise/asymmetric stadium wall geometry. Coefficients remain 01/00-owned.
+- 05 Balance Lab: after implementation, validate EV/LA/spray/distance/hang-time distributions, wall-cross rates, fair/foul, GB/LD/FB/PU, 1B/2B/3B/HR, HR/PA, HR/BIP, 3B/PA, XBH/H, BABIP, runs/game, catchable/catch-conversion buckets, and park-sector HR distributions. Keep MLB sanity metrics separate from KBO pass/fail gates.
+- 02 Ratings & Generation: no direct Phase 2 coefficient action from this pack; later rating-to-EV/LA/speed mappings should be validated against KBO data when public tracking distributions become available.
+- 00 Game Design HQ: decide whether Phase 2 V1 adopts physical drag+lift, a staged drag-only intermediate, and when real-park/weather complexity enters production. 08 recommends drag+approximate lift from a research perspective only.
 
 ## BLOCKERS
-- No completed 2022-2025 official league plate-discipline aggregate with all requested zone/swing/contact fields was recovered.
-- Direct `eligible deep air ball -> HR` KBO metric does not exist in a definition-aligned public source recovered here.
-- Public recent KBO runner-advancement transition aggregates were not recovered.
-- Simulation error/ROE/LOB and opportunity-level GDP/SF/base-running counters are not yet exposed.
+- No authoritative/public completed-season KBO EV/LA percentile dataset was recovered.
+- No KBO league-wide spray/pull/opposite distribution with explicit denominator was recovered.
+- No compact KBO fair/foul or two-strike foul distribution was recovered.
+- No KBO player-tracking defensive reach/catch-probability dataset was recovered.
+- Full current wall polygons/heights/elevations are not publicly verified for every KBO park.
 
 ## OPEN_ITEMS
-- Recover a licensed/authoritative completed-season KBO plate-discipline aggregate, preferably Sports Info Solutions/Sports2i or an official KBO tracking export, with explicit denominator definitions.
-- Build KBO play-by-play aggregate runner transition probabilities if public-use conditions permit; retain only compact derived aggregates.
-- Recover or derive recent completed-season LOB/team-game and SF/GDP opportunity rates under matched definitions.
-- Obtain a stable recent HR park-factor pack or multi-year event-specific park factors if explicit park modeling is considered.
+- Seek Sports2i/official-team/TrackMan-public batted-ball EV/LA aggregate with explicit sample/season/units.
+- Seek or derive KBO spray and fair/foul aggregate under permitted public-use conditions.
+- Build a source-versioned park geometry dataset with wall segments rather than only five radial distances.
+- Recover stadium elevation/weather metadata if Phase 2 adds atmospheric park states.
+- If legal/public-use conditions permit, derive compact KBO EV/LA or defense outcome surfaces without committing restricted raw tracking/PBP feeds.
 
 ## NEXT_ACTION
-- Highest value next step is a matched KBO plate-discipline source with completed-season Zone/O-Swing/Z-Swing/Contact/SwStr/CStr/CSW/F-Strike definitions. In parallel, 05 should expose runner-state/opportunity diagnostics so 08 can derive matching KBO transition references.
+- Highest-value research gap: a KBO batted-ball tracking aggregate for EV/LA/spray. In parallel, Phase 2 implementation can proceed using KBO hit-type outcome gates and MLB/peer-reviewed physics strictly as structural sanity references, with generic stadium geometry if needed.
 
 ## RELATED_DOCS
+- `docs/phase2-batted-ball-physics-reference.md`
 - `docs/kbo-pitch-batted-ball-run-conversion-reference.md`
 - `docs/kbo-simulation-realism-comparison-2026-09-11.md`
 - `docs/kbo-shared-evidence-baseline.md`
 
 ## GATES
 - PUBLIC_DATA_POLICY = PASS
-- COMPLETED_KBO_BATTED_BALL_TOTALS = PASS
-- KBO_PITCH_TRACKING_REFERENCE = PARTIAL_OPEN
-- NEUTRAL_ZONE_RATE = OPEN_WATCH
-- NEUTRAL_SWING_RATE = WATCH_HIGH
-- NEUTRAL_CHASE_RATE = WATCH_LOW
-- GENERATED_CHASE_RATE = FAIL_HIGH
-- NEUTRAL_WHIFF_RATE = FAIL_WATCH_HIGH
-- NEUTRAL_Z_CONTACT = FAIL_LOW
-- LOOKING_K_SHARE = FAIL_HIGH
-- SIM_2B_RATE = PASS
-- SIM_3B_RATE = FAIL_LOW
-- SIM_HR_RATE = FAIL_HIGH
-- SIM_HBP = FAIL_MISSING
-- SIM_GDP = FAIL_WATCH_LOW
-- SIM_SF = FAIL_LOW
-- RUN_CONVERSION = FAIL_LOW
-- RUNNER_ADVANCEMENT_ATTRIBUTION = OPEN
-- PARK_EFFECT_IMPORTANCE = PASS_FOR_DISTRIBUTION
-- PARK_OMISSION_EXPLAINS_HR_PLUS_30 = NO
-- KBO_PITCH_BATTED_BALL_RUN_CONVERSION_PACK = FAIL_WATCH_WITH_OPEN_GAPS
+- KBO_PHASE2_HIT_TYPE_TARGETS = VERIFIED
+- KBO_EV_DISTRIBUTION = OPEN
+- KBO_LA_DISTRIBUTION = OPEN
+- KBO_SPRAY_DISTRIBUTION = OPEN
+- KBO_FAIR_FOUL_REFERENCE = OPEN
+- MLB_STATCAST_EV_LA_REFERENCE = VERIFIED_MLB_ONLY
+- BALL_FLIGHT_FORCE_STRUCTURE = VERIFIED
+- NO_DRAG_PROJECTILE_FOR_WALL_CARRY = NOT_RECOMMENDED
+- DRAG_PLUS_APPROX_LIFT_RESEARCH_MODEL = RECOMMENDED
+- KBO_STADIUM_GEOMETRY = PARTIAL
+- KBO_DEFENSIVE_TRACKING = OPEN
+- MLB_DEFENSE_ARCHITECTURE_REFERENCE = VERIFIED_MLB_ONLY
+- PHASE2_VALIDATION_METRIC_PACK = PASS
+- PHASE2_BATTED_BALL_PHYSICS_REFERENCE_PACK = PARTIAL_WITH_VERIFIED_PHYSICS_AND_KBO_OUTCOME_TARGETS
