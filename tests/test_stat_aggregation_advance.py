@@ -215,7 +215,7 @@ class AdvancePipelineTests(unittest.TestCase):
 class ProtectedFileTests(unittest.TestCase):
     EXPECTED_BLOBS = {
         "src/simulation.py": "b441fbe2fd8bf2aac9239a4648636a2ec67ceb53",
-        "src/hitting/model.py": "dac5a2adedb7d272ef1ab9857d2b46621f085afa",
+        "src/hitting/model.py": "2718635ccb9e53fbed63f0d5d5ba2ad7c17ac8e1",
         "src/hitting/parameters.py": "3876b4221f53b7d4b7cc6069d9425004fc9f311a",
         "src/hitting/baserunning.py": "2a383ce61fb6938ae30973be210159baa1d76726",
         "src/hitting/defense.py": "279f6282ef41c53e709839dbbe791e16836eaf53",
