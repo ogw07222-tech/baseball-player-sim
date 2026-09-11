@@ -12,6 +12,7 @@ on:
           - full_game
           - pitcher_usage
           - catcher_generation
+          - offense_diag
           - all
       seed:
         description: RNG seed
@@ -29,10 +30,13 @@ on:
         default: '500'
         type: string
       samples:
-        description: Catcher-generation sample size
+        description: Catcher/pitch diagnostic sample size
         required: true
         default: '200000'
         type: string
+  push:
+    branches: [main]
+    paths: ['.github/workflows/heavy-validation.yml']
 
 jobs:
   heavy-validation:
@@ -42,66 +46,37 @@ jobs:
       contents: read
     env:
       PYTHONPATH: .
-      SUITE: ${{ inputs.suite }}
-      SEED: ${{ inputs.seed }}
-      GAMES: ${{ inputs.games }}
-      SEASONS: ${{ inputs.seasons }}
-      SAMPLES: ${{ inputs.samples }}
+      SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || 'offense_diag' }}
+      SEED: ${{ github.event_name == 'workflow_dispatch' && inputs.seed || '20260906' }}
+      GAMES: ${{ github.event_name == 'workflow_dispatch' && inputs.games || '10000' }}
+      SEASONS: ${{ github.event_name == 'workflow_dispatch' && inputs.seasons || '500' }}
+      SAMPLES: ${{ github.event_name == 'workflow_dispatch' && inputs.samples || '200000' }}
     steps:
       - name: Checkout exact source
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Record validation metadata
-        shell: bash
         run: |
           mkdir -p reports/integration-local
-          cat > reports/integration-local/metadata.json <<EOF
-          {
-            "sha": "${GITHUB_SHA}",
-            "run_id": "${GITHUB_RUN_ID}",
-            "suite": "${SUITE}",
-            "seed": "${SEED}",
-            "games": "${GAMES}",
-            "seasons": "${SEASONS}",
-            "samples": "${SAMPLES}"
-          }
-          EOF
+          printf '{"sha":"%s","run_id":"%s","suite":"%s","seed":"%s","games":"%s","seasons":"%s","samples":"%s"}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$SUITE" "$SEED" "$GAMES" "$SEASONS" "$SAMPLES" > reports/integration-local/metadata.json
           cat reports/integration-local/metadata.json
-
       - name: Compile validation dependencies
-        run: python -m compileall -q src tools/production_game_provider_sanity.py tools/pitcher_usage_sanity.py tools/catcher_generation_sanity.py
-
+        run: python -m compileall -q src tools/production_game_provider_sanity.py tools/pitcher_usage_sanity.py tools/catcher_generation_sanity.py tools/offense_pitch_diagnostic.py
       - name: Canonical full-game production sanity
         if: env.SUITE == 'full_game' || env.SUITE == 'all'
-        run: |
-          python tools/production_game_provider_sanity.py \
-            --games "$GAMES" \
-            --seed "$SEED" \
-            --output reports/integration-local/full-game.json
-
+        run: python tools/production_game_provider_sanity.py --games "$GAMES" --seed "$SEED" --output reports/integration-local/full-game.json
       - name: Pitcher usage heavy sanity
         if: env.SUITE == 'pitcher_usage' || env.SUITE == 'all'
-        run: |
-          python tools/pitcher_usage_sanity.py \
-            --seasons "$SEASONS" \
-            --seed "$SEED" \
-            > reports/integration-local/pitcher-usage.json
-          cat reports/integration-local/pitcher-usage.json
-
+        run: python tools/pitcher_usage_sanity.py --seasons "$SEASONS" --seed "$SEED" > reports/integration-local/pitcher-usage.json
       - name: Catcher generation heavy sanity
         if: env.SUITE == 'catcher_generation' || env.SUITE == 'all'
-        run: |
-          python tools/catcher_generation_sanity.py \
-            --samples "$SAMPLES" \
-            --seed "$SEED" \
-            > reports/integration-local/catcher-generation.json
-          cat reports/integration-local/catcher-generation.json
-
+        run: python tools/catcher_generation_sanity.py --samples "$SAMPLES" --seed "$SEED" > reports/integration-local/catcher-generation.json
+      - name: Expanded offensive and pitch diagnostic
+        if: env.SUITE == 'offense_diag' || env.SUITE == 'all'
+        run: python tools/offense_pitch_diagnostic.py --games "$GAMES" --pa-samples "$SAMPLES" --seed "$SEED" --output reports/integration-local/offense-pitch-diagnostic.json
       - name: Upload heavy validation reports
         if: always()
         uses: actions/upload-artifact@v4
