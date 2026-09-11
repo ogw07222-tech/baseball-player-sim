@@ -297,6 +297,11 @@ def generate_batted_ball_state(
 
     from .trajectory import generate_batted_ball_trajectory
     trajectory = generate_batted_ball_trajectory(state)
+    # Preserve the Phase-2B test/diagnostic seam that can intentionally disable
+    # trajectory generation. Production generation returns a trajectory, but a
+    # disabled trajectory must also disable all downstream Phase-2C shadow work.
+    if trajectory is None:
+        return replace(state, trajectory=None, wall_interaction=None)
 
     # Phase 2C production shadow uses the explicit generic engineering stadium
     # until a later game/stadium context contract selects a real fixture.
