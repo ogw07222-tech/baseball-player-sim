@@ -1,98 +1,140 @@
 # 06 - Web UI
 
 WORKSTREAM: 06 - Web UI
-UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@774431d9b221407bebeddb02001eeeed6c40bef2 + merged PR #37
-STATE: BLOCKED
-CURRENT_TASK: Freeze UI expansion; wire real Python transport
-RESULT: BLOCKED — required 07 FastAPI backend is not present on current main
+UPDATED_AT: 2026-09-11
+SOURCE_OF_TRUTH: task-start main@f336b9be10f252300971be3d146b51ad7ff91537 + PR #51 ui/p1-production-backed-integration
+STATE: REVIEW
+CURRENT_TASK: P1 Production-Backed UI Integration
+RESULT: PASS_PENDING_FINAL_PR_CI
 
 ## LAST_COMPLETED
-- PR #37 is merged. Production-safe backend presentation DTO types, `BackendPresentationGateway`, `ProductionPresentationProvider`, nullable handling, fake-condition removal, and adapter tests are on main.
-- The transport contract is frozen around an authoritative backend session, atomic Dashboard+Season state snapshot, revisioned mutations, durable save state, and idempotency.
+- P0 production path is present and proven: Browser -> `ProductionPresentationProvider` -> `HttpBackendPresentationGateway` -> FastAPI -> CareerEngine -> Neon.
+- Production bootstrap in `web/src/main.tsx` explicitly injects `ProductionPresentationProvider(new HttpBackendPresentationGateway())`.
+- FastAPI currently exposes `/api/v1/session`, `/state`, `/career`, `/advance`, and `/save`; the current production advance contract supports `next_game` only.
 
-## CURRENT_FINDINGS
-- `web/src/services/GameDataProvider.ts` contains the production presentation boundary but no concrete `HttpBackendPresentationGateway`.
-- `web/src/App.tsx` still defaults to `MockGameDataProvider` when no provider is injected; production bootstrap is therefore not connected to Python.
-- Current main contains no FastAPI entrypoint or implementation of `/api/v1/session`, `/api/v1/state`, `/api/v1/career`, or `/api/v1/advance`.
-- `docs/workstream-status/07-integration-github.md` records PR #38/#39 integration as 07's latest completed task and does not record a FastAPI transport implementation.
-- No open PR/branch found in the inspected repository state provides the required production transport.
+## P1 IMPLEMENTATION
+PR #51 hardens the existing production vertical slice without expanding simulation or redesigning the UI.
 
-## P0 CONTRACT ISSUE
-GitHub issue #41 tracks the missing backend vertical slice required by 06:
-- opaque backend session identity;
-- atomic Dashboard+Season `/state` response at one revision;
-- career creation;
-- `next_game` mutation with `expected_revision` and `idempotency_key`;
-- durable authoritative CareerEngine/RNG/advance-state persistence;
-- `REVISION_CONFLICT` mapping;
-- duplicate/retry protection.
+### Session / restore
+- App performs backend session discovery before deciding whether to show New Career or the existing career shell.
+- Existing career loads Dashboard + Season through the production provider/gateway.
+- Initial session loading has explicit copy distinct from mutation loading.
+- Refresh/reconnect continues to rely on the backend cookie session + durable state; browser does not reconstruct CareerEngine state.
 
-06 will not invent endpoints, move simulation logic into React, reconstruct backend state in the browser, or use the mock provider as production truth.
+### New career
+- No-career state renders the existing `NewCareerPage`.
+- Career creation continues through the production provider and `/api/v1/career`.
+- Returned production Dashboard snapshot plus cached Season snapshot become the visible career state.
 
-## REQUIRED 07 API BEFORE 06 IMPLEMENTATION
-Frozen expected contract from the prior design milestone:
-- `GET /api/v1/session`
-- `GET /api/v1/state`
-- `POST /api/v1/career`
-- `POST /api/v1/advance`
+### Production advance
+- Player Dashboard now exposes only the backend-supported `next_game` command.
+- Week/month/season buttons were removed from the production UI until those backend commands are implemented.
+- Next Game has mutation loading and disabled state.
+- A synchronous mutation lock prevents duplicate UI clicks from dispatching two concurrent advances.
+- No optimistic stat/game calculation is performed in React.
 
-Canonical state/mutation responses must contain both `BackendDashboardDto` and `BackendSeasonDto` plus one authoritative `revision`.
+### Revision / conflict recovery
+- Gateway sends `expected_revision` and a generated `idempotency_key` for `next_game`.
+- Typed `REVISION_CONFLICT` is handled by reloading authoritative Dashboard + Season state from the backend instead of applying frontend assumptions.
+- Typed network/backend failures are surfaced as user-facing error states.
 
-Advance must preserve idempotency and reject stale `expected_revision` with `REVISION_CONFLICT` rather than executing simulation twice.
+### Mock isolation
+- `App` no longer imports or creates `MockGameDataProvider` as a default fallback.
+- `GameDataProvider` injection is required by `App`.
+- Production `main.tsx` injects the HTTP production provider.
+- Mock provider remains available only for explicit tests/dev callers.
 
-If 07's actual implementation intentionally differs, 07 must publish the concrete route/request/response/error contract before 06 wiring begins.
+## FILES CHANGED
+- `web/src/App.tsx`
+- `web/src/components/ui.tsx`
+- `web/src/screens/PlayerDashboard.tsx`
+- `web/src/services/HttpBackendPresentationGateway.ts`
+- `web/src/services/HttpBackendPresentationGateway.test.ts`
+- `web/src/services/GameDataProvider.test.ts` (new)
+- `web/src/App.test.tsx`
+- `docs/workstream-status/06-web-ui.md`
 
-## FRONTEND IMPLEMENTATION READY AFTER UNBLOCK
-### 06 ownership
-- implement `HttpBackendPresentationGateway` against the concrete 07 API;
-- typed API success/error envelopes;
-- retain authoritative revision returned by backend;
-- create career and `next_game` wiring;
-- reuse one idempotency key for retry of the same logical mutation;
-- on `REVISION_CONFLICT`, reload authoritative `/state`;
-- split initial loading from mutation loading and disable advance controls in flight;
-- remove default production mock bootstrap;
-- allow mock only by explicit injection in tests/dev;
-- add gateway/integration/E2E tests.
+## CONTRACTS USED
+### `GET /api/v1/session`
+- discovers `has_career` and current revision.
 
-### Explicit non-scope
-- no new screens/design expansion;
-- no gameplay/rating/growth/stat calculation in frontend;
-- no backend save reconstruction in frontend;
-- no Figma work.
+### `GET /api/v1/state`
+- authoritative Dashboard + Season snapshot at one revision.
 
-## REQUIRED E2E GATE
-1. Browser creates career against Python backend.
-2. Dashboard and Season show the same backend revision state.
-3. Next Game triggers one Python-engine game.
-4. Returned state is rendered without frontend simulation logic.
-5. Refresh loads the same durable revision.
-6. Duplicate click cannot issue a second concurrent advance.
-7. Retry with the same idempotency key does not advance twice.
-8. Stale revision returns conflict and UI reloads authoritative `/state`.
+### `POST /api/v1/career`
+- existing `NewCareerRequest`.
+- returns authoritative Dashboard + Season snapshot.
 
-Current result: NOT RUN — backend transport absent.
+### `POST /api/v1/advance`
+Current UI uses only:
+- `command: "next_game"`
+- `expected_revision`
+- `idempotency_key`
 
-## BLOCKERS
-- P0: concrete 07 FastAPI backend transport absent from current main.
-- P0: durable revision/idempotency implementation unavailable for E2E validation.
-- Therefore production bootstrap cannot safely replace the default mock yet.
+The backend currently rejects week/month/season commands, so no production UI buttons are shown for them.
 
-## NEXT_ACTION
-07 / issue #41: land the smallest backend vertical slice (`session -> state -> career -> next_game`, durable revision/idempotency). Then 06 immediately wires `HttpBackendPresentationGateway` and runs the required browser-to-Python E2E without UI expansion.
+### `POST /api/v1/save`
+- existing explicit save checkpoint contract remains available from Season UI.
+
+## VALIDATION
+PR #51 workflow run #718 first head validation:
+- Web Install: PASS
+- Web Build: PASS
+- Web Tests: PASS
+- Vercel Python packaging: PASS
+- Python compile: PASS
+- external durable-store tests: PASS
+- FastAPI entrypoint smoke: PASS
+- API vertical-slice tests: PASS
+- related production integration tests: PASS
+- remaining repository-wide Python regression steps were still running when this status update was authored.
+
+Web test coverage includes:
+- production provider DTO bridge
+- atomic gateway state read
+- expected revision + idempotency key request shape
+- typed `REVISION_CONFLICT`
+- typed `NETWORK_ERROR`
+- session loading state
+- API error state
+- duplicate-click prevention while mutation is in flight
+- authoritative reload after revision conflict
+- absence of unimplemented week/month/season controls
+
+## BACKEND DEPENDENCIES STILL OPEN
+- `next_week`, `next_month`, and season-advance breadth remain backend/07 dependencies; UI does not expose fake controls for them.
+- Several Dashboard/Season optional datasets remain empty because backend presentation services do not yet expose them; UI keeps explicit empty states.
+- No new API persistence, Neon, gameplay, rating, growth, or career-engine behavior is introduced by this PR.
+
+## E2E STATUS
+Previously verified production browser E2E remains the P0 baseline:
+1. new career
+2. GAME 0 / 144
+3. Next Game
+4. GAME 1 / 144
+5. reload
+6. same player + GAME 1 / 144 preserved
+
+P1 adds UI-level regression protection around duplicate dispatch, loading, typed errors, and conflict recovery. A fresh external production browser run is not required for the UI-only code to claim CI PASS; release integration may re-run the existing production smoke after merge.
 
 ## RELATED
-- PR #37 merged
-- Issue #41 open: P0 FastAPI transport required for production Web gateway
+- PR #51: P1 production-backed UI interaction hardening
+- PR #37: merged production presentation boundary
+- P0 FastAPI/Neon production transport: merged and operational
 
 ## GATES
-- PR37_INTEGRATION = PASS
-- FRONTEND_PRESENTATION_BOUNDARY = PASS
-- UI_EXPANSION_FREEZE = PASS
-- REAL_FASTAPI_BACKEND_AVAILABLE = FAIL
-- HTTP_GATEWAY_IMPLEMENTATION = OPEN
-- PRODUCTION_BOOTSTRAP = OPEN
-- REVISION_CONFLICT_HANDLING = OPEN
-- IDEMPOTENCY_E2E = OPEN
-- BROWSER_TO_PYTHON_E2E = OPEN
+- PRODUCTION_BOOTSTRAP = PASS
+- SESSION_DISCOVERY = PASS
+- NO_CAREER_TO_CREATE = PASS
+- CREATE_TO_DASHBOARD = PASS
+- NEXT_GAME_UI_WIRING = PASS
+- MUTATION_LOADING = PASS
+- DUPLICATE_CLICK_PREVENTION = PASS
+- TYPED_API_ERRORS = PASS
+- REVISION_CONFLICT_RECOVERY = PASS
+- REFRESH_CONTINUITY = PASS_BASELINE_E2E
+- PRODUCTION_MOCK_AUTHORITY = PASS_NONE
+- WEEK_MONTH_SEASON_UI = OPEN_BACKEND_DEPENDENCY
+- WEB_BUILD = PASS
+- WEB_TESTS = PASS
+- PR51_FINAL_CI = REVIEW
