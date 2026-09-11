@@ -1,0 +1,94 @@
+name: phase2b-candidate-05
+
+on:
+  push:
+    branches:
+      - validation/phase2b-candidate-05
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    env:
+      PYTHONPATH: .
+      BASELINE_HEAD: 39aa1f1d619ad1a4d3b4595d3b3aa6e6e6fdb2ca
+      CANDIDATE_HEAD: 72980c04c3e2f6b66a2d215f45287d1de90c6bc8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Assert production identity with Phase2B current head
+        run: |
+          for path in src/hitting/physical.py src/hitting/model.py src/hitting/physical_parameters.py src/hitting/trajectory.py src/hitting/trajectory_parameters.py; do
+            test "$(git rev-parse HEAD:${path})" = "$(git rev-parse ${CANDIDATE_HEAD}:${path})"
+            printf '%s=%s\n' "$path" "$(git rev-parse HEAD:${path})"
+          done | tee production-blobs.txt
+      - name: Compile
+        run: python -m compileall -q src tools/phase2a_validation_harness.py tools/phase2a_physical_distribution_validation.py tools/phase2b_candidate_validation.py
+      - name: Phase2B trajectory distributions and grids
+        run: |
+          mkdir -p reports/phase2b-candidate
+          python tools/phase2b_candidate_validation.py \
+            --seed 20260911 --pa 200000 \
+            --output reports/phase2b-candidate/trajectory.json
+      - name: Phase1 production environment after Phase2B
+        run: |
+          python tools/phase2a_validation_harness.py \
+            --seed 20260911 --pa 200000 --games 10000 \
+            --variance-games 1000 --perf-pa 50000 --perf-games 500 \
+            --output reports/phase2b-candidate/offense-and-performance.json
+      - name: Phase2A physical-state regression
+        run: |
+          python tools/phase2a_physical_distribution_validation.py \
+            --seed 20260911 --pa 200000 --sensitivity-n 20000 \
+            --output reports/phase2b-candidate/physical.json
+      - name: Phase2B targeted tests
+        run: python -m unittest tests.test_phase2b_trajectory -v
+      - name: Phase1 and Phase2A targeted regressions
+        run: |
+          python -m unittest tests.test_phase1_count_situational -v
+          python -m unittest tests.test_phase2a_physical_batted_ball -v
+      - name: Production integration regressions
+        run: python -m unittest tests.test_production_game_provider tests.test_production_integration_consolidation tests.test_stat_aggregation_advance -v
+      - name: Paired same-run performance baseline vs candidate
+        shell: bash
+        run: |
+          git worktree add /tmp/phase2b-baseline ${BASELINE_HEAD}
+          cp tools/phase2a_validation_harness.py /tmp/phase2b-baseline/tools/phase2a_validation_harness.py
+          PYTHONPATH=/tmp/phase2b-baseline python - <<'PY' > reports/phase2b-candidate/perf-baseline.json
+          import json, sys
+          sys.path.insert(0, '/tmp/phase2b-baseline')
+          from tools.phase2a_validation_harness import performance_snapshot
+          print(json.dumps(performance_snapshot(20260911, 50000, 500), sort_keys=True))
+          PY
+          PYTHONPATH=. python - <<'PY' > reports/phase2b-candidate/perf-candidate.json
+          import json
+          from tools.phase2a_validation_harness import performance_snapshot
+          print(json.dumps(performance_snapshot(20260911, 50000, 500), sort_keys=True))
+          PY
+          python - <<'PY' | tee reports/phase2b-candidate/perf-paired-delta.json
+          import json
+          b=json.load(open('reports/phase2b-candidate/perf-baseline.json'))
+          c=json.load(open('reports/phase2b-candidate/perf-candidate.json'))
+          out={
+            'baseline_us_per_pa':b['microseconds_per_pa'],
+            'candidate_us_per_pa':c['microseconds_per_pa'],
+            'pa_delta_pct':(c['microseconds_per_pa']/b['microseconds_per_pa']-1)*100,
+            'baseline_ms_per_game':b['milliseconds_per_game'],
+            'candidate_ms_per_game':c['milliseconds_per_game'],
+            'game_delta_pct':(c['milliseconds_per_game']/b['milliseconds_per_game']-1)*100,
+          }
+          print(json.dumps(out, indent=2, sort_keys=True))
+          PY
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2b-candidate-${{ github.run_id }}-${{ github.sha }}
+          path: |
+            reports/phase2b-candidate
+            production-blobs.txt
