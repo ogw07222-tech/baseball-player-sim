@@ -165,6 +165,8 @@ class ProductionApiVerticalSliceTests(unittest.TestCase):
 
     def test_automatic_season_command_remains_blocked_without_mutation(self):
         self.create_career()
+        before = self.store.get(self.session_id())
+        assert before is not None
         response = self.client.post(
             "/api/v1/advance",
             json={
@@ -176,15 +178,15 @@ class ProductionApiVerticalSliceTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["error"]["code"], "INVALID_REQUEST")
         self.assertEqual(response.json()["meta"]["revision"], 1)
-        stored = self.store.get(self.session_id())
-        assert stored is not None
-        self.assertEqual(stored.revision, 1)
-        engine = deserialize_game(stored.payload)
-        assert engine.current_session is not None
-        self.assertEqual(engine.current_session.games_completed, 0)
+        after = self.store.get(self.session_id())
+        assert after is not None
+        self.assertEqual(after.revision, 1)
+        self.assertEqual(after.payload, before.payload)
 
     def test_season_complete_maps_to_non_retryable_conflict_without_commit(self):
         self.create_career()
+        before = self.store.get(self.session_id())
+        assert before is not None
         with patch(
             "src.api.app.ProductionAdvanceService.advance_one_game",
             side_effect=SeasonCompleteError("professional season is complete; finalize season before advancing"),
@@ -201,12 +203,10 @@ class ProductionApiVerticalSliceTests(unittest.TestCase):
         self.assertEqual(response.json()["error"]["code"], "SEASON_COMPLETE")
         self.assertFalse(response.json()["error"]["retryable"])
         self.assertEqual(response.json()["meta"]["revision"], 1)
-        stored = self.store.get(self.session_id())
-        assert stored is not None
-        self.assertEqual(stored.revision, 1)
-        engine = deserialize_game(stored.payload)
-        assert engine.current_session is not None
-        self.assertEqual(engine.current_session.games_completed, 0)
+        after = self.store.get(self.session_id())
+        assert after is not None
+        self.assertEqual(after.revision, 1)
+        self.assertEqual(after.payload, before.payload)
 
     def test_same_idempotency_key_with_different_request_is_rejected(self):
         self.create_career()
