@@ -1,159 +1,176 @@
 # 03 - Growth & Career
 
 WORKSTREAM: 03 - Growth & Career
-UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@f19bf424c910bfa66bf05cc20d20a930f27f8c88
-IMPLEMENTATION_BASE: main@9aa458735721570581f4968060590acf3fc9c957
-STATE: IMPLEMENTED_AWAITING_LONG_RUN_VALIDATION
-CURRENT_TASK: Production Season Lifecycle Bridge v1 implementation
-RESULT: IMPLEMENTATION_PASS
+UPDATED_AT: 2026-09-11
+TASK_START_MAIN: f336b9be10f252300971be3d146b51ad7ff91537
+CURRENT_MAIN_AT_PR_OPEN: 4a945793715fdfaee6c91a33c5c24a3970e0402d
+STATE: P1_ADVANCE_BREADTH_IMPLEMENTED
+CURRENT_TASK: P1 Career Backend Advance Breadth
+RESULT: PASS
 
-## LAST_COMPLETED
-- Implemented the approved Production Season Lifecycle Bridge v1 on `feature/production-season-lifecycle-v1`.
-- Added canonical `CareerEngine.finalize_completed_pro_season()` and `SeasonFinalizationResult`.
-- Refactored `finish_pro_season()` to delegate lifecycle-owned finalization to the same primitive.
-- Added explicit `ProductionAdvanceService.finalize_season()` and `start_next_season()` boundary operations.
-- Added lifecycle/save-load/idempotency/headless-equivalence regression tests.
-- PR #38 remains open against main and is currently mergeable.
-- Rechecked latest main after implementation; intervening main work does not replace the lifecycle primitive or Growth/Career backend contract.
+## SOURCE_OF_TRUTH_AUDIT
+Current production progression architecture on task start:
+- `ProductionAdvanceService.advance_one_game()` is the canonical P0 game mutation primitive used by the production API.
+- `advance_one_week()` and `advance_one_month()` already compose scheduled games through the same `CareerGameAdvanceProvider` and `CompositionalAdvanceOrchestrator` path.
+- week/month bulk progression is structurally the same gameplay path as repeated next-game calls; no separate gameplay simulator exists.
+- `CareerEngine.finalize_completed_pro_season()` owns canonical season finalization.
+- `ProductionAdvanceService.finalize_season()` delegates to that primitive.
+- `start_next_season()` creates a fresh ProSeasonSession/schedule/advance state after finalization.
+- persistence serializes engine RNG, session state, production advance state, and pitcher-usage state.
 
-## IMPLEMENTATION_CONTRACT
-### Finalization primitive
-`CareerEngine.finalize_completed_pro_season()` requires:
-- phase == PRO
-- current_session exists
-- current_session.finished == True
-- no unresolved pending event
+Main advanced by one documentation-only 05 Balance Lab commit while this task was being prepared; no Growth/Career backend code changed between task-start main and the PR base.
 
-On success it performs exactly once:
-1. awards determination/persistence
-2. SeasonRecord append
-3. GrowthExperience creation from FIRST/FARM PA
-4. existing season growth
-5. existing offseason trait hook
-6. existing coach replacement hook
-7. engine year +1
-8. current_session clear
-9. seasonal modifier/form reset
-10. existing fatigue offseason carryover
+## CHOSEN_P1_BREADTH
+Approved for 07 production exposure:
+1. `next_game` -> existing `ProductionAdvanceService.advance_one_game()`
+2. `next_week` -> existing `ProductionAdvanceService.advance_one_week()`
+3. `next_month` -> existing `ProductionAdvanceService.advance_one_month()`
 
-Retirement remains caller-controlled and is not implicitly evaluated by finalization.
+Not yet approved as a single automatic command:
+- `season` / automatic finish-and-start-next-season transition
 
-### Idempotency and persistence
-- No new persisted lifecycle marker is used.
-- A finished `current_session` is the pre-finalization state.
-- Successful finalization clears `current_session`; repeated finalization rejects before RNG-consuming work.
-- A game-144 save preserves the finished session and remains finalizable after load.
-- Production finalization removes stale `advance_state`.
-- Finalized save/load does not replay growth or awards.
-- SAVE_VERSION is unchanged; existing supported saves remain backward compatible.
+Reason for deferral:
+- canonical explicit finalization/start-next-season primitives already exist and are tested;
+- multi-season pitcher-usage offseason reset semantics are still a separate 01/07 integration concern;
+- P1 breadth does not need to hide finalization + next-season lifecycle behind a new automatic command yet.
 
-### Production advance bridge
-- `ProductionAdvanceService.season_complete` exposes the boundary.
-- `finalize_season()` invokes only the canonical CareerEngine finalization primitive.
-- `start_next_season()` explicitly creates the next ProSeasonSession, rebuilds the schedule using the incremented engine year, and creates fresh production advance state.
-- Service construction does not finalize a season.
-- Read-only state access does not intentionally consume lifecycle RNG.
+## COMMAND_SEMANTICS
+### next_game
+- simulate exactly the next scheduled game after the persisted production cursor;
+- aggregate the game exactly once into season/career production state;
+- preserve existing P0 behavior and formulas.
 
-### Result contract
-`SeasonFinalizationResult` exposes:
-- completed_year
-- next_year
-- age_before
-- age_after
-- completed SeasonRecord
-- GrowthResult
-- awards
-- `as_dict()` for validation/UI-adapter consumption
+### next_week
+- requested window is current production cursor through +7 calendar days;
+- simulate every canonical scheduled game with `start < game_date <= start + 7 days`;
+- game results, stats, events, roster effects, fatigue/injury, and pitcher-usage effects are exactly the composition of repeated `next_game` calls with the same seed/state;
+- persistent cursor/end date remains the final simulated scheduled game date to preserve exact next-game composition semantics;
+- if fewer than a full week's games remain before game 144, simulate only those remaining games and stop exactly at game 144.
+
+### next_month
+- requested window is current production cursor through one calendar month using existing `_add_one_calendar_month` semantics;
+- simulate every canonical scheduled game in that window;
+- state/RNG/stat effects are exactly the composition of repeated `next_game` calls;
+- persistent cursor/end date is the final simulated scheduled game date;
+- near season end, consume only remaining scheduled games and stop exactly at game 144.
+
+### completed-season boundary
+New domain error:
+`SeasonCompleteError`
+
+For `advance_one_game`, `advance_one_week`, and `advance_one_month`:
+- if the current ProSeasonSession is already finished, reject before gameplay/RNG/stat/lifecycle mutation;
+- do not auto-finalize;
+- do not auto-start another session from a still-unfinalized completed season;
+- caller must perform explicit canonical season finalization first.
+
+This prevents a completed-season week/month call from becoming a successful no-op mutation that would still consume an API revision/idempotency operation when 07 exposes it.
+
+## IMPLEMENTATION
+BRANCH: `feature/p1-career-advance-breadth`
+PR: #50 `Growth/Career: P1 production advance breadth`
+
+Changed production behavior:
+- `src/production_advance.py`
+  - added `SeasonCompleteError`;
+  - added shared `_ensure_advance_allowed()` guard;
+  - game/week/month all reject completed-session advancement before mutation.
+
+No FastAPI, store, persistence transaction, frontend, gameplay probability, rating, or event-catalog files were changed.
 
 ## TEST_COVERAGE
-`tests/test_season_lifecycle_bridge.py` covers:
-- finalize before completion rejected with zero RNG consumption
-- completed season finalizes exactly once
-- repeated finalize rejects with zero additional RNG consumption
-- pending event blocks finalization before RNG consumption
-- `finish_pro_season()` equivalence with direct canonical finalization for equivalent completed state
-- service constructor does not auto-finalize game 144
-- game 144 save/load -> finalize exactly once
-- game 143 save/load -> game 144 -> finalize -> next season
-- finalize -> save/load -> fresh next season without replaying growth
-- old save without advance_state remains loadable
+New: `tests/test_p1_career_advance_breadth.py`
 
-## CI_STATUS
-PR: #38
-BRANCH: feature/production-season-lifecycle-v1
-IMPLEMENTATION_HEAD: 411529269b042708bb45fadbedb181f4b8067a6e
-STATUS_HEAD_BEFORE_THIS_UPDATE: 0141428a353b3077e50ddf05fa3002456f80b4bd
-- tests workflow #585 on implementation head: SUCCESS
-- tests workflow #589 on status-updated head: SUCCESS
-- Python compile: PASS
-- full unit test suite: PASS
-- auto career smoke: PASS
-- balance smoke: PASS
-- high-school/draft calibration gate: PASS
-- web build/tests: PASS
+Covers:
+- next_week == exact repeated-next_game composition;
+- next_month == exact repeated-next_game composition;
+- week deterministic save/load equivalence;
+- month deterministic save/load equivalence;
+- week near season end stops exactly at game 144;
+- month near season end stops exactly at game 144;
+- completed-season game/week/month calls raise `SeasonCompleteError`;
+- rejected completed-season calls preserve serialized state and RNG exactly;
+- completed period advance does not finalize, apply growth, increment age/year, or start next season.
 
-Local clone/full-suite-before-push was unavailable because the execution environment could not resolve github.com; GitHub PR CI supplied the full-suite checkpoint.
+Existing regression coverage retained:
+- `tests/test_production_integration_consolidation.py` week/month composition;
+- `tests/test_season_lifecycle_bridge.py` finalization/save-load/exactly-once lifecycle;
+- P0 API vertical-slice next_game path;
+- production persistence and durable-store regression suites.
 
-## UNCHANGED / OUT_OF_SCOPE
+## CI
+PR #50 implementation head before this status-only update:
+`e9a1135d58c9792afc3dc4aa03d85455497f8de1`
+Workflow: tests #711
+
+PASS:
+- Vercel Python packaging
+- Python compile
+- external durable store tests
+- Vercel FastAPI entrypoint smoke
+- API vertical-slice tests
+- related production integration tests
+- full Python unit suite
+- auto-career smoke
+- balance smoke
+- high-school/draft calibration gate
+- web build/tests
+
+## EXACT_07_BACKEND_HANDOFF
+03 owns only the following domain/service contract. 07 may wire it to HTTP/SessionStore CAS/idempotency without changing these semantics.
+
+Suggested command mapping:
+- API `next_game` -> `ProductionAdvanceService(engine).advance_one_game()`
+- API `week` or product-facing `next_week` -> `ProductionAdvanceService(engine).advance_one_week()`
+- API `month` or product-facing `next_month` -> `ProductionAdvanceService(engine).advance_one_month()`
+
+Return source:
+- use the returned `AdvanceSummary` plus normal authoritative post-mutation presentation/state;
+- `AdvanceSummary.period_type`: `GAME`, `WEEK`, or `MONTH`;
+- `games_played` is the exact number of simulated games in that mutation;
+- `start_date` is the persisted cursor before the command;
+- `end_date` is the final simulated scheduled-game date under the compositional production cursor contract;
+- `season_after`, period stats, roster changes, and major events are post-command authoritative values.
+
+Boundary/error mapping requirement:
+- `SeasonCompleteError` means the current season reached game 144 and requires explicit lifecycle handling;
+- 07 should map it to a non-retry-by-replay domain/API response and must not commit a mutated simulation payload for the rejected command;
+- CAS/idempotency/revision behavior remains entirely 07-owned.
+
+Do not expose a single automatic `season` command from this PR. For later season command design, compose only the existing canonical `finalize_season()` and `start_next_season()` after pitcher-usage offseason state policy is explicitly settled.
+
+## BLOCKERS / OPEN
+- Automatic `season` command: OPEN pending 01/07 pitcher-usage offseason reset/integration semantics.
+- HTTP command wiring for week/month: OPEN, owned by 07.
+- UI controls/results for week/month: OPEN, owned by 06.
+- Long-run lifecycle validation remains separate 05 work.
+
+## OUT_OF_SCOPE / UNCHANGED
+- FastAPI routes/request models
+- Neon / SessionStore / transaction semantics
+- frontend
 - gameplay probabilities
 - hitter/pitcher formulas
-- rating scale
-- Talent semantics
+- rating scale / Talent semantics
 - event catalog
-- contract / FA / service-time / trade / posting
-
-## REMAINING_OPEN_ITEMS
-- 05 long-run lifecycle equivalence/distribution validation.
-- 07 integration review and merge decision for PR #38 against current main.
-- Realistic FARM/FIRST playing-time opportunity redesign.
-- Persistent injury-development consequences.
-- Contract/FA/trade/posting/service-time foundation.
-- Future multi-season pitcher-usage offseason reset semantics require 01/07 review; this batch did not alter gameplay usage formulas/state policy.
-
-## MONTE_CARLO_HANDOFF_FOR_05
-Validation only; no tuning.
-Required checks:
-- N >= 1,000 full careers through the canonical season-boundary path when runtime permits
-- duplicate finalized seasons = 0
-- missing finalized seasons = 0
-- finalized season count == age increment count == engine year increment count until retirement
-- matched-seed save/load interruptions at random game-143/game-144/post-finalize boundaries produce identical terminal state
-- deterministic replay mismatch rate = 0
-- compare old headless vs canonical lifecycle distributions for debut age, peak age, peak ability, retirement age, career PA, FARM PA, injuries, awards
-- material distribution deltas should not appear because no progression tuning/formula changes were made
-
-## DEPENDENCIES
-- 05: long-run deterministic/distribution validation.
-- 07: PR #38 integration review, current-main compatibility, merge/CI.
-- 01: no gameplay formula change; future pitcher-usage offseason state review only.
-- 02: no rating/Talent change.
-- 04: no event catalog change; existing pending-event contract reused.
-- 06: optional later consumption of SeasonFinalizationResult; no blocking UI work.
-- 08: no blocking data requirement for v1.
-
-## NEXT_ACTION
-- Hand PR #38 to 05 for long-run lifecycle validation.
-- Hand PR #38 to 07 for final integration/rebase/merge against latest main.
-- Do not tune growth, retirement, roster, gameplay, or rating coefficients in this batch.
-
-## RELATED_PRS
-- #38 Growth/Career: Production Season Lifecycle Bridge v1
-
-## RELATED_BRANCHES
-- feature/production-season-lifecycle-v1
+- contract / FA / service time / trade / posting
 
 ## GATES
-- GROWTH_CAREER_AUDIT = PASS
-- FIRST_PRODUCTION_BATCH_SELECTION = PASS
-- PRODUCTION_SEASON_LIFECYCLE_CONTRACT = PASS
-- PRODUCTION_SEASON_LIFECYCLE_IMPLEMENTATION = PASS
-- SAVE_LOAD_IDEMPOTENCY_REGRESSION = PASS
-- HEADLESS_FINALIZATION_EQUIVALENCE = PASS
-- FULL_UNIT_SUITE = PASS
-- FINAL_CI = PASS
-- CURRENT_MAIN_INTEGRATION = OPEN
-- LONG_RUN_LIFECYCLE_VALIDATION = OPEN
-- REALISTIC_PLAYING_TIME_OPPORTUNITY = OPEN
-- PERSISTENT_INJURY_DEVELOPMENT = OPEN
-- CONTRACT_FA_TRADE_POSTING = OPEN
+- P1_ADVANCE_ARCHITECTURE_AUDIT = PASS
+- NEXT_GAME_REGRESSION = PASS
+- NEXT_WEEK_DOMAIN_CONTRACT = PASS
+- NEXT_MONTH_DOMAIN_CONTRACT = PASS
+- WEEK_COMPOSITION = PASS
+- MONTH_COMPOSITION = PASS
+- SAVE_LOAD_EQUIVALENCE = PASS
+- SEASON_BOUNDARY_GUARD = PASS
+- FULL_RELEVANT_PYTHON_TESTS = PASS
+- P1_WEEK_MONTH_IMPLEMENTATION = PASS
+- AUTOMATIC_SEASON_COMMAND = OPEN
+- P1_HTTP_WIRING = OPEN
+- P1_UI_WIRING = OPEN
+
+## NEXT_ACTION
+- 07 reviews/merges PR #50 and wires week/month into the existing authoritative CAS/idempotency mutation path.
+- 06 may expose controls only after 07 publishes the production API contract.
+- 03 does not tune gameplay/growth/rating formulas in this batch.
