@@ -1,16 +1,40 @@
 """Validated H3.2.1 production hitting/baserunning parameters.
 
-Source of truth: Balance-Lab commit b7b8aafde0a50e687310dbe03b872087a569e08c.
-Do not retune here without a new Balance-Lab validation pass.
+Phase 1 plate-discipline/contact calibration is layered on the H3.2.1
+batted-ball model. Physical batted-ball / HR / XBH parameters remain frozen.
 """
 STAT_REFERENCE = 100.0
 
 ZONE_SWING_BASE = 0.67
-BALL_CHASE_BASE = 0.245
+BALL_CHASE_BASE = 0.255
 DISCIPLINE_ZONE_WEIGHT = 0.0015
-DISCIPLINE_CHASE_WEIGHT = 0.0045
-TWO_STRIKE_PROTECTION_WEIGHT = 0.0065
-TWO_STRIKE_PROTECTION_CAP = 0.25
+DISCIPLINE_CHASE_WEIGHT = 0.0025
+
+# Count effects are intentionally independent. Full count receives both the
+# two-strike protection term and the three-ball selectivity term instead of
+# allowing one branch to mask the other.
+TWO_STRIKE_ZONE_SWING_BONUS = 0.090
+THREE_BALL_ZONE_SELECTIVITY = -0.015
+THREE_ZERO_ZONE_EXTRA_SELECTIVITY = -0.035
+TWO_STRIKE_CHASE_BONUS = 0.005
+THREE_BALL_CHASE_SELECTIVITY = -0.050
+THREE_ZERO_CHASE_EXTRA_SELECTIVITY = -0.020
+
+# Miss rescue moves a bounded share of swings to foul contact, not directly to
+# fair balls/hits. Two-strike rescue is additive and keeps the count alive.
+MISS_TO_FOUL_ZONE_BASE = 0.240
+MISS_TO_FOUL_BALL_BASE = 0.080
+TWO_STRIKE_FOUL_RESCUE_BASE = 0.030
+TWO_STRIKE_FOUL_DISCIPLINE_WEIGHT = 0.0015
+MISS_TO_FOUL_CAP = 0.38
+
+# HBP is a pitch-level terminal event on an out-of-zone pitch. The neutral
+# baseline is intentionally broad-calibrated rather than exact-point fitted.
+HBP_OUT_OF_ZONE_BASE = 0.0090
+HBP_CONTROL_WILDNESS_WEIGHT = 0.00006
+HBP_CONTROL_COMMAND_WEIGHT = 0.000025
+HBP_MIN = 0.003
+HBP_MAX = 0.018
 
 STRIKE_RATE = 0.550
 PITCH_TYPE_FASTBALL = 0.57
