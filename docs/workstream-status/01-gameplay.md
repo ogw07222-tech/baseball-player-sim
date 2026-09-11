@@ -2,134 +2,213 @@
 
 WORKSTREAM: 01 - Gameplay Engine
 UPDATED_AT: 2026-09-11
-SOURCE_OF_TRUTH: task-start main@b764e4b32dcdc4af9947e83b9732e41b8be6d396; implementation PR #58
-STATE: READY_FOR_05_VALIDATION
-CURRENT_TASK: Phase 1 count-specific situational swing modifiers
-RESULT: COUNT_SITUATIONAL_PASS / PHASE1_HEAVY_VALIDATION_OPEN
+SOURCE_OF_TRUTH: task-start main@34ac1fc35b5616fade75721221e95aeea3398232; PR #58 production-code checkpoint@feb2920fe35922f167bc750ec1eaff096393ed6e; code/test checkpoint@27859c86cea0fe7449ae952c0cde57cc296f9562
+STATE: READY_FOR_05_FINAL_SIGNOFF
+CURRENT_TASK: Phase 1 final blocker — two-strike looking-K reduction
+RESULT: PASS
 
 ## SCOPE
-- Phase 1 only: count-specific situational swing behavior layered on existing player identity, pitch location, pitch quality, contact/foul, and HBP systems.
-- Physical batted-ball model remains unchanged: no exit velocity, launch angle, spray angle, trajectory, park, HR, 2B/3B, defense, baserunning, rating-generation, growth, or event/story tuning.
+- Phase 1 only: reduce excessive called strikeouts on two-strike in-zone takes without undoing the accepted count-specific swing model.
+- Preserve sparse count modifiers, 3-0/3-1 selectivity, generated chase improvement, BB/K/HBP environment, discipline identity, two-strike foul survival, and deterministic replay.
+- No HR/XBH/exit-quality/launch/spray/trajectory/defense/park/baserunning/rating-generation/growth/event tuning.
 - MISS is never converted directly to HIT/BIP.
 
 ## TASK-START STATE
-- Latest main at task start: `b764e4b32dcdc4af9947e83b9732e41b8be6d396`.
-- PR #58 remained OPEN, mergeable, and the appropriate Phase-1 branch: `feature/phase1-plate-discipline-contact`.
-- Pre-task runtime count logic used generalized independent two-strike / three-ball terms rather than explicit count situations.
-- Pre-task zone-swing clamp floor was 0.34, which prevented a genuinely strong 3-0 take tendency regardless of how negative a count modifier became.
+- Latest main at task start: `34ac1fc35b5616fade75721221e95aeea3398232` (`docs: record independent Phase 1 heavy validation`).
+- PR #58 remained OPEN and mergeable on `feature/phase1-plate-discipline-contact`.
+- 05 canonical heavy validation on the previous Phase-1 candidate classified count behavior, generated chase, BB/K, HBP, and discipline monotonicity as acceptable, but left Phase 1 OPEN because looking-K remained excessive.
+- Pre-fix neutral 200k: K 18.579%, looking-K share 54.405%, swinging-K share 45.595%, BB 9.138%, HBP 1.249%, Chase 20.952%.
+- Pre-fix generated 200k: K 22.817%, looking-K share 55.143%, Chase 27.749%.
+- Pre-fix two-strike looking-K/reach: 0-2 14.202%, 1-2 15.618%, 2-2 17.068%, 3-2 17.158%.
 
-## COUNT MODEL
-Runtime now uses a sparse explicit additive table. Unlisted counts receive `(0.0, 0.0)` and therefore retain the existing neutral model.
+## ROOT CAUSE
+- The blocker was not 3-0/3-1 selectivity.
+- Across 0-2 / 1-2 / 2-2 / 3-2, an in-zone pitch that lost the normal swing roll remained a pure take. With two strikes, that take immediately became strike three and a looking K.
+- Raising all swing probabilities or chase would have damaged already-passing Phase-1 behavior, so the fix targets only the terminal two-strike in-zone take path.
 
-`COUNT_SWING_MODIFIERS[(balls, strikes)] = (zone_swing, chase)`:
-- 2-0: `(-0.035, -0.030)` — modest hitter-count selectivity.
-- 0-2: `(+0.100, +0.005)` — strong zone protection, almost no chase increase.
-- 1-2: `(+0.085, +0.000)` — zone protection without chase inflation.
-- 2-2: `(+0.065, -0.005)` — moderate zone protection, slightly selective chase.
-- 3-0: `(-0.470, -0.145)` — strong situational suppression, not hard-zero.
-- 3-1: `(-0.220, -0.090)` — substantial selectivity while allowing hittable strikes.
-- 3-2: `(+0.045, -0.045)` — strike protection plus three-ball selectivity simultaneously.
+## IMPLEMENTATION
+The accepted `COUNT_SWING_MODIFIERS` table is unchanged:
+- 2-0: `(-0.035, -0.030)`
+- 0-2: `(+0.100, +0.005)`
+- 1-2: `(+0.085, +0.000)`
+- 2-2: `(+0.065, -0.005)`
+- 3-0: `(-0.470, -0.145)`
+- 3-1: `(-0.220, -0.090)`
+- 3-2: `(+0.045, -0.045)`
 
-Player identity remains in the probability equation:
-- Zone swing still includes `ZONE_SWING_BASE + discipline effect + location effect + count modifier`.
-- Chase still includes `BALL_CHASE_BASE - discipline effect + pitch hittability effect + count modifier`.
-- Same-count discipline ordering remains monotonic in tests.
-- Zone-swing clamp is now parameterized at `[0.06, 0.91]`; the lower floor change exists only so strong 3-0 suppression can be represented. Neutral-count probabilities are far above that floor.
+Added a bounded late two-strike take-rescue path:
+- Trigger eligibility: `strikes == 2`, `pitch.is_strike`, and the original normal swing roll chose TAKE.
+- Out-of-zone pitches are never rescued, so Chase math and three-ball selectivity are not directly changed.
+- Rescue probability is bounded 18%–42% and depends modestly on hitter discipline and pitch hittability.
+- Better-recognized/easier strikes are more likely to receive a late protection attempt.
+- The rescued attempt is not a normal offensive swing. It uses a strongly reduced touch probability and a high foul tendency so the primary redistribution is called-K -> swinging-K / foul survival rather than called-K -> fair-ball hit.
+- Normal swings, normal contact resolution, fair-contact quality, HR/XBH, defense and baserunning remain unchanged.
 
-## COUNT-SPECIFIC MEASUREMENT
-Deterministic neutral-vs-neutral diagnostic, seed `20260911`, 40,000 PA. These are representative implementation measurements, not the final 05 heavy calibration result.
+Production parameters:
+- `TWO_STRIKE_TAKE_RESCUE_BASE = 0.280`
+- `TWO_STRIKE_TAKE_RESCUE_HITTABLE_WEIGHT = 0.080`
+- `TWO_STRIKE_TAKE_RESCUE_DISCIPLINE_WEIGHT = 0.0010`
+- rescue bounds `[0.18, 0.42]`
+- protective touch scale `0.25`, bounds `[0.10, 0.38]`
+- protective miss-to-foul `0.06`
+- protective foul bonus `0.30`, bounds `[0.45, 0.78]`
 
-| Count | Reach/PA | Swing | Z-Swing | Chase |
-| --- | ---: | ---: | ---: | ---: |
-| 0-2 | 35.865% | 53.369% | 77.685% | 23.137% |
-| 1-2 | 20.208% | 52.866% | 77.269% | 21.181% |
-| 2-2 | 14.883% | 50.667% | 74.608% | 20.690% |
-| 2-0 | 12.165% | 45.520% | 65.792% | 19.283% |
-| 3-0 | 8.530% | 15.064% | 20.708% | 8.269% |
-| 3-1 | 15.360% | 31.738% | 47.585% | 12.688% |
-| 3-2 | 19.430% | 47.367% | 71.870% | 18.374% |
+## FINAL HEAVY VALIDATION
+Validation-only branch `validation/phase1-looking-k-final` was based on the exact production-code checkpoint `feb2920fe35922f167bc750ec1eaff096393ed6e`. The validation workflow itself was isolated from PR #58 and is not intended for integration.
 
-Observed behavioral gates:
-- 3-0 Swing < 3-1 Swing: PASS.
-- 3-1 Swing < comparable neutral 1-1: PASS (`31.74% < 46.84%`).
-- 3-2 Z-Swing > 3-0 Z-Swing: PASS (`71.87% > 20.71%`).
-- 3-2 Chase remains below 0-2 and below neutral-count chase region: PASS.
-- 0-2/1-2/2-2 protection is concentrated in Z-Swing rather than large chase inflation: PASS.
-- 3-0 is strongly suppressed but not absolute zero: PASS.
+GitHub Actions heavy run `34599008227`: SUCCESS.
+Sample contract:
+- Neutral hitter 100 vs neutral pitcher 100: 200,000 PA.
+- Generated prospect hitter population vs neutral pitcher: 200,000 PA.
+- Production full games: 10,000 games.
+- Seed: `20260906`.
 
-## GLOBAL BEFORE / AFTER
-Prior PR #58 provisional neutral sensitivity was a 100k run with a different seed, so the comparison is directional rather than an exact paired A/B.
+### Neutral 200k
+- Zone: 55.028%
+- Swing: 48.212%
+- Z-Swing: 70.471%
+- Chase: 20.976%
+- Contact/Swing: 77.289%
+- Z-Contact: 79.677%
+- O-Contact: 67.470%
+- Whiff/Swing: 22.711%
+- Called strike/pitch: 16.249%
+- Swinging strike/pitch: 10.950%
+- Foul/pitch: 15.260%
+- Two-strike foul/PA: 13.432%
+- Protective swing/PA: 3.009%
+- Pitches/PA: 3.253
+- BB: 9.206%
+- K: 17.916%
+- HBP: 1.314%
+- H/PA: 24.514%
+- HR/PA: 2.746%
+- Looking-K share: 40.785%
+- Swinging-K share: 59.215%
 
-Prior provisional -> count-specific 40k:
-- Zone: 55.10% -> 55.137%.
-- Swing: 48.23% -> 47.253%.
-- Z-Swing: 70.06% -> 68.721%.
-- Chase: 21.45% -> 20.869%.
-- Contact/Swing: 78.31% -> 78.485%.
-- Whiff/Swing: 21.69% -> 21.515%.
-- Z-Contact: 80.92% -> 81.114%.
-- O-Contact: 67.82% -> 67.845%.
-- Called strike/pitch: 16.50% -> 17.246%.
-- Swinging strike/pitch: 10.46% -> 10.166%.
-- Foul/pitch: 15.40% -> 15.003%.
-- Pitches/PA: 3.23 -> 3.225.
-- BB: 8.33% -> 9.063%.
-- K: 18.13% -> 18.368%.
-- Looking-K share: 53.34% -> 54.703%.
-- HBP: 1.28% -> 1.358%.
-- H/PA: 24.55% -> 24.17%.
-- HR/PA: 2.80% -> 2.83%.
+Compared with the pre-fix 05 heavy candidate:
+- Looking-K share: 54.405% -> 40.785% (-13.620 pp).
+- Chase: 20.952% -> 20.976% (effectively unchanged).
+- K: 18.579% -> 17.916%; the corresponding 10k production K/PA is 18.027%, so the target ~18–19% environment remains represented.
+- BB/HBP remain in the accepted Phase-1 region.
 
-Interpretation:
-- Count behavior moved in the intended baseball direction without PA-length or offense explosion.
-- H/PA decreased modestly and HR/PA stayed effectively flat in this representative sample; no HR/XBH model parameter was touched.
-- BB rose while overall K stayed near the prior Phase-1 provisional level.
-- Looking-K share rose to 54.70% in this 40k sample. Reducing looking-K remains an explicit Phase-1 heavy-validation/tuning watch item; this subtask must not be treated as final Phase-1 calibration acceptance.
+### Generated prospects 200k
+- Swing: 49.304%
+- Z-Swing: 66.955%
+- Chase: 27.730%
+- Contact/Swing: 74.299%
+- Z-Contact: 77.482%
+- O-Contact: 64.905%
+- Whiff/Swing: 25.701%
+- Called strike/pitch: 18.175%
+- Swinging strike/pitch: 12.672%
+- Foul/pitch: 15.351%
+- Two-strike foul/PA: 14.147%
+- Protective swing/PA: 3.354%
+- Pitches/PA: 3.247
+- BB: 7.285%
+- K: 22.331%
+- HBP: 1.295%
+- Looking-K share: 41.796%
+- Swinging-K share: 58.204%
+- Generated Chase is preserved: 27.749% pre-fix -> 27.730% post-fix.
 
-## REGRESSION / CI
-PR #58 code checkpoint `f6c74a0191041d41ffc3e20a3a839130ee7d668e`.
-GitHub Actions run `34594997988`:
+### Production 10k full games
+- PA/game: 80.259
+- Runs/game: 9.537
+- Hits/game: 19.321
+- HR/game: 2.221
+- BB/game: 7.474
+- K/game: 14.469
+- HBP/game: 1.065
+- BB/PA: 9.312%
+- K/PA: 18.027%
+- HBP/PA: 1.327%
+- H/PA: 24.073%
+- HR/PA: 2.767%
+- AVG: .2700
+- SLG: .4117
+- ISO: .1417
+
+Relative to the prior 05 10k run, runs/game (9.293 -> 9.537) and HR/PA (2.696% -> 2.767%) moved modestly upward despite no physical hitting parameter change. This is not an offense explosion in the current sample but should remain a 05 watch item during final acceptance.
+
+## TWO-STRIKE COUNT RESULTS — NEUTRAL 200k
+| Count | Reach/PA | Swing | Take | Z-Swing | Chase | Protective swing/reach | Looking-K/reach | Swinging-K/reach |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 0-2 | 36.665% | 56.890% | 43.110% | 84.649% | 22.294% | 2.201% | 5.167% | 8.546% |
+| 1-2 | 20.401% | 55.751% | 44.249% | 83.279% | 21.801% | 4.664% | 11.193% | 16.911% |
+| 2-2 | 15.283% | 54.778% | 45.222% | 81.945% | 21.031% | 4.871% | 12.072% | 16.312% |
+| 3-2 | 20.017% | 51.422% | 48.578% | 79.624% | 17.278% | 2.518% | 6.637% | 7.496% |
+
+Looking-K/reach improvement versus pre-fix:
+- 0-2: 14.202% -> 5.167%
+- 1-2: 15.618% -> 11.193%
+- 2-2: 17.068% -> 12.072%
+- 3-2: 17.158% -> 6.637%
+
+Accepted count structure remains intact:
+- 3-0: Swing 15.081%, Z-Swing 21.150%, Chase 7.599%, protective rescue 0.
+- 3-1: Swing 31.816%, Z-Swing 46.854%, Chase 13.666%, protective rescue 0.
+- The rescue therefore does not undo three-ball selectivity.
+
+## TESTS / REGRESSION
+Final PR code/test checkpoint: `27859c86cea0fe7449ae952c0cde57cc296f9562`.
+Regular CI run `34599298416`:
 - Web build/tests PASS.
-- Compile, Python dependency contract, durable-store tests, API entrypoint, API vertical-slice PASS.
+- Compile PASS.
+- Dependency contract PASS.
+- External durable-store tests PASS.
+- API entrypoint/vertical-slice PASS.
 - Related production integration: 31/31 PASS.
-- New `test_phase1_count_situational` coverage PASS: sparse table, 3-0/3-1/3-2 ordering, two-strike protection without chase explosion, same-count discipline identity, nonzero 3-0 differentiation, frozen batted-ball/HR constants, and actual 40k count/global measurement guardrails.
-- Existing two-strike foul survival, HBP path, deterministic replay, save/load, count/game invariants, natural-event sanity, and gameplay monotonicity tests shown in the suite PASS.
-- Full Python discover: 358 tests, 357 PASS, 1 FAIL.
-- Sole failure remains out-of-scope `test_balance_v04.test_draft_distribution_not_extreme` (`undrafted=6.0%`, historical assertion >10%). That test calls `Player.random()` + `CareerEngine.evaluate_draft()` and no gameplay path; this task did not alter generation or draft evaluation and the same gate already failed earlier on PR #58. It is intentionally not weakened here.
-- Because that unrelated unit failure stops the workflow, later auto-career/balance/draft workflow steps are skipped. Do not classify the overall workflow as green; classify the gameplay/count-specific and production-integration gates as green.
+- Phase-1 count/two-strike tests PASS, including:
+  - sparse modifier table unchanged,
+  - 3-0/3-1 ordering,
+  - rescue is in-zone only,
+  - discipline-sensitive rescue,
+  - hittability-sensitive strike recognition,
+  - protective swing is lower-touch/high-foul rather than a fair-contact bonus,
+  - generated chase contract remains structurally untouched,
+  - frozen HR/XBH/physical parameters,
+  - 40k deterministic count/global sanity.
+- Existing deterministic replay, HBP path, two-strike foul survival, save/load, natural-event, inning/game, and integration regressions shown in the suite PASS.
+- Full Python discover: 361 tests, 360 PASS, 1 FAIL.
+- Sole failure remains the pre-existing/out-of-scope `test_balance_v04.test_draft_distribution_not_extreme` (`undrafted=5.667%`, historical assertion >10%). The failure does not exercise the gameplay engine and predates this blocker fix. It was not weakened or modified.
+- The workflow is therefore not globally green due to that unrelated draft gate; the Gameplay / Phase-1 / production-integration gates are green.
 
 ## 05 HANDOFF
-After PR #58 integration, rerun canonical Phase-1 validation with consistent seeds/sample definitions:
-1. Neutral 100 vs neutral 100: >=200k PA and 10k full games.
-2. Generated prospect hitters vs neutral pitcher: >=200k PA.
-3. Representative mature production roster population if available.
-4. For every population report count reach, Swing%, Z-Swing%, and Chase% for at least 3-0, 3-1, 3-2, 0-2, 1-2, and 2-2; retain all-count table if practical.
-5. Global metrics: Zone, Swing, Z-Swing, Chase, Contact, Z/O-Contact, Whiff, called/swinging strike, foul, two-strike foul, BB, K, looking/swinging-K split, HBP, pitches/PA, H/PA, HR/PA, runs/game.
-6. Explicit gates: 3-0 remains strongly suppressed without erasing player differentiation; generated low-discipline chase does not re-expand; no PA/pitch-count explosion; no material H/HR/runs explosion.
-7. Specifically re-evaluate looking-K share. Current 40k count-specific sample is 54.70%, so final Phase-1 PASS requires deciding whether further called-strike/2-strike tuning is needed rather than assuming this subtask solved it.
-8. Validate deterministic replay, legal counts, no infinite PA, safety-cap hits=0, and full-game invariants.
+05 should canonicalize/final-sign-off this blocker on the PR #58 candidate or post-integration main rather than retune it immediately.
+Required confirmation:
+1. Looking-K remains around the ~41% region rather than reverting toward 54–55%.
+2. Neutral/production K remains around the accepted ~18% environment.
+3. Generated Chase remains near the already-accepted ~27.7% level with discipline monotonicity preserved.
+4. BB/HBP remain stable.
+5. Count ordering and 3-0/3-1 selectivity remain intact.
+6. Re-check the modest production offense shift (runs/game 9.537, HR/PA 2.767%) as a watch item, noting that HR/XBH/physical batted-ball parameters are unchanged.
+7. Confirm deterministic replay and full-game invariants on the final integration SHA.
 
 ## OPEN ITEMS
-- 05 canonical heavy validation is required before declaring the entire Phase 1 calibrated for production.
-- Looking-K share remains OPEN and is the primary global side-effect watch item from this subtask.
-- Mature-roster population comparison depends on available 02/05 production population tooling/data.
-- The unrelated draft-distribution unit gate remains outside 01 scope.
-- Phase 2 Physical Batted-Ball Engine remains blocked until Phase-1 heavy validation is accepted.
+- Phase-1 looking-K blocker is closed at the 01 implementation/validation level.
+- 05 final canonical signoff remains required before project-wide Phase 1 is declared closed.
+- The legacy draft-distribution test remains outside 01 scope.
+- Phase 2 Physical Batted-Ball Engine must not start until 05 records final Phase-1 acceptance.
 
 ## RELATED PRS
-- #58 open — Phase 1 plate discipline and contact calibration; this count-specific work is integrated into the same branch/PR.
+- #58 OPEN / mergeable — Phase 1 plate discipline and contact calibration, including the final two-strike looking-K blocker fix.
 
 ## GATES
-- COUNT_SITUATIONAL_MODIFIER_STRUCTURE = PASS
-- COUNT_SPECIFIC_BEHAVIOR = PASS
-- PLAYER_IDENTITY_WITHIN_COUNT = PASS
-- TWO_STRIKE_PROTECTION_WITHOUT_CHASE_EXPLOSION = PASS
-- FAIR_CONTACT_HR_XBH_MODEL_CHANGED = NO
-- HBP_REGRESSION = PASS
-- TWO_STRIKE_FOUL_REGRESSION = PASS
+- COUNT_SITUATIONAL_MODIFIER_STRUCTURE = PASS_UNCHANGED
+- THREE_ZERO_THREE_ONE_SELECTIVITY = PASS
+- TWO_STRIKE_TAKE_RESCUE = PASS
+- LOOKING_K_SHARE = PASS_01_HEAVY
+- NEUTRAL_K_ENVIRONMENT = PASS
+- PRODUCTION_K_ENVIRONMENT = PASS
+- GENERATED_CHASE = PASS_PRESERVED
+- BB_HBP_ENVIRONMENT = PASS
+- DISCIPLINE_IDENTITY = PASS
+- TWO_STRIKE_FOUL_SURVIVAL = PASS
+- DETERMINISTIC_GAMEPLAY = PASS
+- FAIR_CONTACT_HR_XBH_PHYSICAL_MODEL_CHANGED = NO
 - GAMEPLAY_INTEGRATION_REGRESSION = PASS
-- GLOBAL_OFFENSE_EXPLOSION = NOT_OBSERVED_IN_40K
-- LOOKING_K_SHARE = OPEN_HEAVY
-- FULL_PYTHON_SUITE = BLOCKED_BY_OUT_OF_SCOPE_DRAFT_GATE_357_OF_358_PASS
-- PHASE1_05_HEAVY_VALIDATION = OPEN
-- PHASE2_ALLOWED = NO_UNTIL_05_VALIDATION
+- FULL_PYTHON_SUITE = BLOCKED_BY_OUT_OF_SCOPE_DRAFT_GATE_360_OF_361_PASS
+- PHASE1_05_FINAL_SIGNOFF = OPEN
+- PHASE2_ALLOWED = PENDING_05_SIGNOFF
