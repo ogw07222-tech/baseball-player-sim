@@ -10,15 +10,31 @@ BALL_CHASE_BASE = 0.255
 DISCIPLINE_ZONE_WEIGHT = 0.0015
 DISCIPLINE_CHASE_WEIGHT = 0.0025
 
-# Count effects are intentionally independent. Full count receives both the
-# two-strike protection term and the three-ball selectivity term instead of
-# allowing one branch to mask the other.
+# Legacy Phase-1 count constants are retained for snapshot/backward-compatibility
+# documentation, but runtime count behavior now reads COUNT_SWING_MODIFIERS below.
 TWO_STRIKE_ZONE_SWING_BONUS = 0.090
 THREE_BALL_ZONE_SELECTIVITY = -0.015
 THREE_ZERO_ZONE_EXTRA_SELECTIVITY = -0.035
 TWO_STRIKE_CHASE_BONUS = 0.005
 THREE_BALL_CHASE_SELECTIVITY = -0.050
 THREE_ZERO_CHASE_EXTRA_SELECTIVITY = -0.020
+
+# Explicit situational modifiers. Keys are (balls, strikes). Values are additive
+# (zone_swing, chase) terms layered on top of player identity, location and
+# pitch-quality effects; unspecified counts remain neutral (0, 0).
+COUNT_SWING_MODIFIERS = {
+    (2, 0): (-0.035, -0.030),
+    (0, 2): (+0.100, +0.005),
+    (1, 2): (+0.085, +0.000),
+    (2, 2): (+0.065, -0.005),
+    (3, 0): (-0.470, -0.145),
+    (3, 1): (-0.220, -0.090),
+    (3, 2): (+0.045, -0.045),
+}
+ZONE_SWING_MIN = 0.06
+ZONE_SWING_MAX = 0.91
+CHASE_MIN = 0.015
+CHASE_MAX = 0.54
 
 # Miss rescue moves a bounded share of swings to foul contact, not directly to
 # fair balls/hits. Two-strike rescue is additive and keeps the count alive.
