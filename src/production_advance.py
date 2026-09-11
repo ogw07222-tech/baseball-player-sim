@@ -34,6 +34,10 @@ from .time_advance import (
 )
 
 
+class SeasonCompleteError(RuntimeError):
+    """Advance commands require explicit season finalization after game 144."""
+
+
 @dataclass
 class ProductionAdvancePipelineState(AdvancePipelineState):
     team_wins: int = 0
@@ -177,6 +181,12 @@ class ProductionAdvanceService:
         if self.engine.phase!='PRO':raise RuntimeError("career is not in professional phase")
         if self.engine.current_session is None:self.engine.start_pro_season()
 
+    def _ensure_advance_allowed(self)->None:
+        self._ensure_active_session()
+        session=self.engine.current_session
+        if session is not None and session.finished:
+            raise SeasonCompleteError("professional season is complete; finalize season before advancing")
+
     @property
     def state(self)->ProductionAdvancePipelineState:
         state=self.orchestrator.state
@@ -187,9 +197,12 @@ class ProductionAdvanceService:
     def season_complete(self)->bool:
         session=self.engine.current_session;return bool(session is not None and session.finished)
 
-    def advance_one_game(self)->AdvanceSummary:self._ensure_active_session();return self.orchestrator.advance_one_game()
-    def advance_one_week(self)->AdvanceSummary:self._ensure_active_session();return self.orchestrator.advance_one_week()
-    def advance_one_month(self)->AdvanceSummary:self._ensure_active_session();return self.orchestrator.advance_one_month()
+    def advance_one_game(self)->AdvanceSummary:
+        self._ensure_advance_allowed();return self.orchestrator.advance_one_game()
+    def advance_one_week(self)->AdvanceSummary:
+        self._ensure_advance_allowed();return self.orchestrator.advance_one_week()
+    def advance_one_month(self)->AdvanceSummary:
+        self._ensure_advance_allowed();return self.orchestrator.advance_one_month()
 
     def finalize_season(self)->SeasonFinalizationResult:
         result=self.engine.finalize_completed_pro_season()
