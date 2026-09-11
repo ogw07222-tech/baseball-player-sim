@@ -34,10 +34,10 @@ export function ProgressRing({ value, label }: { value:number; label:string }) {
   return <div className="progress-ring" style={{background:`conic-gradient(var(--accent-cyan) ${normalized}%, var(--panel-alt) 0)`}} aria-label={`${label} ${Math.round(value)}%`}><span>{Math.round(value)}%</span></div>
 }
 
-export function LoadingState() {
-  return <div className="state-card" role="status"><div className="skeleton wide"/><div className="skeleton"/><div className="skeleton"/>데이터를 불러오는 중입니다.</div>
+export function LoadingState({ message='데이터를 불러오는 중입니다.' }: { message?:string }) {
+  return <div className="state-card" role="status"><div className="skeleton wide"/><div className="skeleton"/><div className="skeleton"/>{message}</div>
 }
 
-export function ErrorState({ onRetry }: { onRetry:()=>void }) {
-  return <div className="state-card error" role="alert"><strong>시즌 정보를 불러올 수 없습니다.</strong><button onClick={onRetry}>다시 시도</button></div>
+export function ErrorState({ onRetry, message='시즌 정보를 불러올 수 없습니다.' }: { onRetry:()=>void; message?:string }) {
+  return <div className="state-card error" role="alert"><strong>{message}</strong><button onClick={onRetry}>다시 시도</button></div>
 }
