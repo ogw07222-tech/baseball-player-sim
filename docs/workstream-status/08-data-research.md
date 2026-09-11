@@ -1,49 +1,73 @@
 # 08 - Baseball Data & Research
 
 WORKSTREAM: 08 - Baseball Data & Research
-UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@c277df00a191575214009b93311d5b54c633d5c3
+UPDATED_AT: 2026-09-11
+SOURCE_OF_TRUTH: main@61b1430e9090c89342125d8dca7bd4a8f9c5dd4b
 STATE: ACTIVE
-CURRENT_TASK: KBO roster / age / pitcher workload baseline pack — second-pass verification
-RESULT: PARTIAL_PASS_OPEN
+CURRENT_TASK: Compare simulation statistics against real KBO records
+RESULT: FAIL_WITH_STRONG_LOCAL_MATCHES_AND_OPEN_GAPS
 
 ## LAST_COMPLETED
 - Public data provenance/usage policy and detailed dataset provenance matrix remain in place.
 - `docs/kbo-shared-evidence-baseline.md` provides common 02/03/04/05 references.
-- `docs/kbo-roster-age-pitcher-workload-baseline.md` established the first focused roster/workload pack.
-- Added `docs/kbo-roster-age-pitcher-workload-baseline-pass2.md` with second-pass source verification and BF-exposure heavy-sanity bands.
+- `docs/kbo-roster-age-pitcher-workload-baseline.md` and pass2 provide roster/workload evidence.
+- Added `docs/kbo-simulation-realism-comparison-2026-09-11.md` comparing the canonical 10,000-game simulation baseline against completed 2022-2025 KBO environments.
+
+## SIMULATION_SOURCE
+- Canonical comparison target is 05 Balance Lab GitHub Actions run `34488552895`, simulation SHA `7112ce550e0933a80b0c75701de46fbd03047077`, seed `20260906`, 10,000 games.
+- Current-main production/career integration changes do not alter the core full-game simulation modules, so the 10k distribution remains valid by simulation-code identity.
+- Key simulation values: runs/game 8.1360, hits/game 18.3810, HR/game 2.0976, BB/game 6.2906, K/game 16.5189, PA/game 77.3202, extra innings 10.50%, draws 3.49%, walk-offs 7.31%.
 
 ## CURRENT_FINDINGS
-- 2026 KBO official registered-player population remains 621: 317 pitchers (51.05%), 50 catchers (8.05%), 138 infielders (22.22%), 116 outfielders (18.68%).
-- 2026 rookies remain 52 (8.37% of registered population): 28 P, 14 IF, 8 OF, 2 C.
-- Official age bounds remain usable: 2026 18y1m19d–42y1m15d; 2025 18y1m19d–42y6m16d. Mean/median/percentiles and position-age splits remain OPEN.
-- Completed-2025 high-GS starter tail remains 30–31 GS and 5.46–6.58 IP/start; second pass adds 23.13–26.20 BF/start for the observed top-five GS group.
-- Completed-2025 zero-start reliever extreme tail remains 75–82 G and 0.58–1.04 IP/app; second pass adds 2.48–4.16 BF/app for the observed top-five appearance group.
-- KBO official public tables expose G/IP/TBF and detailed pitching fields, but GS is not consistently exposed in the same rendered public table. Full role percentiles therefore still require a complete secondary/licensed GS-bearing source or game-log reconstruction.
-- Full P10/P50/P90/P95 starter/reliever workload distributions, role counts, and starter/bullpen IP shares remain OPEN; no percentile was inferred from leaderboard snippets.
-- KBO officially adopted TrackMan as the official pitch-velocity measurement system from 2025. Average velocity and maximum velocity are explicitly treated as separate measures; no primary league-wide mean/SD/percentile distribution was recovered.
-- Debut-age/career-length methodology remains fixed: stable player ID, first KBO regular-season appearance, calendar-span plus active-season measures, right-censoring, left-truncation controls, Kaplan–Meier when appropriate, and predeclared peak metric/PA-IP minimum.
+- Completed 2022-2025 KBO mean environment: runs/game 9.617, hits/game 18.237, HR/game 1.610, BB/game 7.103, K/game 14.684, PA/game 78.283.
+- Simulation runs/game is 15.4% below the completed-season mean and below every 2022-2025 season -> FAIL.
+- Hits/game is only 0.8% above the completed-season mean and H/PA is within recent KBO range -> PASS.
+- HR/game is 30.3% above the 2022-2025 mean and above even the 2024 high-HR environment -> FAIL.
+- BB/game is 11.4% below the recent mean and below every completed season in the reference window -> FAIL.
+- K/game is 12.5% above the recent mean and above every completed season in the reference window -> FAIL.
+- PA/game is close (-1.2% vs 2022-2025 mean) but slightly below the completed-season range -> WATCH.
+- Aligned simulation rates: H/PA 23.77% PASS; BB/PA 8.14% FAIL; K/PA 21.36% FAIL; HR/PA 2.71% FAIL.
+- Structural conclusion: the simulation is not simply low-offense. It has realistic hit volume but simultaneously low walks, high strikeouts, high home runs, and low runs. Event composition and run conversion must be decomposed before any tuning.
+- Simulation regular-season max innings 11 and 12+ inning games 0 -> rule semantics PASS for current KBO rule.
+- Draw frequency 3.49% vs completed 2025 3.06% -> WATCH.
+- Extra-inning frequency 10.50% vs 2024 official 59/720 = 8.19% under the prior 12-inning rule -> WATCH with rule-definition mismatch noted.
+- Walk-off rate 7.31% vs 2022-2025 secondary-reference mean ~6.56% -> WATCH.
+- Simulation AVG/OBP/SLG/OPS/ISO/BABIP, HBP, errors, shutouts, aligned ERA/WHIP/K9/BB9/HR9, team parity, and matched real tail frequencies remain OPEN because required simulation or real game-level denominator fields are not yet available.
+
+## REAL_KBO_REFERENCE
+- Primary calibration reference period for this audit: completed regular seasons 2022, 2023, 2024, 2025.
+- KBO official records/rules were preferred; completed team aggregates were cross-checked/derived from Yagoonara tables identifying `koreabaseball.com` as source.
+- 2026 is incomplete and was used only as contextual confirmation, not as the calibration target.
+- 2025 regular-season extra-inning cap is 11 innings; 2022-2024 used the prior 12-inning cap.
+
+## CALIBRATION_ROUTING
+- 05: measurement-only decomposition is highest priority. Emit PA/AB/R/H/1B/2B/3B/HR/TB/BB/IBB/HBP/SO/SF/SAC/GDP/E/ER and matched rate/distribution/tail counters before tuning.
+- 01: after 05 decomposition, perform sensitivity-only analysis of BB/K/contact/HR pathways plus non-HR XBH, runner advancement, GDP, errors, baserunning, sacrifice and sequencing.
+- 02: compare fixed-neutral-rating simulation with current generated-rating population to isolate formula bias from rating-distribution bias; inspect contact/power/discipline tails without changing scales.
+- 03 + 05: split scoring/event rates by inning bands and starter/reliever context to test whether role/fatigue behavior suppresses late-game scoring.
+- 00: decide multi-year recent-KBO target vs explicit single-season target only after sensitivity evidence if a cross-system calibration target must be locked.
 
 ## BLOCKERS
-- No aggregate-permitted modern KBO age histogram/central tendency source was recovered.
-- No complete redistribution-safe/licensed 2025 player-level G/GS/IP/BF universe was recovered for central percentile calculation.
-- No primary/licensed league-wide TrackMan fastball distribution was recovered.
-- No provenance-safe longitudinal numerical KBO career cohort has yet been materialized.
+- Canonical full-game artifact does not yet expose enough batting accounting fields for direct AVG/OBP/SLG/OPS/ISO/BABIP comparison.
+- It does not expose aligned pitching ERA/WHIP/K9/BB9/HR9 aggregates.
+- Matched real KBO game-log percentile/extreme-tail aggregates are not yet built for 20+ runs, 15+ team runs, 100+ PA, shutouts and errors.
+- Canonical independent-game artifact does not provide team-season standings/run-differential distributions for parity comparison.
 
 ## OPEN_ITEMS
-- Recover roster age mean/median/P10/P25/P75/P90, position-age splits, and young-player shares from an aggregate-permitted source.
-- Obtain or reconstruct a complete 2025 G/GS/IP/BF pitcher universe and calculate role counts, IP shares, BF shares, and P10/P50/P90/P95 under the declared project classifier with sensitivity checks.
-- Find a primary or explicitly licensed TrackMan-derived league fastball mean/SD/percentile source; keep average and maximum velocity separate.
-- Materialize debut-age/career-length cohorts with censoring metadata.
+- Ask 05 for a measurement-only expanded canonical simulation summary with complete batting/pitching accounting and P10/P25/P50/P75/P90/P95/P99 event distributions.
+- Build recent KBO game-log aggregate tails under matched definitions: shutouts, 15+ team-run games, 20+ total-run games, 100+ PA games, HBP/errors, extra innings and walk-offs.
+- Recover exact completed-2025 extra-inning game count under the 11-inning rule.
+- Build 2022-2025 team-season win%, run differential and scoring/allowance distributions for parity validation.
 
 ## DEPENDENCIES
-- 02: registered-player position and rookie distributions are PASS and usable for R1 comparison; age central distribution remains OPEN.
-- 03: longitudinal cohort/censoring methodology is PASS; numerical lifecycle distributions remain OPEN.
-- 04: unchanged; award/rule evidence from shared baseline remains usable.
-- 05: completed-2025 extreme workload sanity bands now include both IP and BF exposure; central role percentiles remain OPEN.
+- 01: event probability and game-flow sensitivity once 05 exposes the decomposition.
+- 02: neutral-vs-generated rating-population isolation for BB/K/HR/H and runs/PA biases.
+- 03: workload/fatigue context only if inning/role split shows late-game scoring suppression.
+- 05: immediate owner of expanded Monte Carlo measurement output; no production tuning requested yet.
+- 00: calibration-target policy only if multi-year vs single-year reference requires a project-level choice.
 
 ## NEXT_ACTION
-- Highest priority: complete 2025 pitcher universe with G/GS/IP/BF for percentile and role-share aggregation. Second: aggregate-permitted modern roster age distribution. Third: primary/licensed TrackMan velocity distribution.
+- Highest priority: 05 measurement-only expanded full-game summary. In parallel, 08 should build matched real KBO game-log tail distributions and exact completed-2025 extra-inning frequency.
 
 ## RELATED_PRS
 - #35 merged
@@ -54,17 +78,17 @@ RESULT: PARTIAL_PASS_OPEN
 ## GATES
 - PUBLIC_DATA_POLICY = PASS
 - DATASET_PROVENANCE_MATRIX = PASS
-- 2025_MATCHED_LEAGUE_BASELINE = PASS
-- ROSTER_POSITION_DISTRIBUTION_BASELINE = PASS
-- ROSTER_ROOKIE_SHARE_BASELINE = PASS
-- ROSTER_AGE_BOUNDS = PASS
-- ROSTER_AGE_DISTRIBUTION = OPEN
-- STARTER_RELIEVER_EXTREME_WORKLOAD_SANITY = PASS
-- STARTER_RELIEVER_BF_EXPOSURE_SANITY = PASS
-- STARTER_RELIEVER_WORKLOAD_PERCENTILES = OPEN
-- VELOCITY_MEASUREMENT_PROVENANCE = PASS
-- VELOCITY_AVERAGE_MAX_SEPARATION = PASS
-- VELOCITY_DISTRIBUTION_BASELINE = OPEN
-- CAREER_LONGITUDINAL_METHODOLOGY = PASS
-- CAREER_LONGITUDINAL_NUMERICAL_BASELINE = OPEN
-- KBO_ROSTER_AGE_WORKLOAD_PACK = PARTIAL_PASS_OPEN
+- RECENT_KBO_MULTIYEAR_REFERENCE = PASS
+- RUN_ENVIRONMENT_REALISM = FAIL
+- HIT_VOLUME_REALISM = PASS
+- BB_ENVIRONMENT_REALISM = FAIL
+- K_ENVIRONMENT_REALISM = FAIL
+- HR_ENVIRONMENT_REALISM = FAIL
+- PA_ENVIRONMENT_REALISM = WATCH
+- EXTRA_INNING_DRAW_REALISM = WATCH
+- WALKOFF_REALISM = WATCH
+- BATTING_RATE_STAT_COMPARISON = OPEN
+- PITCHING_RATE_STAT_COMPARISON = OPEN
+- REAL_GAME_TAIL_DISTRIBUTION = OPEN
+- TEAM_PARITY_COMPARISON = OPEN
+- OVERALL_KBO_STATISTICAL_REALISM = FAIL_WITH_STRONG_LOCAL_MATCHES
