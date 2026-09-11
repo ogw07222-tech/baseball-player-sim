@@ -1,8 +1,8 @@
 """Phase 2 physical initial-state generation for fair-contact migration.
 
 Phase 2A owns EV/LA/timing/spray generation. Phase 2B attaches a deterministic
-O(1) first-ground trajectory while leaving stadium, defense, and hit-type
-resolution to later migration stages.
+O(1) first-ground trajectory. Phase 2C attaches an O(1) generic-stadium wall
+interaction / physical-HR shadow while legacy HR/XBH/defense remain authority.
 """
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from . import physical_parameters as P
 
 if TYPE_CHECKING:
     from .trajectory import BattedBallTrajectory
+    from .stadium import WallInteraction
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -23,7 +24,7 @@ def _clamp(value: float, low: float, high: float) -> float:
 
 @dataclass(frozen=True)
 class BattedBallState:
-    """Stable Phase-2 initial state plus optional Phase-2B trajectory.
+    """Stable Phase-2 initial state plus trajectory/wall shadow metadata.
 
     Units/conventions:
     - ``exit_velocity``: miles per hour.
@@ -32,7 +33,7 @@ class BattedBallState:
     - spray: center field 0°, left-field side negative, right-field side positive.
     - pitch locations are normalized batter-relative coordinates where
       x=-1 is inside, x=+1 outside, y=-1 low, y=+1 high.
-    - trajectory distances/heights are feet; trajectory time is seconds.
+    - trajectory/wall distances/heights are feet; trajectory time is seconds.
     """
 
     exit_velocity: float
@@ -45,6 +46,7 @@ class BattedBallState:
     pitch_location_y: float
     batter_side: str
     trajectory: BattedBallTrajectory | None = None
+    wall_interaction: WallInteraction | None = None
 
     def __post_init__(self) -> None:
         values = (
@@ -90,13 +92,7 @@ def is_fair_spray(
 
 
 def _fork_seed(parent_rng, namespace: int = 0x503241) -> int:
-    """Fingerprint parent state without consuming it.
-
-    Production uses the project ``RNG`` interface while a few calibration/test
-    adapters pass ``random.Random`` directly. Both expose the same underlying
-    MT state through different accessor names, so support both without drawing
-    from either parent stream.
-    """
+    """Fingerprint parent state without consuming it."""
     if hasattr(parent_rng, "get_state"):
         state = parent_rng.get_state()
     elif hasattr(parent_rng, "getstate"):
@@ -216,7 +212,6 @@ def _spray_angle(
     pitch_location_x: float,
     approach: str,
 ) -> float:
-    # Batter-relative positive means pull. Convert once to fixed field coordinates.
     pull_sign = -1.0 if batter_side == "R" else 1.0
     approach_bias = (
         P.SPRAY_APPROACH_BIAS_DEG if approach == "pull"
@@ -249,12 +244,7 @@ def generate_batted_ball_state(
     pitch_hittable_quality: float,
     parent_rng,
 ) -> BattedBallState:
-    """Generate Phase-2 initial state without consuming the canonical RNG.
-
-    Phase-1 foul handling and legacy HR/XBH result resolution remain
-    authoritative. Phase-2B trajectory generation is deterministic and uses no
-    additional random numbers.
-    """
+    """Generate Phase-2A/B/C shadow state without consuming canonical RNG."""
     side = "L" if batter_side == "L" else "R"
     pitch_x, pitch_y = pitch_location_from_zone(pitch_zone)
     rng = RNG(_fork_seed(parent_rng))
@@ -304,7 +294,17 @@ def generate_batted_ball_state(
         pitch_location_y=pitch_y,
         batter_side=side,
     )
-    # Local import avoids a module-load cycle: trajectory consumes the complete
-    # Phase-2A state and returns a pure deterministic summary.
+
     from .trajectory import generate_batted_ball_trajectory
-    return replace(state, trajectory=generate_batted_ball_trajectory(state))
+    trajectory = generate_batted_ball_trajectory(state)
+
+    # Phase 2C production shadow uses the explicit generic engineering stadium
+    # until a later game/stadium context contract selects a real fixture.
+    from .stadium import GENERIC_ENGINEERING_BASELINE, resolve_wall_interaction
+    wall = resolve_wall_interaction(
+        trajectory=trajectory,
+        spray_angle_deg=state.spray_angle,
+        is_fair_shadow=state.is_fair,
+        stadium=GENERIC_ENGINEERING_BASELINE,
+    )
+    return replace(state, trajectory=trajectory, wall_interaction=wall)
