@@ -1,8 +1,10 @@
 """High-school, draft, KBO season, coaching, in-season events, awards and retirement."""
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from datetime import date
+from typing import Any, Callable, Mapping
 from . import config
+from .career_source_facts import CareerSourceFact
 from .coaches import CoachingStaff, generate_batting_coach, generate_fielding_coach, generate_league_staffs
 from .draft_scoring import evaluate_hitter_draft
 from .events import CareerEvent, EventChoice, EventContext, EventResolution, EVENT_CATALOG, EVENT_BY_ID, auto_choose, eligible, event_weight, resolve_event
@@ -41,6 +43,18 @@ EventDecider=Callable[[CareerEvent,Player],EventChoice]
 @dataclass
 class CareerEngineBase:
     player:Player;rng:RNG;year:int=config.START_YEAR;tournament_index:int=0;phase:str='HIGH_SCHOOL';tournament_results:list[dict[str,object]]=field(default_factory=list);current_session:ProSeasonSession|None=None;team_coaches:dict[str,CoachingStaff]=field(default_factory=dict);coach_history:list[dict[str,object]]=field(default_factory=list);last_event_resolutions:list[EventResolution]=field(default_factory=list)
+    _source_facts:list[CareerSourceFact]=field(default_factory=list,init=False,repr=False)
+    _source_fact_date:date|None=field(default=None,init=False,repr=False)
+    _source_fact_phase:str=field(default='system',init=False,repr=False)
+    _source_fact_ordinal:int=field(default=0,init=False,repr=False)
+    def begin_source_fact_capture(self,simulated_date:date|None,phase:str='post_game')->None:
+        self._source_fact_date=simulated_date;self._source_fact_phase=phase;self._source_fact_ordinal=0
+    def _emit_source_fact(self,fact_type:str,*,before:Mapping[str,object]|None=None,after:Mapping[str,object]|None=None,authoritative_state_delta:Mapping[str,object]|None=None,phase:str|None=None,persistence_hint:str|None=None,existing_identity:str|None=None,game_number:int|None=None)->CareerSourceFact:
+        session=self.current_session
+        fact=CareerSourceFact(fact_type=fact_type,season=self.year,game_number=(session.games_completed if game_number is None and session is not None else game_number),simulated_date=self._source_fact_date,phase=phase or self._source_fact_phase,local_ordinal=self._source_fact_ordinal,player_identifier=self.player.name,team_identifier=self.player.team,before=dict(before or {}),after=dict(after or {}),authoritative_state_delta=dict(authoritative_state_delta or {}),persistence_hint=persistence_hint,existing_identity=existing_identity)
+        self._source_fact_ordinal+=1;self._source_facts.append(fact);return fact
+    def drain_source_facts(self)->tuple[CareerSourceFact,...]:
+        facts=tuple(self._source_facts);self._source_facts.clear();self._source_fact_date=None;self._source_fact_phase='system';self._source_fact_ordinal=0;return facts
     def _ensure_coaches(self)->None:
         if not self.team_coaches:self.team_coaches=generate_league_staffs(self.rng)
     def current_coaching_staff(self)->CoachingStaff:
@@ -64,18 +78,8 @@ class CareerEngineBase:
                 i=self.player.draft_info;return DraftResult(str(i['team']),int(i['round']) if i.get('round') else None,int(i['pick']) if i.get('pick') else None,str(i['status']),float(i['scouting_score']),int(i['scouted_talent']))
             raise RuntimeError('draft can only run after high school')
         self.finish_high_school()
-        # Clubs never read exact internal current ability/Talent. True Talent is
-        # observed only through this noisy projection; actual high-school game
-        # production is the dominant draft component.
         scouted=max(0,int(round(self.rng.gauss(self.player.stats.talent,24.))))
-        evaluation=evaluate_hitter_draft(
-            self.player.high_school_stats,
-            self.player.position,
-            scouted,
-            self.player.stats.durability,
-            self.tournament_results,
-            self.rng,
-        )
+        evaluation=evaluate_hitter_draft(self.player.high_school_stats,self.player.position,scouted,self.player.stats.durability,self.tournament_results,self.rng)
         score=evaluation.score;t=config.DRAFT_THRESHOLDS
         if score>=t['round1']:round_no=1
         elif score>=t['round2_3']:round_no=self.rng.randint(2,3)
@@ -90,8 +94,7 @@ class CareerEngineBase:
         team=self._team_config();ability=self.player.stats.current_ability();competition=float(team['depth'])+config.POSITION_COMPETITION.get(self.player.position,0)-config.FIRST_TEAM_INITIAL_OFFSET;chance=logistic_range(ability-competition,.015,.65,10.5)
         if self.player.draft_info and self.player.draft_info.get('round')==1:chance+=.07
         career_pa=self.player.first_team_career().PA
-        if career_pa>=config.ESTABLISHED_FIRST_TEAM_PA and ability>=config.ESTABLISHED_FIRST_TEAM_ABILITY_FLOOR:
-            chance=max(chance,logistic_range(ability-88.,.45,.97,7.5))
+        if career_pa>=config.ESTABLISHED_FIRST_TEAM_PA and ability>=config.ESTABLISHED_FIRST_TEAM_ABILITY_FLOOR:chance=max(chance,logistic_range(ability-88.,.45,.97,7.5))
         return self.rng.random()<min(.97,chance)
     def start_pro_season(self)->ProSeasonSession:
         if self.phase=='HIGH_SCHOOL':self.evaluate_draft()
@@ -99,16 +102,20 @@ class CareerEngineBase:
         if self.current_session:return self.current_session
         level='FIRST' if self._initial_first_team_chance() else 'FARM';self.player.roster_level=level;self.player.clear_season_modifiers();self.current_session=ProSeasonSession(self.year,SeasonRecord(self.year,self.player.age,self.player.team or ''),0,level);self.last_event_resolutions=[];return self.current_session
     def _update_form(self)->None:
+        before={'form':self.player.form,'games_remaining':self.player.form_games_remaining}
         if self.player.form_games_remaining>0:
             self.player.form_games_remaining-=1
             if self.player.form_games_remaining<=0:self.player.form='normal'
-            return
-        mf=logistic_range(100-self.player.stats.mentality,.65,1.35,35);slump=config.SLUMP_BASE_CHANCE_PER_GAME*mf;hot=config.HOT_STREAK_BASE_CHANCE_PER_GAME/max(.7,mf)
-        if has_trait(self.player.traits,'volatile'):slump*=1.55;hot*=1.35
-        if has_trait(self.player.traits,'consistent'):slump*=.62;hot*=.72
-        roll=self.rng.random()
-        if roll<slump:self.player.form='slump';self.player.form_games_remaining=self.rng.randint(config.FORM_MIN_GAMES,config.FORM_MAX_GAMES)
-        elif roll<slump+hot:self.player.form='hot';self.player.form_games_remaining=self.rng.randint(config.FORM_MIN_GAMES,config.FORM_MAX_GAMES)
+        else:
+            mf=logistic_range(100-self.player.stats.mentality,.65,1.35,35);slump=config.SLUMP_BASE_CHANCE_PER_GAME*mf;hot=config.HOT_STREAK_BASE_CHANCE_PER_GAME/max(.7,mf)
+            if has_trait(self.player.traits,'volatile'):slump*=1.55;hot*=1.35
+            if has_trait(self.player.traits,'consistent'):slump*=.62;hot*=.72
+            roll=self.rng.random()
+            if roll<slump:self.player.form='slump';self.player.form_games_remaining=self.rng.randint(config.FORM_MIN_GAMES,config.FORM_MAX_GAMES)
+            elif roll<slump+hot:self.player.form='hot';self.player.form_games_remaining=self.rng.randint(config.FORM_MIN_GAMES,config.FORM_MAX_GAMES)
+        after={'form':self.player.form,'games_remaining':self.player.form_games_remaining}
+        if before['form']!=after['form']:
+            self._emit_source_fact('form_transition',before=before,after=after,authoritative_state_delta={'form':{'before':before['form'],'after':after['form']}})
     def _injury_chance(self)->float:
         d=logistic_range(100-self.player.stats.durability,.55,1.65,32.);f=1+max(0.,self.player.fatigue-50)/65.;a=1+max(0,self.player.age-30)*.045;c=config.INJURY_BASE_CHANCE_PER_GAME*d*f*a
         if has_trait(self.player.traits,'injury_risk'):c*=1.65
@@ -120,11 +127,16 @@ class CareerEngineBase:
         elif severity=='보통':games=self.rng.randint(12,45);name=self.rng.choice(('햄스트링 부상','어깨 염좌','손가락 골절'))
         else:games=self.rng.randint(60,150);name=self.rng.choice(('무릎 인대 부상','어깨 중상','발목 골절'))
         self.player.injury=InjuryStatus(name,severity,games);self.player.injury_history.append({'year':self.year,'age':self.player.age,'name':name,'severity':severity,'games':games,'source':'game'})
+        identity=f'injury_history:{self.year}:{len(self.player.injury_history)-1}'
+        after=self.player.injury.as_dict()
+        self._emit_source_fact('injury_created',before={'injury':None},after={'injury':after},authoritative_state_delta={'injury':{'before':None,'after':after}},persistence_hint='injury_history',existing_identity=identity)
     def _recover_day(self)->None:
         self.player.fatigue=max(0.,self.player.fatigue-config.FATIGUE_REST_RECOVERY)
         if self.player.injury:
-            recovery=2 if has_trait(self.player.traits,'quick_recovery') and self.rng.random()<.25 else 1;self.player.injury.games_remaining-=recovery
-            if self.player.injury.games_remaining<=0:self.player.injury=None
+            injury_before=self.player.injury.as_dict();recovery=2 if has_trait(self.player.traits,'quick_recovery') and self.rng.random()<.25 else 1;self.player.injury.games_remaining-=recovery
+            if self.player.injury.games_remaining<=0:
+                self.player.injury=None
+                self._emit_source_fact('injury_recovery_completed',before={'injury':injury_before},after={'injury':None},authoritative_state_delta={'injury':{'before':injury_before,'after':None}})
     def _play_probability(self,level:str)->float:
         ability=self.player.stats.current_ability();return logistic_range(ability-config.FIRST_TEAM_PLAY_BASELINE,.36,.90,15.) if level=='FIRST' else logistic_range(ability-config.FARM_PLAY_BASELINE,.55,.94,16.)
     def _fatigue_after_game(self)->None:self.player.fatigue=min(100.,self.player.fatigue+config.FATIGUE_PER_GAME_BASE*(100./(max(1,self.player.stats.stamina)+45.)))
