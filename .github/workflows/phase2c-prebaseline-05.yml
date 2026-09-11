@@ -1,0 +1,33 @@
+name: phase2c-prebaseline-05
+on:
+  push:
+    branches: [validation/phase2c-prebaseline-05]
+  workflow_dispatch:
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Assert integrated Phase2B baseline
+        run: |
+          test "$(git rev-parse 9d406589d6c71a92fa91843047116200c12826b3^{tree})" = "8126082fb99d10db1d39647e5aace3c01bcc16c9"
+          git diff --exit-code 9d406589d6c71a92fa91843047116200c12826b3 -- src
+      - name: Compile validation harness
+        run: python -m compileall -q src tools
+      - name: Phase1 final-outcome baseline
+        run: |
+          mkdir -p validation-output
+          python tools/offense_pitch_diagnostic.py --seed 20260911 --games 10000 --pa-samples 200000 --output validation-output/offense.json
+      - name: Phase2A physical baseline
+        run: python tools/phase2a_physical_distribution_validation.py --seed 20260911 --pa 200000 --output validation-output/physical.json
+      - name: Phase2B trajectory baseline
+        run: python tools/phase2b_candidate_validation.py --seed 20260911 --pa 200000 --output validation-output/trajectory.json
+      - name: Deterministic integration regression
+        run: python -m unittest tests.test_phase1_count_swing tests.test_phase2a_physical tests.test_phase2b_trajectory
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase2c-prebaseline-${{ github.run_id }}-${{ github.sha }}
+          path: validation-output
