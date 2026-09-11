@@ -2,80 +2,84 @@
 
 WORKSTREAM: 08 - Baseball Data & Research
 UPDATED_AT: 2026-09-12
-SOURCE_OF_TRUTH: main@5b3312009bd6f2d87483e4a02b3f701725775f2a
+SOURCE_OF_TRUTH: main@cc9580fe1e3d866ef69554aa8419aa9e8198df14
 STATE: ACTIVE
-CURRENT_TASK: Phase 2A priority research for EV / Launch Angle / Timing / Spray / Fair-Foul
-RESULT: PARTIAL_WITH_STRONG_STRUCTURAL_EVIDENCE_AND_OPEN_KBO_DISTRIBUTIONS
+CURRENT_TASK: Phase 2B lightweight baseball trajectory reference research
+RESULT: VERIFIED_FOR_ARCHITECTURE_PARTIAL_FOR_KBO_CALIBRATION
 
 ## LAST_COMPLETED
-- Public data provenance/usage policy and dataset provenance matrix remain in place.
-- `docs/phase2-batted-ball-physics-reference.md` remains the broader Phase 2 physics/park/defense reference.
-- Added `docs/phase2a-ev-la-timing-spray-fair-foul-reference.md` as the implementation-priority Phase 2A pack for EV, launch angle, timing, spray and fair/foul.
+- Public data provenance/usage policy remains in place.
+- `docs/phase2a-ev-la-timing-spray-fair-foul-reference.md` remains the Phase 2A source pack.
+- Added `docs/phase2b-lightweight-trajectory-reference.md` for Phase 2B trajectory / hang-time / landing-position research under fixed O(1) runtime constraints.
 
 ## CURRENT_FINDINGS
-- No modern public completed-season KBO league EV percentile distribution was recovered. Historical KBO/Sports2i tracking provides partial anchors: early-season 2019/2020 league mean batted-ball speed ~135.3/135.6 km/h; player-level TrackMan samples include Kim Ha-seong 2020 mean EV 90.1 mph (~145.0 km/h), LA 13 deg, 95+ mph 50.4%, max 108.9 mph, and Lee Jung-hoo 2022 mean EV 88.7 mph (~142.7 km/h), LA 12.3 deg, 95+ mph 37.7%, max 107 mph. These are not league calibration distributions.
-- Official MLB Baseball Savant 2025 provides a high-quality sanity reference only: 124,888 BBE, mean EV 89.4 mph (~143.9 km/h), mean LA 13.5 deg, Hard-Hit% 40.9%, official hard-hit threshold >=95 mph (~152.9 km/h), and 2025 max EV 122.9 mph. These must not be relabeled as KBO targets.
-- Historical KBO TrackMan reporting gives mean in-play LA ~11.92 deg and mean HR LA ~28.07 deg in 2017. KBO/Sports2i individual HR samples show very high-EV HRs can occur below 20 deg, supporting EVxLA interaction instead of fixed HR-angle rules.
-- MLB Statcast 2025 BBE profile is useful for Phase 2A sanity: GB 42.4%, FB 26.6%, LD 23.9%, PU 7.1%, Pull 39.2%, Straight/Center 36.4%, Oppo 24.5%. No matching modern KBO league spray aggregate was recovered.
-- Peer-reviewed 2019 optical-motion work with 26 baseball players measured acceptable timing error at about +/-7.9 ms for fastballs and +/-10.7 ms for curve/slow pitches; outside-pitch optimal impact was ~10 ms later than inside. This is strong structural evidence but not a KBO-pro scalar coefficient.
-- A 2017 high-speed-camera college study independently found inside pitches were contacted farther toward the pitcher and outside pitches farther toward the catcher. Combined evidence supports timing + pitch location + handedness as spray inputs.
-- Statcast Attack Direction and public MLB analysis also support out-front/early contact -> pull pressure and deeper/later contact -> opposite-field pressure; exact ms->spray-degree and ms->EV mappings remain OPEN.
-- No reliable compact KBO league foul/contact, foul/swing, two-strike foul, or foul-EV distribution was recovered. MLB Statcast exposes reproducible pitch-result categories, so those aggregates are derivable later. Fair/foul should therefore be implemented geometrically and measured before being hard-calibrated.
-- High-EV foul contact must remain possible; no evidence supports making foul synonymous with weak contact.
+- Official baseball specification: mass 5.00-5.25 oz (141.75-148.84 g), circumference 9.00-9.25 in, implying spherical diameter ~72.77-74.79 mm. Any single mass/diameter used by production is an engineering nominal value, not an official exact constant.
+- Standard gravity 9.80665 m/s^2 and standard sea-level atmosphere around rho=1.225 kg/m^3, T=15 C, p=101325 Pa are strong reference constants.
+- Baseball drag and Magnus/lift are materially important. Experimental literature covers representative baseball speeds ~50-110 mph and spin ~1500-4500 rpm; drag/lift depend on spin/seam state, so a universal fixed Cd/Cl is not empirically exact.
+- Vacuum-only trajectory is rejected for air-ball production. Alan Nathan reference: 100 mph, 29 deg, 2500 rpm, 3-ft launch height, sea-level-like 60 F -> ~397 ft with aerodynamics vs ~571 ft in vacuum. Vacuum overpredicts by ~174 ft / ~43.8% relative to the aerodynamic result.
+- Derived no-drag 29-deg/3-ft ranges are ~368/465/572/691 ft at 80/90/100/110 mph respectively. Only the 100-mph case has the aligned verified aerodynamic comparison; the same attenuation factor must not be extrapolated blindly to other speeds.
+- Real baseball maximum carry occurs broadly around high-20s/~30 deg rather than vacuum 45 deg. A 100-mph non-spinning Nathan-calculator series gives hang times 2.1/3.1/3.9/4.5/5.6/6.3/6.6 s at 5/10/15/20/30/40/45 deg.
+- Actual Statcast high-fly anchor: 105.2 mph, 50 deg, 6.8 s hang, 172-ft apex. Compact league apex distributions remain OPEN.
+- Recommended primary runtime architecture: high-fidelity drag/lift trajectories generated OFFLINE -> EVxLA grid -> runtime bilinear interpolation for carry/hang/apex. This satisfies fixed O(1), no loops, no root solve, no frame stepping.
+- Recommended secondary architecture: exact vacuum analytical base + jointly fitted correction surfaces for distance/hang/apex. Also O(1), but cross-output consistency must be controlled.
+- For sharply negative/near-zero LA, exact analytical first-ground intersection is defensible for Phase 2B V1 because flight is short. At 90 mph from 3 ft, no-drag first-impact examples: -15 deg ~11 ft/0.084 s, -10 deg ~16 ft/0.121 s, -5 deg ~27 ft/0.203 s, 0 deg ~57 ft/0.432 s. These are DERIVED engineering references, not empirical league values.
+- Fixed standard atmosphere is acceptable for generic Phase 2B V1 if explicitly labeled neutral-air/no-wind. Nathan/Statcast analysis shows temperature, altitude and especially wind alter carry; wind can shift a ~400-ft fly by tens of feet, so omission is a simplification, not evidence of insignificance.
+- Nathan atmospheric sensitivity reference around a 401-ft fly: +10 temperature units in the source's U.S.-unit context ~+3.3 ft; +1000 ft elevation ~+5.9 ft; +50 percentage-point RH ~+0.9 ft; 5 mph out wind ~+18.8 ft. Separate 100/29 case: ~413 ft with 5 mph out wind vs ~380 ft with 5 mph in wind.
 
-## SOURCE / DEFINITION QUALITY
-- VERIFIED MLB-only: Baseball Savant 2025 league aggregate EV/LA/Hard-Hit and BBE/spray profile; official hard-hit and EV/LA definitions; observed 122.9 mph 2025 extreme.
-- PARTIAL KBO: Sports2i historical league EV mean, older KBO TrackMan LA mean/HR LA, player-level KBO TrackMan EV/LA samples.
-- VERIFIED STRUCTURAL: peer-reviewed timing error scale and inside/outside optimal-contact shift; contact timing affects horizontal batted-ball direction.
-- OPEN KBO: modern EV mean/SD/percentiles, EV by BBE type/outcome, LA histogram, spray by handedness/hitter type, foul rates/EV.
+## MODEL DECISION SUPPORT
+- A vacuum projectile: O(1), stable, but realism FAIL due severe over-carry and wrong optimum angle.
+- B simple empirical attenuation: O(1), good runtime, moderate realism; weak if distance/time/apex are corrected independently.
+- C constant effective drag: only suitable if reduced to a pre-fit algebraic surrogate; exact 2D quadratic-drag landing is not naturally a simple no-root closed-form production solution.
+- D EVxLA carry/hang/apex lookup/surface: O(1), stable, high fidelity within calibrated domain, RECOMMENDED.
+- E simplified drag+lift closed-form surrogate: viable O(1) if pre-fit, but calibration is harder than D.
 
-## SANITY POLICY
-- MLB EV/LA/spray figures are `SANITY/WATCH` references only; they do not define KBO PASS/FAIL central values.
-- 95 mph hard-hit is an `MLB_HARD_HIT_REFERENCE`, not a KBO threshold.
-- EV materially above the known MLB Statcast extreme (~123 mph) at non-negligible frequency should trigger WATCH/FAIL investigation.
-- Use roughly 8-11 ms as a timing-order-of-magnitude test vector, not a production coefficient target.
-- Use MLB spray composition only as a broad smoke-check; KBO-specific spray calibration remains OPEN.
-- Fair/foul has structural invariants now, no hard league percentage gate yet.
+## STANDARD_ATMOSPHERE_POLICY
+- Phase2B V1 fixed neutral atmosphere = ACCEPTABLE.
+- Humidity omission = ACCEPTABLE for V1 generic trajectory.
+- Temperature omission = ACCEPTABLE with documented standard state.
+- Altitude omission = ACCEPTABLE for generic KBO-neutral V1, not park-specific realism.
+- Stadium-specific air density = DEFER.
+- Wind omission = ACCEPTABLE only as an explicit no-wind assumption; wind is materially important and should not be described as negligible.
 
 ## OWNER HANDOFF
-- 01 Gameplay Engine — implementation prior: preserve continuous EV/LA/spray; make spray responsive to timing + pitch location + handedness; mirror handedness geometry; allow hard fouls; resolve fair/foul geometrically; do not choose 1B/2B/HR before physical/field resolution. Provisional only: MLB Statcast LA buckets and hard-hit label for debugging. Future calibration: KBO EV/LA/spray/foul distributions.
-- 05 Balance Lab — Phase 2A measurement pack: EV mean/SD/P10/P25/P50/P75/P90/P95/P99/max; LA distribution and GB/LD/FB/PU debug buckets; EVxLA surface; timing-error histogram; spray by handedness/pitch-location/timing bucket; foul/swing, foul/contact, two-strike foul, foul EV distribution; fair/foul by timing and spray.
-- 00 Game Design HQ — no coefficient decision requested. Only resolve design-level questions if Phase 2A needs a fixed bootstrap distribution policy before KBO data becomes available.
+- 01 Gameplay Engine: use one deterministic O(1) canonical trajectory engine. Preferred runtime path is offline drag/lift EVxLA surface + bilinear interpolation. Return carry distance, ground-flight time, apex, landing x/y. Preserve mirror spray symmetry. Negative/near-zero LA can use analytic first-impact kinematics. Do not use vacuum-only air-ball carry, per-BIP integration, timestep loops, or iterative root finding.
+- 05 Balance Lab: validate distance/hang/apex distributions and EVxLA grids; fixed-EV angle sweeps; 100 mph / 29 deg ~397-ft aerodynamic anchor vs ~571-ft vacuum anchor; low-LA impact grids; high-LA hang/apex tails; mirror-coordinate invariants; min/max EV/LA stability.
+- 00 Game Design HQ: no coefficient tuning decision required from 08. If Phase 2B needs a policy decision, choose between offline physical-surface lookup and analytic+correction surrogate; 08 recommends the former.
 
-## BLOCKERS
-- No authoritative modern KBO league EV/LA distribution with percentiles.
-- No KBO league pull/center/oppo split with clear denominator/handedness split.
-- No KBO compact foul/contact or two-strike foul aggregate.
-- No professional/KBO timing-error-to-spray or timing-error-to-EV scalar transfer function.
+## SANITY POLICY
+- 100 mph / high-20s LA should be order-of-magnitude ~400 ft under neutral realistic-air conditions, not ~570+ ft.
+- distance maximum near 45 deg = FAIL; broad high-20s/low-30s optimum = PASS/WATCH.
+- recurring 600+ ft realistic-air carry = FAIL.
+- broad hang sanity: low line/near-ground <~3 s, LD ~2-4.5 s, ordinary fly ~4-6 s, high fly/popup ~5-8 s; recurring >9 s = WATCH/FAIL.
+- broad apex sanity: low liner <~30 ft, LD ~10-60 ft, ordinary fly ~40-130 ft, high fly/popup ~100-200+ ft. These are LOW_CONFIDENCE overlapping sanity bands, not KBO targets.
+- all outputs must remain finite/nonnegative and mirror-consistent.
 
-## OPEN_ITEMS
-- Seek Sports2i/official team/TrackMan public modern KBO EV/LA aggregate with sample and denominator metadata.
-- Seek or derive KBO spray distribution by batter handedness and BBE type under permitted public-use conditions.
-- Derive MLB foul distributions only if needed for structural sanity, keeping them separately namespaced from KBO calibration.
-- Seek professional-level biomechanical work for timing error vs EV/contact quality and exact horizontal direction response.
+## BLOCKERS / DATA_GAPS
+- No public modern KBO distance/hang/apex distribution.
+- No KBO batted-ball spin distribution / spin-vs-EV-LA mapping.
+- No KBO-vs-MLB baseball drag/COR comparison suitable for direct trajectory calibration.
+- No KBO park/weather air-state pack integrated with trajectory reference.
+- No KBO empirical EVxLA->distance grid.
 
 ## NEXT_ACTION
-- Highest-value next research gap is a modern KBO EV/LA tracking export or published aggregate. Second is KBO spray distribution; third is KBO foul-rate/foul-EV evidence. Phase 2A implementation can proceed meanwhile using the structural evidence and MLB references strictly as provisional/sanity inputs.
+- Phase 2B implementation is research-unblocked at the architecture level. Highest-value future data is KBO EVxLA-distance/spin tracking, but 01 can implement the O(1) trajectory contract now and 05 can validate against the verified physics anchors and broad sanity ranges.
 
 ## RELATED_DOCS
+- `docs/phase2b-lightweight-trajectory-reference.md`
 - `docs/phase2a-ev-la-timing-spray-fair-foul-reference.md`
 - `docs/phase2-batted-ball-physics-reference.md`
-- `docs/kbo-pitch-batted-ball-run-conversion-reference.md`
 
 ## GATES
 - PUBLIC_DATA_POLICY = PASS
-- KBO_MODERN_EV_DISTRIBUTION = OPEN
-- KBO_EV_HISTORICAL_ANCHORS = PARTIAL
-- KBO_MODERN_LA_DISTRIBUTION = OPEN
-- KBO_LA_HISTORICAL_ANCHORS = PARTIAL
-- MLB_STATCAST_EV_LA_SANITY = VERIFIED_MLB_ONLY
-- TIMING_ORDER_OF_MAGNITUDE = VERIFIED_STRUCTURAL
-- INSIDE_OUTSIDE_CONTACT_SHIFT = VERIFIED_STRUCTURAL
-- TIMING_TO_SPRAY_DIRECTION = QUALITATIVE_STRONG
-- EXACT_TIMING_TO_SPRAY_COEFFICIENT = OPEN
-- KBO_SPRAY_DISTRIBUTION = OPEN
-- MLB_SPRAY_SANITY = VERIFIED_MLB_ONLY
-- KBO_FAIR_FOUL_REFERENCE = OPEN
-- FAIR_FOUL_GEOMETRIC_CONTRACT = PASS
-- PHASE2A_VALIDATION_METRIC_PACK = PASS
-- PHASE2A_EV_LA_TIMING_SPRAY_FAIR_FOUL_REFERENCE = PARTIAL_WITH_STRONG_STRUCTURAL_EVIDENCE_AND_OPEN_KBO_DISTRIBUTIONS
+- BASEBALL_PHYSICAL_CONSTANTS = VERIFIED
+- STANDARD_GRAVITY_ATMOSPHERE = VERIFIED
+- DRAG_IMPORTANCE = VERIFIED
+- SPIN_LIFT_STRUCTURE = VERIFIED
+- VACUUM_ONLY_AIRBALL_MODEL = FAIL_REJECTED
+- O1_RUNTIME_CONSTRAINT = SATISFIED_BY_RECOMMENDED_MODELS
+- OFFLINE_PHYSICS_RUNTIME_LOOKUP = RECOMMENDED
+- VACUUM_PLUS_CORRECTION_SURROGATE = RECOMMENDED_SECONDARY
+- STANDARD_ATMOSPHERE_V1 = ACCEPTABLE
+- KBO_TRAJECTORY_DISTRIBUTION = OPEN
+- PHASE2B_VALIDATION_METRIC_PACK = PASS
+- PHASE2B_LIGHTWEIGHT_TRAJECTORY_REFERENCE = VERIFIED_FOR_ARCHITECTURE_PARTIAL_FOR_KBO_CALIBRATION
