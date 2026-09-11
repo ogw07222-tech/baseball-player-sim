@@ -16,22 +16,11 @@ from typing import Iterable, Mapping, Sequence
 
 from . import config
 from .career import CareerEngine, SeasonFinalizationResult
+from .career_source_facts import CareerSourceFact
 from .game_provider import GameFixture, ProductionGameProvider
 from .game_result import ProductionGameResult
-from .stat_aggregation import (
-    GamePerformance,
-    HitterCountingStats,
-    PitcherCountingStats,
-    SeasonStatLine,
-    career_stats_from_records,
-    season_stats_from_record,
-)
-from .time_advance import (
-    AdvanceOrchestrator,
-    AdvancePipelineState,
-    AdvanceSummary,
-    ScheduleProvider,
-)
+from .stat_aggregation import GamePerformance,HitterCountingStats,PitcherCountingStats,SeasonStatLine,career_stats_from_records,season_stats_from_record
+from .time_advance import AdvanceOrchestrator,AdvancePipelineState,AdvanceSummary,ScheduleProvider
 
 
 class SeasonCompleteError(RuntimeError):
@@ -40,39 +29,29 @@ class SeasonCompleteError(RuntimeError):
 
 @dataclass
 class ProductionAdvancePipelineState(AdvancePipelineState):
-    team_wins: int = 0
-    team_losses: int = 0
-    team_ties: int = 0
-    team_record_supported: bool = False
-
+    team_wins:int=0;team_losses:int=0;team_ties:int=0;team_record_supported:bool=False
     @staticmethod
-    def _result_from_score(score: tuple[int, int] | None) -> str | None:
+    def _result_from_score(score:tuple[int,int]|None)->str|None:
         if score is None:return None
         runs_for,runs_against=score
         if runs_for>runs_against:return "W"
         if runs_for<runs_against:return "L"
         return "T"
-
     def add_game(self,game:GamePerformance)->None:
-        super().add_game(game)
-        score_result=self._result_from_score(game.score)
+        super().add_game(game);score_result=self._result_from_score(game.score)
         if score_result is not None:
             if game.team_result is not None and game.team_result!=score_result:raise ValueError("team_result must match exact final score")
             result=score_result
-        else:
-            result=game.team_result;self.team_record_supported=False
+        else:result=game.team_result;self.team_record_supported=False
         if result=="W":self.team_wins+=1
         elif result=="L":self.team_losses+=1
         elif result=="T":self.team_ties+=1
         else:self.team_record_supported=False
-
     @property
     def team_record(self)->dict[str,int|bool]:return {"wins":self.team_wins,"losses":self.team_losses,"ties":self.team_ties,"supported":self.team_record_supported}
-    def as_dict(self)->dict[str,object]:
-        payload=super().as_dict();payload["team_record"]=dict(self.team_record);return payload
+    def as_dict(self)->dict[str,object]:payload=super().as_dict();payload["team_record"]=dict(self.team_record);return payload
     @classmethod
-    def from_advance_state(cls,state:AdvancePipelineState,*,team_record_supported:bool=False)->"ProductionAdvancePipelineState":
-        return cls(current_date=state.current_date,season=state.season,career=state.career,completed_seasons=list(state.completed_seasons),recent_games=list(state.recent_games),history_limit=state.history_limit,team_record_supported=team_record_supported)
+    def from_advance_state(cls,state:AdvancePipelineState,*,team_record_supported:bool=False)->"ProductionAdvancePipelineState":return cls(current_date=state.current_date,season=state.season,career=state.career,completed_seasons=list(state.completed_seasons),recent_games=list(state.recent_games),history_limit=state.history_limit,team_record_supported=team_record_supported)
     @classmethod
     def from_dict(cls,data:Mapping[str,object],*,default_date:date|None=None)->"ProductionAdvancePipelineState":
         base=AdvancePipelineState.from_dict(data,default_date=default_date);raw=data.get("team_record")
@@ -110,12 +89,14 @@ class CareerFixtureProvider:
 
 class CareerGameAdvanceProvider:
     def __init__(self,engine:CareerEngine,schedule:CareerSeasonScheduleProvider,game_provider:ProductionGameProvider|None=None)->None:
-        self.engine=engine;self.schedule=schedule;self.fixture_provider=CareerFixtureProvider(engine,schedule)
+        self.engine=engine;self.schedule=schedule;self.fixture_provider=CareerFixtureProvider(engine,schedule);self._pending_source_facts:list[CareerSourceFact]=[]
         if game_provider is None:
             from .pitcher_usage import PitcherUsageLeagueState
             from .pitcher_usage_game_provider import DynamicPitcherGameProvider
             existing=getattr(engine,"pitcher_usage_state",None);usage_state=existing if isinstance(existing,PitcherUsageLeagueState) else PitcherUsageLeagueState();engine.pitcher_usage_state=usage_state;game_provider=DynamicPitcherGameProvider(usage_state=usage_state)
         self.game_provider=game_provider;self.last_result:ProductionGameResult|None=None;self.recent_results:list[ProductionGameResult]=[];self.history_limit=10
+    def drain_source_facts(self)->tuple[CareerSourceFact,...]:
+        facts=tuple(self._pending_source_facts);self._pending_source_facts.clear();return facts
     def _participation(self)->tuple[bool,str]:
         session=self.engine.start_pro_season()
         if self.engine.player.injury is not None:return False,"INJURED"
@@ -129,7 +110,7 @@ class CareerGameAdvanceProvider:
         else:self.engine._recover_day();self.engine._update_form();self.engine._reconsider_roster(session)
         self.engine._maybe_event(session,None,False)
     def advance_game(self,game_date:date)->GamePerformance:
-        session=self.engine.start_pro_season()
+        self.engine.begin_source_fact_capture(game_date,'post_game');session=self.engine.start_pro_season()
         if session.finished:raise RuntimeError("professional season already completed")
         if not session.preseason_checked:self.engine._check_preseason(session,None,False)
         if session.has_pending_event:self.engine.resolve_pending_event()
@@ -146,72 +127,48 @@ class CareerGameAdvanceProvider:
         if not team:raise RuntimeError("career player lost team during game")
         opponent=fixture.home_team if team==fixture.away_team else fixture.away_team;score=result.score_for(team)
         performance=GamePerformance(game_date=game_date,level=session.current_level,started=started,opponent=opponent,hitter_stats=hitter_stats,pitcher_stats=PitcherCountingStats(),team_result=result.team_result_for(team),score=score,notable_events=result.notable_events)
-        self._postgame(started);return performance
+        self._postgame(started);self._pending_source_facts.extend(self.engine.drain_source_facts());return performance
 
 
 class CompositionalAdvanceOrchestrator(AdvanceOrchestrator):
     def _advance_dates(self,period_type:str,start:date,end:date,dates:Iterable[date])->AdvanceSummary:
-        scheduled=tuple(dates);summary=super()._advance_dates(period_type,start,end,scheduled);compositional_end=scheduled[-1] if scheduled else start;self.state.current_date=compositional_end;return replace(summary,end_date=compositional_end)
+        scheduled=tuple(dates);summary=super()._advance_dates(period_type,start,end,scheduled);compositional_end=scheduled[-1] if scheduled else start;self.state.current_date=compositional_end
+        drain=getattr(self.game_provider,'drain_source_facts',None);facts=tuple(drain()) if callable(drain) else ()
+        return replace(summary,end_date=compositional_end,source_facts=facts)
 
 
 class ProductionAdvanceService:
     """Canonical game/week/month advance plus explicit season-boundary lifecycle."""
     def __init__(self,engine:CareerEngine,*,game_provider:ProductionGameProvider|None=None)->None:
-        self.engine=engine;self._injected_game_provider=game_provider;self.schedule=CareerSeasonScheduleProvider(engine.year)
-        session=engine.current_session;games_completed=session.games_completed if session is not None else 0
-        self._bind(self._state_for_engine(games_completed))
-
+        self.engine=engine;self._injected_game_provider=game_provider;self.schedule=CareerSeasonScheduleProvider(engine.year);session=engine.current_session;games_completed=session.games_completed if session is not None else 0;self._bind(self._state_for_engine(games_completed))
     def _bind(self,state:ProductionAdvancePipelineState)->None:
-        self.game_provider=CareerGameAdvanceProvider(self.engine,self.schedule,self._injected_game_provider)
-        self.orchestrator=CompositionalAdvanceOrchestrator(state,self.schedule,self.game_provider,rating_provider=lambda:self.engine.player.stats.as_dict(),roster_provider=lambda:self.engine.current_session.current_level if self.engine.current_session is not None else self.engine.player.roster_level)
-        self.engine.advance_state=state
-
+        self.game_provider=CareerGameAdvanceProvider(self.engine,self.schedule,self._injected_game_provider);self.orchestrator=CompositionalAdvanceOrchestrator(state,self.schedule,self.game_provider,rating_provider=lambda:self.engine.player.stats.as_dict(),roster_provider=lambda:self.engine.current_session.current_level if self.engine.current_session is not None else self.engine.player.roster_level);self.engine.advance_state=state
     def _state_for_engine(self,games_completed:int)->ProductionAdvancePipelineState:
         existing=getattr(self.engine,"advance_state",None)
         if isinstance(existing,ProductionAdvancePipelineState):return existing
         if isinstance(existing,AdvancePipelineState):return ProductionAdvancePipelineState.from_advance_state(existing)
-        current_date=self.schedule.dates[games_completed-1] if games_completed>0 else self.schedule.dates[0]-timedelta(days=1)
-        session=self.engine.current_session
-        season=season_stats_from_record(session.record) if session is not None else SeasonStatLine(year=self.engine.year)
-        records=list(self.engine.player.seasons)+([session.record] if session is not None else [])
-        career=career_stats_from_records(records)
-        return ProductionAdvancePipelineState(current_date=current_date,season=season,career=career,team_record_supported=games_completed==0)
-
+        current_date=self.schedule.dates[games_completed-1] if games_completed>0 else self.schedule.dates[0]-timedelta(days=1);session=self.engine.current_session;season=season_stats_from_record(session.record) if session is not None else SeasonStatLine(year=self.engine.year);records=list(self.engine.player.seasons)+([session.record] if session is not None else []);career=career_stats_from_records(records);return ProductionAdvancePipelineState(current_date=current_date,season=season,career=career,team_record_supported=games_completed==0)
     def _ensure_active_session(self)->None:
         if self.engine.phase!='PRO':raise RuntimeError("career is not in professional phase")
         if self.engine.current_session is None:self.engine.start_pro_season()
-
     def _ensure_advance_allowed(self)->None:
-        self._ensure_active_session()
-        session=self.engine.current_session
-        if session is not None and session.finished:
-            raise SeasonCompleteError("professional season is complete; finalize season before advancing")
-
+        self._ensure_active_session();session=self.engine.current_session
+        if session is not None and session.finished:raise SeasonCompleteError("professional season is complete; finalize season before advancing")
     @property
     def state(self)->ProductionAdvancePipelineState:
         state=self.orchestrator.state
         if not isinstance(state,ProductionAdvancePipelineState):raise AssertionError("production orchestrator lost production advance state")
         return state
-
     @property
-    def season_complete(self)->bool:
-        session=self.engine.current_session;return bool(session is not None and session.finished)
-
-    def advance_one_game(self)->AdvanceSummary:
-        self._ensure_advance_allowed();return self.orchestrator.advance_one_game()
-    def advance_one_week(self)->AdvanceSummary:
-        self._ensure_advance_allowed();return self.orchestrator.advance_one_week()
-    def advance_one_month(self)->AdvanceSummary:
-        self._ensure_advance_allowed();return self.orchestrator.advance_one_month()
-
+    def season_complete(self)->bool:session=self.engine.current_session;return bool(session is not None and session.finished)
+    def advance_one_game(self)->AdvanceSummary:self._ensure_advance_allowed();return self.orchestrator.advance_one_game()
+    def advance_one_week(self)->AdvanceSummary:self._ensure_advance_allowed();return self.orchestrator.advance_one_week()
+    def advance_one_month(self)->AdvanceSummary:self._ensure_advance_allowed();return self.orchestrator.advance_one_month()
     def finalize_season(self)->SeasonFinalizationResult:
-        result=self.engine.finalize_completed_pro_season()
+        self.engine.begin_source_fact_capture(self.state.current_date,'lifecycle');result=self.engine.finalize_completed_pro_season()
         if hasattr(self.engine,"advance_state"):delattr(self.engine,"advance_state")
         return result
-
     def start_next_season(self)->None:
         if self.engine.phase!='PRO':raise RuntimeError("career is not in professional phase")
         if self.engine.current_session is not None:raise RuntimeError("professional season already active")
-        self.engine.start_pro_season()
-        self.schedule=CareerSeasonScheduleProvider(self.engine.year)
-        self._bind(self._state_for_engine(0))
+        self.engine.start_pro_season();self.schedule=CareerSeasonScheduleProvider(self.engine.year);self._bind(self._state_for_engine(0))

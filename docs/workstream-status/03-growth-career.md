@@ -2,106 +2,130 @@
 
 WORKSTREAM: 03 - Growth & Career
 UPDATED_AT: 2026-09-11
-TASK_START_MAIN: f336b9be10f252300971be3d146b51ad7ff91537
-CURRENT_MAIN_AT_PR_OPEN: 4a945793715fdfaee6c91a33c5c24a3970e0402d
-STATE: P1_ADVANCE_BREADTH_IMPLEMENTED
-CURRENT_TASK: P1 Career Backend Advance Breadth
+TASK_START_MAIN: 0607b76ae9d9ac8fe3302896a7066091b510d26f
+PR_BASE_MAIN: 58f662324b99505ae6f73bb8188cdfb65224157d
+STATE: P1_CANONICAL_TRANSITION_SOURCE_FACTS_IMPLEMENTED
+CURRENT_TASK: P1 Canonical Career Transition Source Facts
 RESULT: PASS
 
-## SOURCE_OF_TRUTH_AUDIT
-Current production progression architecture on task start:
-- `ProductionAdvanceService.advance_one_game()` is the canonical P0 game mutation primitive used by the production API.
-- `advance_one_week()` and `advance_one_month()` already compose scheduled games through the same `CareerGameAdvanceProvider` and `CompositionalAdvanceOrchestrator` path.
-- week/month bulk progression is structurally the same gameplay path as repeated next-game calls; no separate gameplay simulator exists.
-- `CareerEngine.finalize_completed_pro_season()` owns canonical season finalization.
-- `ProductionAdvanceService.finalize_season()` delegates to that primitive.
-- `start_next_season()` creates a fresh ProSeasonSession/schedule/advance state after finalization.
-- persistence serializes engine RNG, session state, production advance state, and pitcher-usage state.
-
-Main advanced by one documentation-only 05 Balance Lab commit while this task was being prepared; no Growth/Career backend code changed between task-start main and the PR base.
-
-## CHOSEN_P1_BREADTH
-Approved for 07 production exposure:
-1. `next_game` -> existing `ProductionAdvanceService.advance_one_game()`
-2. `next_week` -> existing `ProductionAdvanceService.advance_one_week()`
-3. `next_month` -> existing `ProductionAdvanceService.advance_one_month()`
-
-Not yet approved as a single automatic command:
-- `season` / automatic finish-and-start-next-season transition
-
-Reason for deferral:
-- canonical explicit finalization/start-next-season primitives already exist and are tested;
-- multi-season pitcher-usage offseason reset semantics are still a separate 01/07 integration concern;
-- P1 breadth does not need to hide finalization + next-season lifecycle behind a new automatic command yet.
-
-## COMMAND_SEMANTICS
-### next_game
-- simulate exactly the next scheduled game after the persisted production cursor;
-- aggregate the game exactly once into season/career production state;
-- preserve existing P0 behavior and formulas.
-
-### next_week
-- requested window is current production cursor through +7 calendar days;
-- simulate every canonical scheduled game with `start < game_date <= start + 7 days`;
-- game results, stats, events, roster effects, fatigue/injury, and pitcher-usage effects are exactly the composition of repeated `next_game` calls with the same seed/state;
-- persistent cursor/end date remains the final simulated scheduled game date to preserve exact next-game composition semantics;
-- if fewer than a full week's games remain before game 144, simulate only those remaining games and stop exactly at game 144.
-
-### next_month
-- requested window is current production cursor through one calendar month using existing `_add_one_calendar_month` semantics;
-- simulate every canonical scheduled game in that window;
-- state/RNG/stat effects are exactly the composition of repeated `next_game` calls;
-- persistent cursor/end date is the final simulated scheduled game date;
-- near season end, consume only remaining scheduled games and stop exactly at game 144.
-
-### completed-season boundary
-New domain error:
-`SeasonCompleteError`
-
-For `advance_one_game`, `advance_one_week`, and `advance_one_month`:
-- if the current ProSeasonSession is already finished, reject before gameplay/RNG/stat/lifecycle mutation;
-- do not auto-finalize;
-- do not auto-start another session from a still-unfinalized completed season;
-- caller must perform explicit canonical season finalization first.
-
-This prevents a completed-season week/month call from becoming a successful no-op mutation that would still consume an API revision/idempotency operation when 07 exposes it.
+## SOURCE_OF_TRUTH_REAUDIT
+- Latest main at this task start: `0607b76ae9d9ac8fe3302896a7066091b510d26f`.
+- PR #50 progression breadth is already merged in production main history.
+- Existing PR #54 remains the coherent implementation PR for this source-fact work; no duplicate PR was created.
+- Main advanced beyond PR #54 base only through 07 status/documentation work; no Growth/Career backend conflict was found and PR #54 remains mergeable.
+- `next_game`, `week`, and `month` all use `ProductionAdvanceService` and the same canonical internal game path.
+- Period-end snapshot comparison is not authoritative enough for reversible transitions such as FARM -> FIRST -> FARM.
+- Existing durable histories are fragmented: roster/debut in `career_history`, injuries in `injury_history`, event-resolution effects in `event_history`, offseason traits in `trait_history`, growth in `growth_history`.
 
 ## IMPLEMENTATION
-BRANCH: `feature/p1-career-advance-breadth`
-PR: #50 `Growth/Career: P1 production advance breadth`
+BRANCH: `feature/p1-career-source-facts`
+PR: #54 `Growth/Career: P1 canonical career transition source facts`
+IMPLEMENTATION_HEAD: `9f93842cb2e86ebfe6fd76a7c4068f0e8a66c25d`
 
-Changed production behavior:
-- `src/production_advance.py`
-  - added `SeasonCompleteError`;
-  - added shared `_ensure_advance_allowed()` guard;
-  - game/week/month all reject completed-session advancement before mutation.
+03 now exposes a typed, presentation-free `CareerSourceFact` emitted at the authoritative mutation point.
 
-No FastAPI, store, persistence transaction, frontend, gameplay probability, rating, or event-catalog files were changed.
+Canonical serialized source-fact fields:
+- `fact_type`
+- `season`
+- `game_number`
+- `simulated_date`
+- `phase`
+- `local_ordinal`
+- `player_id`
+- `team_id`
+- `before_state`
+- `after_state`
+- `state_delta`
+- `existing_history_kind`
+- `existing_dedupe_key`
+- `persistence_hint`
+
+Object-only compatibility aliases remain temporarily for internal callers, but `as_dict()` exposes the canonical field names above. No title, summary, importance, presentation priority, random UUID, or narrative text is generated by 03.
+
+## AUTHORITATIVE_SOURCE_FACTS
+### Roster / debut
+- `roster_promotion`: FARM -> FIRST.
+- `roster_demotion`: FIRST -> FARM.
+- `first_team_debut`: first actual FIRST-level appearance.
+- Existing `career_history` identity is reused when available.
+
+### Injury / recovery
+- `injury_created`: gameplay injury creation at the mutation point.
+- `injury_recovery_completed`: active injury -> no injury when recovery reaches completion.
+- Event-resolution injury mutation exposes `injury_created`, `injury_cleared`, or `injury_changed` where applicable.
+- Gameplay injury creation reuses `injury_history`; event-driven changes reuse `event_history` identity.
+
+### Form / Trait / rating-development
+- `form_transition`: authoritative normal/slump/hot state transition only when form changes.
+- `trait_gained` / `trait_lost`: existing offseason/event trait mutations.
+- `event_rating_change`: existing event-resolution stat deltas; no rating tuning.
+- `season_growth`: existing `GrowthResult` deltas and ability before/after; no growth tuning.
+
+### Lifecycle
+- `season_finalized`: canonical completed-season transition.
+- `SeasonFinalizationResult.source_facts` carries lifecycle/growth facts from explicit finalization.
+
+No source facts were invented for rivalry, contracts, FA, transfer/trade, retirement timeline, milestones/records, or a full Futures/minor-league simulation.
+
+## TRANSITION_HOOKS
+- `CareerEngineBase._maybe_injure()` emits injury creation immediately after authoritative injury assignment/history append.
+- `CareerEngineBase._recover_day()` emits recovery completion exactly when injury state clears.
+- `CareerEngineBase._update_form()` emits only on authoritative form-state change.
+- roster hooks emit at `_reconsider_roster()` transition completion, not from period-end roster snapshots.
+- first-team debut is tied to first actual FIRST-level appearance.
+- `resolve_pending_event()` mirrors direct event-driven injury/form/trait/rating changes at the resolution mutation point.
+- season finalization emits growth/trait/lifecycle facts from the canonical finalization path.
+
+## COMPOSITE_ADVANCE_CONTRACT
+- Each internal production game opens a capture context with its exact simulated game date.
+- Facts emitted during that game receive deterministic `(simulated_date, game_number, phase, local_ordinal)` coordinates.
+- `CareerGameAdvanceProvider` drains the game's facts after post-game career processing.
+- `AdvanceSummary.source_facts` contains all facts from `next_game`, `week`, or `month` in internal execution order.
+- FARM -> FIRST -> FARM in one composite period preserves both roster transitions even when final state is FARM.
+- Near season end, only actually simulated remaining games may emit facts.
+- `SeasonCompleteError` is checked before progression mutation; a rejected command produces no state, RNG, or source-fact side effect.
+
+## DETERMINISM / SAVE-LOAD
+- Source-fact capture buffers are transient and are not serialized as new durable save state.
+- Canonical authoritative player/session/history/RNG state remains the persistence source of truth.
+- same seed + same initial save + same actions => same ordered source-fact sequence.
+- save/load then same action => same source-fact sequence and same terminal serialized state.
+- no random presentation metadata is generated in 03.
+
+## PERSISTENT_HISTORY_REUSE
+`existing_history_kind` and `existing_dedupe_key` identify an already-existing durable fact when one exists; they do not request duplicate persistence.
+
+Current reuse:
+- roster promotion/demotion/debut -> `career_history`
+- gameplay injury creation -> `injury_history`
+- event-driven transitions -> `event_history`
+- offseason trait changes -> `trait_history`
+- season growth -> `growth_history`
+
+Ordinary injury recovery currently has no pre-existing durable history record; its source fact is authoritative for the mutation, while persistence/retention policy remains 04-owned.
 
 ## TEST_COVERAGE
-New: `tests/test_p1_career_advance_breadth.py`
+`tests/test_p1_career_source_facts.py` covers:
+- one transition in one game
+- multiple source facts in one week
+- FARM -> FIRST -> FARM in one composite period
+- injury creation
+- recovery completion
+- canonical schema field names
+- persistent history identity reuse
+- save/load deterministic equivalence
+- repeated same-seed/action equivalence
+- deterministic ordering coordinates
+- season-end partial period
+- completed-season rejected mutation leaves state/RNG/fact buffer unchanged
+- season finalization includes `season_growth` and exactly one `season_finalized`
 
-Covers:
-- next_week == exact repeated-next_game composition;
-- next_month == exact repeated-next_game composition;
-- week deterministic save/load equivalence;
-- month deterministic save/load equivalence;
-- week near season end stops exactly at game 144;
-- month near season end stops exactly at game 144;
-- completed-season game/week/month calls raise `SeasonCompleteError`;
-- rejected completed-season calls preserve serialized state and RNG exactly;
-- completed period advance does not finalize, apply growth, increment age/year, or start next season.
-
-Existing regression coverage retained:
-- `tests/test_production_integration_consolidation.py` week/month composition;
-- `tests/test_season_lifecycle_bridge.py` finalization/save-load/exactly-once lifecycle;
-- P0 API vertical-slice next_game path;
-- production persistence and durable-store regression suites.
+Existing production regressions also remain green for next_game/week/month composition, lifecycle, API vertical slice, durable store, auto-career, balance, draft calibration, and web build/tests.
 
 ## CI
-PR #50 implementation head before this status-only update:
-`e9a1135d58c9792afc3dc4aa03d85455497f8de1`
-Workflow: tests #711
+Final implementation HEAD: `9f93842cb2e86ebfe6fd76a7c4068f0e8a66c25d`
+PR workflow: tests #775
+RESULT: SUCCESS
 
 PASS:
 - Vercel Python packaging
@@ -110,67 +134,64 @@ PASS:
 - Vercel FastAPI entrypoint smoke
 - API vertical-slice tests
 - related production integration tests
-- full Python unit suite
+- full Python unit suite including canonical source-fact tests
 - auto-career smoke
 - balance smoke
 - high-school/draft calibration gate
 - web build/tests
 
-## EXACT_07_BACKEND_HANDOFF
-03 owns only the following domain/service contract. 07 may wire it to HTTP/SessionStore CAS/idempotency without changing these semantics.
+## EXACT_04_HANDOFF
+04 should consume authoritative facts only from:
+- `AdvanceSummary.source_facts` for `next_game` / `week` / `month`
+- `SeasonFinalizationResult.source_facts` for explicit season finalization
 
-Suggested command mapping:
-- API `next_game` -> `ProductionAdvanceService(engine).advance_one_game()`
-- API `week` or product-facing `next_week` -> `ProductionAdvanceService(engine).advance_one_week()`
-- API `month` or product-facing `next_month` -> `ProductionAdvanceService(engine).advance_one_month()`
+Normalization rules:
+- do not infer a transition from final snapshots when a source fact exists;
+- preserve every distinct fact in a composite advance, including reversible transitions;
+- source ordering coordinates are `simulated_date`, `game_number`, `phase`, `local_ordinal`;
+- use `fact_type`, `before_state`, `after_state`, and `state_delta` as authoritative simulation content;
+- reuse `existing_history_kind` / `existing_dedupe_key` for durable logical identity when present;
+- treat `persistence_hint` as context only, not an instruction to double-write history;
+- 04 owns CanonicalEventDTO normalization, title/summary, importance, canonical final sorting/dedupe, and retention policy;
+- normalization/rendering must consume no simulation RNG and mutate no career state.
 
-Return source:
-- use the returned `AdvanceSummary` plus normal authoritative post-mutation presentation/state;
-- `AdvanceSummary.period_type`: `GAME`, `WEEK`, or `MONTH`;
-- `games_played` is the exact number of simulated games in that mutation;
-- `start_date` is the persisted cursor before the command;
-- `end_date` is the final simulated scheduled-game date under the compositional production cursor contract;
-- `season_after`, period stats, roster changes, and major events are post-command authoritative values.
+## EXACT_07_HANDOFF
+- 07 transports 04-normalized events inside the existing SessionStore transactional mutation.
+- stale revision or failed mutation commits neither simulation state nor event response.
+- idempotency replay returns stored committed response without re-running source-fact generation.
+- no FastAPI, HTTP DTO, SessionStore, Neon schema, or frontend changes are part of this PR.
 
-Boundary/error mapping requirement:
-- `SeasonCompleteError` means the current season reached game 144 and requires explicit lifecycle handling;
-- 07 should map it to a non-retry-by-replay domain/API response and must not commit a mutated simulation payload for the rejected command;
-- CAS/idempotency/revision behavior remains entirely 07-owned.
-
-Do not expose a single automatic `season` command from this PR. For later season command design, compose only the existing canonical `finalize_season()` and `start_next_season()` after pitcher-usage offseason state policy is explicitly settled.
-
-## BLOCKERS / OPEN
-- Automatic `season` command: OPEN pending 01/07 pitcher-usage offseason reset/integration semantics.
-- HTTP command wiring for week/month: OPEN, owned by 07.
-- UI controls/results for week/month: OPEN, owned by 06.
-- Long-run lifecycle validation remains separate 05 work.
-
-## OUT_OF_SCOPE / UNCHANGED
-- FastAPI routes/request models
-- Neon / SessionStore / transaction semantics
-- frontend
-- gameplay probabilities
-- hitter/pitcher formulas
-- rating scale / Talent semantics
-- event catalog
-- contract / FA / service time / trade / posting
+## UNSUPPORTED / NOT INVENTED
+OPEN until authoritative production semantics exist:
+- rivalry
+- contract / salary / service time
+- FA / posting
+- transfer / trade / release
+- retirement event timeline
+- milestone / record engine
+- full Futures/minor-league game simulation
 
 ## GATES
-- P1_ADVANCE_ARCHITECTURE_AUDIT = PASS
-- NEXT_GAME_REGRESSION = PASS
-- NEXT_WEEK_DOMAIN_CONTRACT = PASS
-- NEXT_MONTH_DOMAIN_CONTRACT = PASS
-- WEEK_COMPOSITION = PASS
-- MONTH_COMPOSITION = PASS
+- SOURCE_OF_TRUTH_REAUDIT = PASS
+- TYPED_SOURCE_FACT_SCHEMA = PASS
+- ROSTER_TRANSITION_FACTS = PASS
+- FIRST_TEAM_DEBUT_FACT = PASS
+- INJURY_CREATION_FACT = PASS
+- RECOVERY_COMPLETION_FACT = PASS
+- FORM_TRANSITION_FACT = PASS
+- TRAIT_RATING_GROWTH_FACTS = PASS
+- LIFECYCLE_FACT = PASS
+- COMPOSITE_FACT_RETENTION = PASS
+- SAME_SEED_ACTION_DETERMINISM = PASS
 - SAVE_LOAD_EQUIVALENCE = PASS
-- SEASON_BOUNDARY_GUARD = PASS
-- FULL_RELEVANT_PYTHON_TESTS = PASS
-- P1_WEEK_MONTH_IMPLEMENTATION = PASS
-- AUTOMATIC_SEASON_COMMAND = OPEN
-- P1_HTTP_WIRING = OPEN
-- P1_UI_WIRING = OPEN
+- SEASON_END_PARTIAL_PERIOD = PASS
+- REJECTED_MUTATION_NO_SIDE_EFFECT = PASS
+- FULL_RELEVANT_CI = PASS
+- 04_CANONICAL_EVENT_NORMALIZATION = OPEN
+- 07_TRANSACTIONAL_TRANSPORT = OPEN
+- FUTURE_UNIMPLEMENTED_TRANSITIONS = OPEN
 
 ## NEXT_ACTION
-- 07 reviews/merges PR #50 and wires week/month into the existing authoritative CAS/idempotency mutation path.
-- 06 may expose controls only after 07 publishes the production API contract.
-- 03 does not tune gameplay/growth/rating formulas in this batch.
+- 04 normalizes `source_facts` into CanonicalEventDTO without re-inferring simulation transitions.
+- 07 transports the normalized ordered timeline transactionally.
+- 03 extends this vocabulary only when new authoritative career semantics are actually implemented.
