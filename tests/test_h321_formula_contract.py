@@ -14,20 +14,35 @@ from src.hitting.defense import catch_probability
 
 
 class H321FormulaContractTests(unittest.TestCase):
-    """Freeze the validated Balance-Lab H3.2.1 gameplay contract in production."""
+    """Freeze the approved production gameplay parameter contract."""
 
     def test_core_hitting_parameter_snapshot(self):
         self.assertEqual(P.STAT_REFERENCE, 100.0)
         self.assertEqual(P.ZONE_SWING_BASE, 0.67)
-        self.assertEqual(P.BALL_CHASE_BASE, 0.245)
+        self.assertEqual(P.BALL_CHASE_BASE, 0.255)
         self.assertEqual(P.DISCIPLINE_ZONE_WEIGHT, 0.0015)
-        self.assertEqual(P.DISCIPLINE_CHASE_WEIGHT, 0.0045)
-        self.assertEqual(P.TWO_STRIKE_PROTECTION_WEIGHT, 0.0065)
-        self.assertEqual(P.TWO_STRIKE_PROTECTION_CAP, 0.25)
+        self.assertEqual(P.DISCIPLINE_CHASE_WEIGHT, 0.0025)
+        self.assertEqual(P.TWO_STRIKE_ZONE_SWING_BONUS, 0.090)
+        self.assertEqual(P.THREE_BALL_ZONE_SELECTIVITY, -0.015)
+        self.assertEqual(P.THREE_ZERO_ZONE_EXTRA_SELECTIVITY, -0.035)
+        self.assertEqual(P.TWO_STRIKE_CHASE_BONUS, 0.005)
+        self.assertEqual(P.THREE_BALL_CHASE_SELECTIVITY, -0.050)
+        self.assertEqual(P.THREE_ZERO_CHASE_EXTRA_SELECTIVITY, -0.020)
+        self.assertEqual(P.MISS_TO_FOUL_ZONE_BASE, 0.240)
+        self.assertEqual(P.MISS_TO_FOUL_BALL_BASE, 0.080)
+        self.assertEqual(P.TWO_STRIKE_FOUL_RESCUE_BASE, 0.030)
+        self.assertEqual(P.TWO_STRIKE_FOUL_DISCIPLINE_WEIGHT, 0.0015)
+        self.assertEqual(P.MISS_TO_FOUL_CAP, 0.38)
+        self.assertEqual(P.HBP_OUT_OF_ZONE_BASE, 0.0090)
+        self.assertEqual(P.HBP_CONTROL_WILDNESS_WEIGHT, 0.00006)
+        self.assertEqual(P.HBP_CONTROL_COMMAND_WEIGHT, 0.000025)
+        self.assertEqual(P.HBP_MIN, 0.003)
+        self.assertEqual(P.HBP_MAX, 0.018)
         self.assertEqual(P.CONTACT_SCALE, 0.0055)
         self.assertEqual(P.CONTACT_POSITIVE_SOFT, 70.0)
         self.assertEqual(P.POWER_SCALE, 0.0108)
         self.assertEqual(P.POWER_POSITIVE_SOFT, 85.0)
+        # Phase 2 / physical batted-ball knobs remain frozen in Phase 1.
         self.assertEqual(P.HR_LOGIT_CENTER, 0.86)
         self.assertEqual(P.HR_LOGIT_SCALE, 0.30)
 
@@ -117,7 +132,6 @@ class H321FormulaContractTests(unittest.TestCase):
             second_occupied=False,
             third_occupied=False,
         )
-        # Close-score context contributes +0.018 to the gated attempt core.
         self.assertAlmostEqual(
             steal_attempt_probability(50, state), 0.0005123466845089249, places=12
         )
