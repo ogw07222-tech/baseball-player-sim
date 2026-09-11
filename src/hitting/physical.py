@@ -1,15 +1,20 @@
-"""Phase 2A physical initial-state generation for fair-contact migration.
+"""Phase 2 physical initial-state generation for fair-contact migration.
 
-This module deliberately stops before trajectory, stadium, defense, and hit-type
-resolution. It produces deterministic initial conditions in constant time.
+Phase 2A owns EV/LA/timing/spray generation. Phase 2B attaches a deterministic
+O(1) first-ground trajectory while leaving stadium, defense, and hit-type
+resolution to later migration stages.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
+from typing import TYPE_CHECKING
 
 from ..rng import RNG
 from . import physical_parameters as P
+
+if TYPE_CHECKING:
+    from .trajectory import BattedBallTrajectory
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -18,7 +23,7 @@ def _clamp(value: float, low: float, high: float) -> float:
 
 @dataclass(frozen=True)
 class BattedBallState:
-    """Stable Phase-2 initial state.
+    """Stable Phase-2 initial state plus optional Phase-2B trajectory.
 
     Units/conventions:
     - ``exit_velocity``: miles per hour.
@@ -27,6 +32,7 @@ class BattedBallState:
     - spray: center field 0°, left-field side negative, right-field side positive.
     - pitch locations are normalized batter-relative coordinates where
       x=-1 is inside, x=+1 outside, y=-1 low, y=+1 high.
+    - trajectory distances/heights are feet; trajectory time is seconds.
     """
 
     exit_velocity: float
@@ -38,6 +44,7 @@ class BattedBallState:
     pitch_location_x: float
     pitch_location_y: float
     batter_side: str
+    trajectory: BattedBallTrajectory | None = None
 
     def __post_init__(self) -> None:
         values = (
@@ -242,11 +249,11 @@ def generate_batted_ball_state(
     pitch_hittable_quality: float,
     parent_rng,
 ) -> BattedBallState:
-    """Generate Phase-2A initial state without consuming the canonical RNG.
+    """Generate Phase-2 initial state without consuming the canonical RNG.
 
-    This is currently a shadow physical state. Legacy Phase-1 foul handling and
-    legacy HR/XBH result resolution remain authoritative until later Phase-2
-    migration stages.
+    Phase-1 foul handling and legacy HR/XBH result resolution remain
+    authoritative. Phase-2B trajectory generation is deterministic and uses no
+    additional random numbers.
     """
     side = "L" if batter_side == "L" else "R"
     pitch_x, pitch_y = pitch_location_from_zone(pitch_zone)
@@ -286,7 +293,7 @@ def generate_batted_ball_state(
         pitch_location_x=pitch_x,
         approach=approach,
     )
-    return BattedBallState(
+    state = BattedBallState(
         exit_velocity=exit_velocity,
         launch_angle=launch_angle,
         timing=timing,
@@ -297,3 +304,7 @@ def generate_batted_ball_state(
         pitch_location_y=pitch_y,
         batter_side=side,
     )
+    # Local import avoids a module-load cycle: trajectory consumes the complete
+    # Phase-2A state and returns a pure deterministic summary.
+    from .trajectory import generate_batted_ball_trajectory
+    return replace(state, trajectory=generate_batted_ball_trajectory(state))
