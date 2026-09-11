@@ -5,6 +5,7 @@ from typing import Any
 from . import config
 from .career_core import CareerEngineBase, TournamentResult, DraftResult, ProSeasonSession, EventDecider
 from .career_season import CareerSeasonMixin
+from .career_source_facts import CareerSourceFact
 from .career_story import CAREER_ONCE, TRANSITION_REPEAT, record_observational_event
 from .coaches import CoachingStaff, generate_batting_coach, generate_fielding_coach
 from .growth import GrowthExperience, GrowthResult, apply_season_growth
@@ -21,6 +22,7 @@ class SeasonFinalizationResult:
     record:SeasonRecord
     growth:GrowthResult
     awards:tuple[str,...]
+    source_facts:tuple[CareerSourceFact,...]=()
 
     def as_dict(self)->dict[str,object]:
         return {
@@ -38,6 +40,7 @@ class SeasonFinalizationResult:
                 'ability_after':self.growth.ability_after,
             },
             'awards':list(self.awards),
+            'source_facts':[fact.as_dict() for fact in self.source_facts],
         }
 
 
@@ -55,16 +58,20 @@ class CareerEngine(CareerSeasonMixin, CareerEngineBase):
         if before in {'FARM','FIRST'}:self._record_roster_transition(session,before,session.current_level)
         return session
     def _record_first_team_debut_if_needed(self,s:ProSeasonSession)->None:
-        # Actual appearance is authoritative; debut_year can be set on a call-up before an appearance.
         if s.record.first_team.G!=1 or self.player.first_team_career().G!=0:return
-        record_observational_event(self.player,event_id='first_team_debut',year=self.year,career_stage='PRO',kind='debut',importance='major',dedupe_key='career:first_team_debut',trigger='first actual FIRST-level game appearance',eligibility='career first-team games before appearance = 0',repeat_contract=CAREER_ONCE,game_number=s.games_completed,facts={'team':self.player.team,'level':'FIRST','season_first_team_games':s.record.first_team.G})
+        identity='career:first_team_debut'
+        record_observational_event(self.player,event_id='first_team_debut',year=self.year,career_stage='PRO',kind='debut',importance='major',dedupe_key=identity,trigger='first actual FIRST-level game appearance',eligibility='career first-team games before appearance = 0',repeat_contract=CAREER_ONCE,game_number=s.games_completed,facts={'team':self.player.team,'level':'FIRST','season_first_team_games':s.record.first_team.G})
+        self._emit_source_fact('first_team_debut',before={'first_team_career_games':0},after={'first_team_career_games':1,'debut_year':self.player.debut_year or self.year},authoritative_state_delta={'first_team_career_games':{'before':0,'after':1}},persistence_hint='career_history',existing_identity=identity)
     def _record_roster_transition(self,s:ProSeasonSession,from_level:str,to_level:str)->None:
         if from_level==to_level:return
         if from_level=='FARM' and to_level=='FIRST':
             event_id='first_team_callup';prior=sum(e.get('event_id')==event_id for e in self.player.career_history);importance='major' if prior==0 else 'normal'
         elif from_level=='FIRST' and to_level=='FARM':event_id='farm_demotion';importance='normal'
         else:return
-        record_observational_event(self.player,event_id=event_id,year=self.year,career_stage='PRO',kind='roster',importance=importance,dedupe_key=f'roster:{self.year}:{s.games_completed}:{from_level}>{to_level}',trigger='authoritative roster_level transition',eligibility=f'{from_level}->{to_level} transition completed',repeat_contract=TRANSITION_REPEAT,game_number=s.games_completed,facts={'team':self.player.team,'from_level':from_level,'to_level':to_level})
+        identity=f'roster:{self.year}:{s.games_completed}:{from_level}>{to_level}'
+        record_observational_event(self.player,event_id=event_id,year=self.year,career_stage='PRO',kind='roster',importance=importance,dedupe_key=identity,trigger='authoritative roster_level transition',eligibility=f'{from_level}->{to_level} transition completed',repeat_contract=TRANSITION_REPEAT,game_number=s.games_completed,facts={'team':self.player.team,'from_level':from_level,'to_level':to_level})
+        fact_type='roster_promotion' if to_level=='FIRST' else 'roster_demotion'
+        self._emit_source_fact(fact_type,before={'roster_level':from_level},after={'roster_level':to_level},authoritative_state_delta={'roster_level':{'before':from_level,'after':to_level}},persistence_hint='career_history',existing_identity=identity)
     def _reconsider_roster(self,s:ProSeasonSession)->None:
         self._record_first_team_debut_if_needed(s);before=s.current_level;super()._reconsider_roster(s);self._record_roster_transition(s,before,s.current_level)
     def _determine_awards(self,record:SeasonRecord)->list[str]:
@@ -86,10 +93,14 @@ class CareerEngine(CareerSeasonMixin, CareerEngineBase):
     def _maybe_change_trait(self)->None:
         if self.player.traits and self.rng.random()<.018:
             removed=self.rng.choice(self.player.traits);self.player.traits.remove(removed);self.player.trait_history.append({'year':self.year,'action':'lost','trait':removed.key})
+            identity=f'trait_history:{self.year}:{len(self.player.trait_history)-1}'
+            self._emit_source_fact('trait_lost',before={'trait_present':removed.key},after={'trait_present':None},authoritative_state_delta={'trait':{'action':'lost','trait':removed.key}},phase='lifecycle',persistence_hint='trait_history',existing_identity=identity,game_number=config.KBO_FIRST_TEAM_GAMES)
         if len(self.player.traits)>=7 or self.rng.random()>=.045:return
         c=[t for t in TRAIT_CATALOG if t not in self.player.traits and not any(traits_conflict(t,e) for e in self.player.traits)]
         if c:
             gained=self.rng.choice(c);self.player.traits.append(gained);self.player.trait_history.append({'year':self.year,'action':'gained','trait':gained.key})
+            identity=f'trait_history:{self.year}:{len(self.player.trait_history)-1}'
+            self._emit_source_fact('trait_gained',before={'trait_present':None},after={'trait_present':gained.key},authoritative_state_delta={'trait':{'action':'gained','trait':gained.key}},phase='lifecycle',persistence_hint='trait_history',existing_identity=identity,game_number=config.KBO_FIRST_TEAM_GAMES)
     def _maybe_replace_coaches(self)->None:
         self._ensure_coaches()
         for team,staff in list(self.team_coaches.items()):
@@ -111,9 +122,13 @@ class CareerEngine(CareerSeasonMixin, CareerEngineBase):
         self.player.seasons.append(s.record)
         exp=GrowthExperience(s.record.first_team.PA,s.record.farm.PA)
         growth=apply_season_growth(self.player,self.rng,self.current_coaching_staff(),exp,s.growth_modifiers)
+        growth_identity=f'growth_history:{completed_year}:{len(self.player.growth_history)-1}' if self.player.growth_history else None
+        self._emit_source_fact('season_growth',before={'age':growth.age_before,'ability':growth.ability_before},after={'age':growth.age_after,'ability':growth.ability_after},authoritative_state_delta={'rating_deltas':dict(growth.deltas),'ability':{'before':growth.ability_before,'after':growth.ability_after}},phase='lifecycle',persistence_hint='growth_history',existing_identity=growth_identity,game_number=config.KBO_FIRST_TEAM_GAMES)
         self._maybe_change_trait();self._maybe_replace_coaches();self.year+=1;self.current_session=None
         self.player.clear_season_modifiers();self.player.form='normal';self.player.form_games_remaining=0;self.player.fatigue=max(0.,self.player.fatigue*.25)
-        return SeasonFinalizationResult(completed_year,self.year,age_before,self.player.age,s.record,growth,tuple(awards))
+        self._emit_source_fact('season_finalized',before={'season':completed_year,'age':age_before,'phase':'PRO'},after={'season':self.year,'age':self.player.age,'phase':'PRO'},authoritative_state_delta={'year':{'before':completed_year,'after':self.year},'age':{'before':age_before,'after':self.player.age},'current_session':{'before':'completed','after':None}},phase='lifecycle',game_number=config.KBO_FIRST_TEAM_GAMES)
+        facts=self.drain_source_facts()
+        return SeasonFinalizationResult(completed_year,self.year,age_before,self.player.age,s.record,growth,tuple(awards),facts)
     def finish_pro_season(self,event_decider:EventDecider|None=None)->tuple[SeasonRecord,GrowthResult]:
         s=self.start_pro_season()
         if s.has_pending_event:self.resolve_pending_event(event_decider=event_decider)
