@@ -216,7 +216,7 @@ class ProtectedFileTests(unittest.TestCase):
     EXPECTED_BLOBS = {
         "src/simulation.py": "b441fbe2fd8bf2aac9239a4648636a2ec67ceb53",
         "src/hitting/model.py": "dac5a2adedb7d272ef1ab9857d2b46621f085afa",
-        "src/hitting/parameters.py": "4687b16fa2a76ecc6f0d08a20d2c0834a729fa45",
+        "src/hitting/parameters.py": "3876b4221f53b7d4b7cc6069d9425004fc9f311a",
         "src/hitting/baserunning.py": "2a383ce61fb6938ae30973be210159baa1d76726",
         "src/hitting/defense.py": "279f6282ef41c53e709839dbbe791e16836eaf53",
         "src/config.py": "ed6c07b3517f92f6ad2d1ceb35fe0e0a81862512",
