@@ -1,62 +1,89 @@
 # 01 - Gameplay Engine
 
 WORKSTREAM: 01 - Gameplay Engine
-UPDATED_AT: 2026-09-10
-SOURCE_OF_TRUTH: main@774431d9b221407bebeddb02001eeeed6c40bef2
-STATE: READY_FOR_INTEGRATION
-CURRENT_TASK: KBO regular-season 11-inning / draw termination rule
-RESULT: PASS
+UPDATED_AT: 2026-09-11
+SOURCE_OF_TRUTH: task-start main@b764e4b32dcdc4af9947e83b9732e41b8be6d396; implementation PR #58
+STATE: READY_FOR_05_VALIDATION
+CURRENT_TASK: Phase 1 Plate Discipline / Strike / Contact Calibration
+RESULT: IMPLEMENTATION_PASS_HEAVY_VALIDATION_OPEN
 
-## LAST_COMPLETED
-- Root cause confirmed in `PersistentInningEngine._finish_half_inning()`: tied games after the bottom of inning 9+ incremented unconditionally with no regular-season inning ceiling.
-- Implemented the KBO regular-season core rule on `fix/kbo-regular-season-extra-innings`: regulation is 9 innings; tied games may enter innings 10 and 11; a tie after a completed bottom 11th terminates as a draw; inning 12 cannot be entered.
-- Existing walkoff and final-half semantics are preserved: an away lead after top 11 still requires bottom 11; a bottom-half home lead at inning 9+ ends immediately by walkoff; a home lead after a completed top half at inning 9+ skips an unnecessary bottom half.
-- `ProductionGameResult` required no schema change: tied score already yields `winner=None`, `loser=None`, and `team_result_for(...) == "T"`.
-- Production advance/stat aggregation already has explicit tie support. A draw increments games/player stats and `team_ties`, without incrementing team wins or losses.
-- Production pitcher W/L remains unsupported, so draw termination does not invent pitcher decisions.
-- Persistent inning state currently has no dedicated mid-game save/load serialization contract; extra-inning save/load is therefore not modified by this task.
+## SCOPE
+- Phase 1 only: pitch/count/swing/contact/foul/strikeout/HBP structure.
+- Physical batted-ball model remains unchanged: no exit velocity, launch angle, spray angle, trajectory, park, HR, 2B/3B, defense, rating-generation, growth, event, or pitcher-usage tuning.
 
-## VALIDATION
-- PR #40 source commit: `0182ae460bac8765373e38459159d87f9931c0a6`.
-- Main diff at validation checkpoint: `src/inning.py` +7 lines and one dedicated extra-inning regression test module; no hitting/pitching probability, ratings, growth, event, or pitcher-usage changes.
-- GitHub Actions run `34483832068`: compile PASS; full Python `unittest discover` PASS; auto-career smoke PASS; balance smoke PASS; web build/tests PASS at the gameplay validation checkpoint.
-- Dedicated coverage includes 9 tie -> 10, 10 tie -> 11, completed 11 tie -> draw, no inning 12, top-11 away lead -> bottom 11, bottom-11 walkoff, regulation walkoff/non-tie regressions, skip unnecessary bottom half, draw aggregation, pitcher W/L unsupported contract, deterministic full-game replay, and representative full games capped at 11.
-- Large 10,000-game Monte Carlo rerun is intentionally deferred to 05 - Balance Lab after integration.
+## BASELINE
+05 neutral diagnostic before Phase 1:
+- Zone 55.149%; Swing 47.473%; Chase 21.253%; Z-Swing 68.797%.
+- Whiff/Swing 27.385%; Z-Contact 74.644%; O-Contact 64.540%.
+- BB 8.060%; K 21.247%; looking-K share 54.43%; HBP 0.
+- H/PA 24.050%; HR/PA 2.737%.
 
-## CURRENT_FINDINGS
-- This is a core baseball-game rule in `PersistentInningEngine`, so fixed-provider, dynamic pitcher-provider, PLAYER mode, and future GM/Manager/automated league callers that reuse the engine receive the same termination semantics.
-- No downstream result or aggregation schema migration is required for draws.
+## IMPLEMENTATION
+- Count model: replaced mutually-exclusive `strikes == 2 else balls == 3` adjustment with independent two-strike protection and three-ball selectivity terms. Full count receives both.
+- Neutral out-of-zone chase baseline moves 0.245 -> 0.255 while discipline chase slope compresses 0.0045 -> 0.0025 to keep neutral chase stable/slightly higher and reduce low-discipline blow-up.
+- Count adjustments:
+  - 0-2 / 1-2 / 2-2: zone +0.090, chase +0.005.
+  - 3-0: zone -0.050, chase -0.070.
+  - 3-1: zone -0.015, chase -0.050.
+  - 3-2: zone +0.075, chase -0.045; two-strike protection and three-ball selectivity both remain active.
+- Contact/whiff: existing fair-contact `touch_probability` and all batted-ball-quality formulas are unchanged. A bounded share of failed touch checks is rescued to FOUL only: stronger in-zone, weaker out-of-zone, with a small additional two-strike survival term. MISS is never converted directly to HIT/BIP.
+- HBP: new terminal pitch-level path on out-of-zone pitches before swing/take/contact; neutral per-out-of-zone-pitch baseline 0.009 with modest pitcher-control sensitivity; existing `hit_by_pitch` stat/base advancement and pitcher accounting are reused.
+- PA safety loop remains capped at 20 pitches; two-strike foul still cannot become strike three.
 
-## BLOCKERS
-- None for gameplay implementation.
+## PROVISIONAL SENSITIVITY
+Deterministic 100k neutral formula sensitivity on the Phase 1 contract; this is implementation guidance, not the canonical 05 heavy result:
+- Zone 55.10%; Swing 48.23%; Z-Swing 70.06%; Chase 21.45%.
+- Contact/Swing 78.31%; Whiff/Swing 21.69%; Z-Contact 80.92%; O-Contact 67.82%.
+- Called strike/pitch 16.50%; swinging strike/pitch 10.46%; foul/pitch 15.40%.
+- Pitches/PA 3.23; K 18.13%; looking-K share 53.34%; BB 8.33%; HBP 1.28%.
+- H/PA 24.55%; HR/PA 2.80%.
+- Compared with 05 baseline: K -3.12pp, whiff -5.69pp, Z-contact +6.28pp, BB +0.27pp, chase +0.19pp, H/PA +0.50pp, HR/PA +0.06pp. No provisional offense explosion, but H/HR/runs require 05 heavy confirmation.
+- Discipline chase sensitivity is intentionally compressed: neutral remains near prior level while low-discipline examples move materially downward relative to the old slope.
 
-## OPEN_ITEMS
-- Merge/integration of PR #40 is outside this workstream's release-management scope.
-- After integration, 05 - Balance Lab should rerun canonical 10k heavy production sanity on latest main.
+## OBSERVABILITY
+`tools/offense_pitch_diagnostic.py` now emits:
+- Zone/Swing/Z-Swing/Chase/Contact/Z-Contact/O-Contact/Whiff.
+- called strike, swinging strike, foul, two-strike foul, pitches/PA.
+- 0-2, 3-0, 3-1, 3-2 reach.
+- K plus looking/swinging split, BB, HBP, H/PA, HR/PA.
+- Full-game runs and full `BattingLine` ROE/GDP/SF/XBT/first-to-third/second-to-home counters.
 
-## DEPENDENCIES
-- 05: post-integration heavy production sanity rerun.
-- 07: production integration / merge handling if required.
-- 00: any future game-mode-specific rule variants; the current 11-inning limit is the KBO regular-season core contract.
+## REGRESSION
+PR #58 CI run `34593444847` at code checkpoint `40de9f46b1a19b7be5fb88a29f8ecd6144fdea09`:
+- Web build/tests PASS.
+- Compile, dependency contract, external durable-store tests, API entrypoint and vertical-slice tests PASS.
+- Related production integration: 31/31 PASS.
+- Phase 1 dedicated tests PASS: independent full-count terms, bounded chase separation, HBP placement/control sensitivity, two-strike foul survival, neutral 100k offense bounds, rating monotonicity, deterministic seed, save compatibility.
+- Full Python discover: 351 tests executed; 350 PASS, 1 FAIL.
+- Sole failure: legacy `test_balance_v04.test_draft_distribution_not_extreme` (`undrafted=4.33%`, historical assertion >10%). The test calls only `Player.random()` + `CareerEngine.evaluate_draft()` and never gameplay; PR #58 changes neither player generation nor draft evaluation. It is classified as a pre-existing/out-of-scope draft calibration gate and is intentionally not weakened in 01.
+- Because the full-suite command stops on that unrelated failure, downstream workflow smoke/gates after the unit step were skipped in that run. Existing production gameplay/integration coverage before that gate is PASS.
 
-## NEXT_ACTION
-- 05 handoff after PR #40 integration: require max innings <= 11; games tied after completed inning 11 terminate as draws; 12+ innings = 0; safety-cap hits = 0; invariant violations = 0; deterministic replay = PASS.
+## 05 HANDOFF
+After PR #58 integration, rerun canonical diagnostic with the same seed/definitions and at minimum:
+1. Neutral 100 vs neutral 100: 200k PA + 10k full games.
+2. Generated prospect hitters vs neutral pitcher: 200k PA.
+3. Representative mature production roster PA-weighted population if available.
+4. Report Zone%, Swing%, Z-Swing%, Chase%, Contact%, Z/O-Contact%, Whiff/Swing, called-strike%, swinging-strike%, foul%, two-strike-foul%, pitches/PA, 0-2/3-0/3-1/3-2 reach, K%, looking/swinging K share, BB%, HBP%, H/PA, HR/PA, runs/game.
+5. Explicitly compare offense side effects: H/PA, HR/PA, runs/game and PA length; flag any material explosion before Phase 2.
+6. Validate deterministic replay, legal counts, no infinite PA, safety-cap hits=0, full-game invariants.
 
-## RELATED_PRS
-- #33 merged
-- #40 open — KBO regular-season 11-inning draw termination
+## OPEN ITEMS
+- 05 canonical heavy validation is required before declaring Phase 1 calibrated for production.
+- Mature-roster population comparison remains dependent on 02/05 data availability.
+- The unrelated draft-distribution unit gate remains outside 01 scope and should be routed to its owning calibration workstream rather than relaxed here.
+- Phase 2 physical batted-ball work must not begin until 05 confirms Phase 1 event composition and offense side effects are acceptable.
 
-## RELATED_BRANCHES
-- main
-- fix/kbo-regular-season-extra-innings
-
-## RELATED_RUNS
-- PR #40 tests: 34483832068
+## RELATED PRS
+- #58 open — Phase 1 plate discipline and contact calibration.
 
 ## GATES
-- H321_PRODUCTION_CONTRACT = PASS
-- KBO_REGULAR_SEASON_EXTRA_INNING_RULE = PASS
-- DRAW_RESULT_COMPATIBILITY = PASS
-- DRAW_AGGREGATION_COMPATIBILITY = PASS
-- GAMEPLAY_REGRESSION = PASS
-- HEAVY_10K_POST_FIX = HANDOFF_TO_05
+- COUNT_MODEL = PASS
+- CHASE_MODEL = PASS_IMPLEMENTATION / OPEN_HEAVY
+- CONTACT_WHIFF_MODEL = PASS_IMPLEMENTATION / OPEN_HEAVY
+- TWO_STRIKE_FOUL = PASS_IMPLEMENTATION / OPEN_HEAVY
+- HBP_PATH = PRESENT
+- PHYSICAL_BATTED_BALL_CHANGED = NO
+- GAMEPLAY_INTEGRATION_REGRESSION = PASS
+- FULL_PYTHON_SUITE = BLOCKED_BY_PREEXISTING_DRAFT_GATE_350_OF_351_PASS
+- PHASE1_05_HEAVY_VALIDATION = OPEN
+- PHASE2_ALLOWED = NO_UNTIL_05_VALIDATION
