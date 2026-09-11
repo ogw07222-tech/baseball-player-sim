@@ -116,7 +116,10 @@ class PitcherCalibrationTests(unittest.TestCase):
         self.assertGreater(f1 - f5, f5 - f0)
 
     def test_extreme_rating_safety(self):
-        valid = {"walk", "strikeout", "home_run", "single", "double", "triple", "out", "reached_on_error"}
+        valid = {
+            "walk", "hit_by_pitch", "strikeout", "home_run", "single",
+            "double", "triple", "out", "reached_on_error",
+        }
         hitter = HitterSnapshot(100, 100, 100, 100)
         for rating in (30, 50, 70, 100, 130, 160, 200, 250):
             p = DummyPitcher(rating, rating, rating, rating, rating, rating, rating)
