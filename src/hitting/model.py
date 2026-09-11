@@ -1,7 +1,7 @@
 """Production H3.1/H3.2.1 pitch-to-batted-ball engine.
 
-The neutral-profile math is ported from the validated Balance-Lab H3.1 model.
-H3.2.1 baserunning is integrated separately in ``baserunning.py``.
+Phase 1 calibrates pitch/count/swing/contact semantics while preserving the
+existing batted-ball quality, HR, XBH, and defense model.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -107,9 +107,26 @@ class HittingEngine:
             is_strike, zone, pitch_type, velocity, movement, location, hittable
         )
 
+    def _count_swing_adjustment(self, pitch: Pitch, balls: int, strikes: int) -> float:
+        """Independent protection/selectivity terms; 3-2 receives both."""
+        if pitch.is_strike:
+            adjustment = P.TWO_STRIKE_ZONE_SWING_BONUS if strikes == 2 else 0.0
+            if balls == 3:
+                adjustment += P.THREE_BALL_ZONE_SELECTIVITY
+                if strikes == 0:
+                    adjustment += P.THREE_ZERO_ZONE_EXTRA_SELECTIVITY
+            return adjustment
+
+        adjustment = P.TWO_STRIKE_CHASE_BONUS if strikes == 2 else 0.0
+        if balls == 3:
+            adjustment += P.THREE_BALL_CHASE_SELECTIVITY
+            if strikes == 0:
+                adjustment += P.THREE_ZERO_CHASE_EXTRA_SELECTIVITY
+        return adjustment
+
     def _swing_probability(self, pitch: Pitch, balls: int, strikes: int) -> float:
         discipline_delta = self.hitter.discipline - 100.0
-        count = 0.025 if strikes == 2 else (-0.018 if balls == 3 else 0.0)
+        count = self._count_swing_adjustment(pitch, balls, strikes)
         if pitch.is_strike:
             zone_bonus = (
                 .075 if pitch.zone == "middle"
@@ -129,6 +146,22 @@ class HittingEngine:
             .015, .54,
         )
 
+    def _hit_by_pitch_probability(self, pitch: Pitch) -> float:
+        if pitch.is_strike:
+            return 0.0
+        control_delta = self.pitcher.control - 100.0
+        probability = P.HBP_OUT_OF_ZONE_BASE
+        if control_delta < 0:
+            probability += -control_delta * P.HBP_CONTROL_WILDNESS_WEIGHT
+        else:
+            probability -= control_delta * P.HBP_CONTROL_COMMAND_WEIGHT
+        return clamp(probability, P.HBP_MIN, P.HBP_MAX)
+
+    def _is_hit_by_pitch(self, pitch: Pitch) -> bool:
+        if pitch.is_strike:
+            return False
+        return self.rng.random() < self._hit_by_pitch_probability(pitch)
+
     def _contact_resolution(
         self, pitch: Pitch, strikes: int
     ) -> tuple[str, float, float]:
@@ -147,13 +180,16 @@ class HittingEngine:
         contact_score = cdelta * P.CONTACT_SCALE - difficulty
         touch_probability = clamp(P.BIP_BASE + contact_score * .22, .28, .965)
         if self.rng.random() > touch_probability:
-            if strikes == 2 and self.hitter.discipline > 100:
-                protect = min(
-                    P.TWO_STRIKE_PROTECTION_CAP,
-                    (self.hitter.discipline - 100) * P.TWO_STRIKE_PROTECTION_WEIGHT,
-                )
-                if self.rng.random() < protect:
-                    return "foul", contact_delta, power_delta
+            rescue = (
+                P.MISS_TO_FOUL_ZONE_BASE
+                if pitch.is_strike else P.MISS_TO_FOUL_BALL_BASE
+            )
+            if strikes == 2:
+                discipline_delta = clamp(self.hitter.discipline - 100.0, -20.0, 40.0)
+                rescue += P.TWO_STRIKE_FOUL_RESCUE_BASE
+                rescue += discipline_delta * P.TWO_STRIKE_FOUL_DISCIPLINE_WEIGHT
+            if self.rng.random() < clamp(rescue, 0.0, P.MISS_TO_FOUL_CAP):
+                return "foul", contact_delta, power_delta
             return "miss", contact_delta, power_delta
         foul_probability = clamp(
             P.FOUL_BASE - pitch.hittable_quality * .07
@@ -349,6 +385,8 @@ class HittingEngine:
         balls = strikes = 0
         for _ in range(20):
             pitch = self._pitch()
+            if self._is_hit_by_pitch(pitch):
+                return PlateAppearanceOutcome("hit_by_pitch")
             swing_probability = self._swing_probability(pitch, balls, strikes)
             if self.rng.random() >= swing_probability:
                 if pitch.is_strike:
