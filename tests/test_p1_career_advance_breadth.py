@@ -1,4 +1,5 @@
 import unittest
+from datetime import timedelta
 
 from src import config
 from src.career import CareerEngine
@@ -56,10 +57,8 @@ class P1CareerAdvanceBreadthTests(unittest.TestCase):
         bulk_service = ProductionAdvanceService(bulk)
         repeated_service = ProductionAdvanceService(repeated)
 
-        dates = bulk_service.schedule.game_dates(
-            bulk_service.state.current_date,
-            bulk_service.state.current_date.replace(day=7),
-        )
+        start = bulk_service.state.current_date
+        dates = bulk_service.schedule.game_dates(start, start + timedelta(days=7))
         summary = bulk_service.advance_one_week()
         for _ in dates:
             repeated_service.advance_one_game()
