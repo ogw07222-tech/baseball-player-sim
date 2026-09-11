@@ -1,0 +1,54 @@
+name: phase1-heavy-validation
+on:
+  push:
+    branches: ['validation/phase1-heavy-05']
+    paths:
+      - '.github/workflows/phase1-heavy-validation.yml'
+  workflow_dispatch:
+    inputs:
+      seed:
+        required: true
+        default: '20260906'
+        type: string
+      games:
+        required: true
+        default: '10000'
+        type: string
+      pa_samples:
+        required: true
+        default: '200000'
+        type: string
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    env:
+      PYTHONPATH: .
+      SEED: ${{ github.event_name == 'workflow_dispatch' && inputs.seed || '20260906' }}
+      GAMES: ${{ github.event_name == 'workflow_dispatch' && inputs.games || '10000' }}
+      PA_SAMPLES: ${{ github.event_name == 'workflow_dispatch' && inputs.pa_samples || '200000' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Metadata
+        run: |
+          mkdir -p reports/phase1-heavy
+          printf '{"sha":"%s","run_id":"%s","seed":%s,"games":%s,"pa_samples":%s}\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$SEED" "$GAMES" "$PA_SAMPLES" > reports/phase1-heavy/metadata.json
+      - name: Compile
+        run: python -m compileall -q src tools/offense_pitch_diagnostic.py tools/phase1_heavy_validation.py
+      - name: Independent count and population heavy diagnostic
+        run: python tools/phase1_heavy_validation.py --seed "$SEED" --pa-samples "$PA_SAMPLES" --output reports/phase1-heavy/count-population.json
+      - name: Full production game diagnostic
+        run: python tools/offense_pitch_diagnostic.py --seed "$SEED" --pa-samples "$PA_SAMPLES" --games "$GAMES" --output reports/phase1-heavy/full-production.json
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase1-heavy-${{ github.run_id }}-${{ github.sha }}
+          path: reports/phase1-heavy/
+          if-no-files-found: error
+          retention-days: 30
