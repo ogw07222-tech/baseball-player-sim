@@ -25,6 +25,7 @@ class Phase1CountSituationalTests(unittest.TestCase):
             set(P.COUNT_SWING_MODIFIERS),
             {(2, 0), (0, 2), (1, 2), (2, 2), (3, 0), (3, 1), (3, 2)},
         )
+        self.assertEqual(P.COUNT_SWING_MODIFIERS[(3, 0)], (-0.670, -0.185))
         self.assertEqual(self.engine()._count_swing_adjustment(pitch(True, .72), 1, 1), 0.0)
         self.assertEqual(self.engine()._count_swing_adjustment(pitch(False, -.82), 1, 1), 0.0)
 
@@ -72,7 +73,6 @@ class Phase1CountSituationalTests(unittest.TestCase):
             e._two_strike_take_rescue_probability(middle),
             e._two_strike_take_rescue_probability(edge),
         )
-        # The existing swing model itself is untouched by the rescue mechanism.
         self.assertEqual(
             e._swing_probability(pitch(False, -.82), 3, 2),
             self.engine()._swing_probability(pitch(False, -.82), 3, 2),
@@ -128,20 +128,23 @@ class Phase1CountSituationalTests(unittest.TestCase):
         print("COUNT_SITUATIONAL_SANITY", json.dumps(report, sort_keys=True))
 
         self.assertGreater(by_count["3-0"]["opportunities"], 300)
+        self.assertGreater(by_count["3-0"]["swing_pct"], .03)
+        self.assertLess(by_count["3-0"]["swing_pct"], .08)
         self.assertLess(by_count["3-0"]["swing_pct"], by_count["3-1"]["swing_pct"])
+        self.assertGreater(by_count["3-1"]["swing_pct"], .27)
+        self.assertLess(by_count["3-1"]["swing_pct"], .36)
         self.assertLess(by_count["3-1"]["swing_pct"], by_count["1-1"]["swing_pct"])
+        self.assertGreater(by_count["3-2"]["swing_pct"], .45)
+        self.assertLess(by_count["3-2"]["swing_pct"], .58)
         self.assertGreater(by_count["3-2"]["z_swing_pct"], by_count["3-0"]["z_swing_pct"])
         self.assertLess(by_count["3-2"]["chase_pct"], by_count["0-2"]["chase_pct"])
-        self.assertLess(by_count["3-0"]["chase_pct"], .12)
+        self.assertLess(by_count["3-0"]["chase_pct"], .07)
 
         for count in ("0-2", "1-2", "2-2", "3-2"):
             self.assertGreater(by_count[count]["protective_swing_per_reach"], .01, count)
             self.assertLess(by_count[count]["looking_k_per_reach"], .14, count)
-            # All two-strike counts must retain a real swinging-K path, but its
-            # exact count-specific share is an observed output, not a fixed target.
             self.assertGreater(by_count[count]["swinging_k_per_reach"], .06, count)
 
-        # Guardrails: reduce looking K without destroying the accepted Phase-1 environment.
         self.assertGreater(global_rates["swing_pct"], .42)
         self.assertLess(global_rates["swing_pct"], .53)
         self.assertGreater(global_rates["out_zone_swing_pct"], .16)
