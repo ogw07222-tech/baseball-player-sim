@@ -110,10 +110,31 @@ export interface BackendSessionDto {
   revision: number | null
 }
 
-export interface BackendAdvanceEventDto {
-  date: string | null
-  kind: string
-  message: string
+export type BackendCanonicalEventImportanceDto = 'info' | 'normal' | 'major' | 'critical' | string
+export type BackendCanonicalEventSourceCommandDto = 'next_game' | 'week' | 'month' | 'lifecycle'
+
+export interface BackendCanonicalEventDto {
+  event_id: string
+  event_type: string
+  category: string
+  occurred_at: string | null
+  season: number | null
+  game_number: number | null
+  sequence: number
+  title: string
+  summary: string
+  importance: BackendCanonicalEventImportanceDto
+  player_id: string | null
+  team_id: string | null
+  related_entity_ids: string[]
+  state_effects: Record<string, unknown> | null
+  rating_changes: Record<string, number> | null
+  injury_effect: Record<string, unknown> | null
+  trait_changes: string[]
+  source_command: BackendCanonicalEventSourceCommandDto
+  presentation_priority: number
+  persistence: string
+  dedupe_key: string
 }
 
 export interface BackendAdvanceResultDto {
@@ -124,7 +145,7 @@ export interface BackendAdvanceResultDto {
   pitcher_period_line: Record<string, unknown>
   team_record_delta: { wins: number; losses: number; ties: number } | null
   season_total_line: Record<string, unknown>
-  notable_events: BackendAdvanceEventDto[]
+  notable_events: BackendCanonicalEventDto[]
   rating_changes: Record<string, number>
 }
 
