@@ -1,0 +1,49 @@
+name: production-browser-fast-temporary
+
+on:
+  push:
+    branches:
+      - validation/prod-browser-fast-20260911
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: |
+          google-chrome --version
+          chromedriver --version
+          pip install 'selenium>=4,<5'
+      - name: Run production browser E2E
+        run: |
+          python - <<'PY'
+          from selenium import webdriver
+          from selenium.webdriver.common.by import By
+          from selenium.webdriver.support.ui import WebDriverWait
+          from selenium.webdriver.support import expected_conditions as EC
+
+          options = webdriver.ChromeOptions()
+          options.add_argument('--headless=new')
+          options.add_argument('--no-sandbox')
+          options.add_argument('--disable-dev-shm-usage')
+          driver = webdriver.Chrome(options=options)
+          wait = WebDriverWait(driver, 45)
+          try:
+              driver.get('https://baseball-player-sim.vercel.app')
+              wait.until(EC.visibility_of_element_located((By.XPATH, "//h1[normalize-space()='NEW CAREER']")))
+              driver.find_element(By.ID, 'player-name').send_keys('Browser Smoke')
+              driver.find_element(By.CSS_SELECTOR, 'button.start-career-button').click()
+              wait.until(EC.visibility_of_element_located((By.XPATH, "//h1[contains(.,'Browser Smoke')]")))
+              wait.until(lambda d: 'GAME 0 /' in d.find_element(By.CSS_SELECTOR, '.game-count').text)
+              driver.find_element(By.XPATH, "//button[contains(.,'다음 경기')]").click()
+              wait.until(lambda d: 'GAME 1 /' in d.find_element(By.CSS_SELECTOR, '.game-count').text)
+              driver.refresh()
+              wait.until(EC.visibility_of_element_located((By.XPATH, "//h1[contains(.,'Browser Smoke')]")))
+              wait.until(lambda d: 'GAME 1 /' in d.find_element(By.CSS_SELECTOR, '.game-count').text)
+              print('PASS: production browser create/advance/reload persistence')
+          finally:
+              driver.quit()
+          PY
