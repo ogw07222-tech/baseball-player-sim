@@ -108,21 +108,9 @@ class HittingEngine:
         )
 
     def _count_swing_adjustment(self, pitch: Pitch, balls: int, strikes: int) -> float:
-        """Independent protection/selectivity terms; 3-2 receives both."""
-        if pitch.is_strike:
-            adjustment = P.TWO_STRIKE_ZONE_SWING_BONUS if strikes == 2 else 0.0
-            if balls == 3:
-                adjustment += P.THREE_BALL_ZONE_SELECTIVITY
-                if strikes == 0:
-                    adjustment += P.THREE_ZERO_ZONE_EXTRA_SELECTIVITY
-            return adjustment
-
-        adjustment = P.TWO_STRIKE_CHASE_BONUS if strikes == 2 else 0.0
-        if balls == 3:
-            adjustment += P.THREE_BALL_CHASE_SELECTIVITY
-            if strikes == 0:
-                adjustment += P.THREE_ZERO_CHASE_EXTRA_SELECTIVITY
-        return adjustment
+        """Return additive situational count effect without replacing player identity."""
+        zone_swing, chase = P.COUNT_SWING_MODIFIERS.get((balls, strikes), (0.0, 0.0))
+        return zone_swing if pitch.is_strike else chase
 
     def _swing_probability(self, pitch: Pitch, balls: int, strikes: int) -> float:
         discipline_delta = self.hitter.discipline - 100.0
@@ -137,13 +125,13 @@ class HittingEngine:
                 P.ZONE_SWING_BASE
                 + discipline_delta * P.DISCIPLINE_ZONE_WEIGHT
                 + zone_bonus + count,
-                .34, .91,
+                P.ZONE_SWING_MIN, P.ZONE_SWING_MAX,
             )
         return clamp(
             P.BALL_CHASE_BASE
             - discipline_delta * P.DISCIPLINE_CHASE_WEIGHT
             + pitch.hittable_quality * .055 + count,
-            .015, .54,
+            P.CHASE_MIN, P.CHASE_MAX,
         )
 
     def _hit_by_pitch_probability(self, pitch: Pitch) -> float:
