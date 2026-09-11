@@ -33,6 +33,12 @@ def make_engine(seed: int = 9101) -> CareerEngine:
     return engine
 
 
+def start_clean(engine: CareerEngine):
+    session = engine.start_pro_season()
+    engine.drain_source_facts()
+    return session
+
+
 def fact_dicts(summary):
     return [fact.as_dict() for fact in summary.source_facts]
 
@@ -55,17 +61,15 @@ def force_roster_roundtrip(engine: CareerEngine) -> None:
 class CareerSourceFactTests(unittest.TestCase):
     def test_one_roster_transition_is_authoritative_fact(self):
         engine = make_engine()
-        session = engine.start_pro_season()
+        session = start_clean(engine)
         session.current_level = "FARM"
         engine.player.roster_level = "FARM"
         session.games_completed = 9
         service = ProductionAdvanceService(engine)
         service.state.current_date = service.schedule.dates[8]
         force_roster_roundtrip(engine)
-
         summary = service.advance_one_game()
-        facts = fact_dicts(summary)
-        promotions = [f for f in facts if f["fact_type"] == "roster_promotion"]
+        promotions = [f for f in fact_dicts(summary) if f["fact_type"] == "roster_promotion"]
         self.assertEqual(len(promotions), 1)
         fact = promotions[0]
         self.assertEqual(fact["game_number"], 10)
@@ -79,7 +83,7 @@ class CareerSourceFactTests(unittest.TestCase):
 
     def test_multiple_transition_facts_same_week_are_retained(self):
         engine = make_engine(9102)
-        session = engine.start_pro_season()
+        session = start_clean(engine)
         session.current_level = "FARM"
         engine.player.roster_level = "FARM"
         session.games_completed = 9
@@ -87,23 +91,20 @@ class CareerSourceFactTests(unittest.TestCase):
         service = ProductionAdvanceService(engine)
         service.state.current_date = service.schedule.dates[8]
         force_roster_roundtrip(engine)
-
         summary = service.advance_one_week()
         types_seen = [f.fact_type for f in summary.source_facts]
         self.assertIn("injury_recovery_completed", types_seen)
         self.assertIn("roster_promotion", types_seen)
-        self.assertEqual(len(summary.source_facts), len(fact_dicts(summary)))
 
     def test_farm_first_farm_same_month_preserves_both_transitions(self):
         engine = make_engine(9103)
-        session = engine.start_pro_season()
+        session = start_clean(engine)
         session.current_level = "FARM"
         engine.player.roster_level = "FARM"
         session.games_completed = 9
         service = ProductionAdvanceService(engine)
         service.state.current_date = service.schedule.dates[8]
         force_roster_roundtrip(engine)
-
         summary = service.advance_one_month()
         roster = [f for f in summary.source_facts if f.fact_type.startswith("roster_")]
         self.assertGreaterEqual(len(roster), 2)
@@ -114,7 +115,7 @@ class CareerSourceFactTests(unittest.TestCase):
 
     def test_injury_creation_fact(self):
         engine = make_engine(9104)
-        engine.start_pro_season().current_level = "FIRST"
+        start_clean(engine).current_level = "FIRST"
         engine.player.roster_level = "FIRST"
         engine._play_probability = types.MethodType(lambda self, level: 1.0, engine)
         engine._injury_chance = types.MethodType(lambda self: 1.0, engine)
@@ -127,7 +128,7 @@ class CareerSourceFactTests(unittest.TestCase):
 
     def test_recovery_completion_fact(self):
         engine = make_engine(9105)
-        engine.start_pro_season()
+        start_clean(engine)
         engine.player.injury = InjuryStatus("test", "경미", 1)
         summary = ProductionAdvanceService(engine).advance_one_game()
         recovery = [f for f in summary.source_facts if f.fact_type == "injury_recovery_completed"]
@@ -146,7 +147,7 @@ class CareerSourceFactTests(unittest.TestCase):
 
     def test_ordering_coordinates_are_deterministic(self):
         engine = make_engine(9107)
-        engine.start_pro_season()
+        start_clean(engine)
         engine.player.injury = InjuryStatus("test", "경미", 1)
         summary = ProductionAdvanceService(engine).advance_one_week()
         coords = [(f.simulated_date, f.game_number, f.local_ordinal, f.fact_type) for f in summary.source_facts]
@@ -157,7 +158,7 @@ class CareerSourceFactTests(unittest.TestCase):
 
     def test_failed_completed_season_advance_emits_no_fact_or_state_change(self):
         engine = make_engine(9108)
-        session = engine.start_pro_season()
+        session = start_clean(engine)
         session.games_completed = config.KBO_FIRST_TEAM_GAMES
         service = ProductionAdvanceService(engine)
         before = serialize_game(engine)
@@ -170,7 +171,7 @@ class CareerSourceFactTests(unittest.TestCase):
 
     def test_partial_period_near_season_end_only_emits_committed_game_coordinates(self):
         engine = make_engine(9109)
-        session = engine.start_pro_season()
+        session = start_clean(engine)
         session.games_completed = config.KBO_FIRST_TEAM_GAMES - 1
         engine.player.injury = InjuryStatus("test", "경미", 1)
         service = ProductionAdvanceService(engine)
@@ -183,7 +184,7 @@ class CareerSourceFactTests(unittest.TestCase):
 
     def test_lifecycle_finalization_exposes_growth_and_finalized_facts(self):
         engine = make_engine(9110)
-        session = engine.start_pro_season()
+        session = start_clean(engine)
         session.games_completed = config.KBO_FIRST_TEAM_GAMES
         session.record.first_team.PA = 250
         session.record.first_team.G = 80
