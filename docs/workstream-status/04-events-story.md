@@ -5,7 +5,7 @@ UPDATED_AT: 2026-09-12
 SOURCE_OF_TRUTH: `main@3a4fc58a3c56d9042561494a08a676762fb4661d`
 STATE: ACTIVE
 CURRENT_TASK: Expand current CanonicalEventDTO story/presentation layer without inventing new simulation truth
-RESULT: IMPLEMENTED_PENDING_PR_VALIDATION
+RESULT: PASS_WITH_PREEXISTING_BALANCE_CI_BLOCKER
 
 ## CURRENT_PRODUCTION_STATE
 - PR #54 (03 CareerSourceFact) is merged.
@@ -109,21 +109,46 @@ The DTO itself remains UI-agnostic. Module-level advisory filter mapping shows c
 
 No UI-specific filter field was added to CanonicalEventDTO.
 
-## TEST_SCOPE
-New `tests/test_event_presentation_v2.py` covers:
+## VALIDATION
+PR #62 branch code/status HEAD before this status-only commit: `4bc7a9aeef479d377ce2613bbd79c7a5f35f132f`.
+Workflow #914 / run `34664934315`:
+
+PASS:
+- Vercel Python packaging
+- compile
+- external PostgreSQL durable-store tests
+- Vercel entrypoint
+- API vertical-slice tests
+- related production integration tests
+- all CanonicalEventDTO/source-fact tests
+- all new `test_event_presentation_v2.py` tests
+- web build/tests
+
+New presentation tests specifically PASS:
 - same input -> byte-stable DTO
 - no simulation RNG consumption
-- importance hierarchy
-- deterministic injury text from authoritative metadata
-- multiple same-category events preserved
-- same-game multi-category events preserved
+- deterministic template metadata
+- importance policy
+- multiple same-category events retained
+- multiple same-game/multi-category events retained
 - duplicate suppression without collapsing distinct fact types
-- durable/transient semantics
+- durable/transient separation
 - empty timeline
-- unsupported future category rejects instead of fabricating
+- unsupported future facts raise instead of fabricating
 - career-story filter namespace readiness without DTO pollution
 
-Existing CanonicalEventDTO/03/07 tests continue to cover source-fact determinism, save/load, composite week/month retention, HTTP transport, stale revision and idempotency replay.
+### PRE-EXISTING FULL-SUITE BLOCKER
+Full `unittest discover` is not globally green because existing `test_balance_v04.BalanceV04Tests.test_draft_distribution_not_extreme` fails:
+- fixed-seed undrafted rate = `0.056666...`
+- stale assertion requires `> 0.10`
+
+This is not caused by PR #62:
+- PR #62 changes only `src/event_timeline.py`, this 04 status file, and presentation tests.
+- The exact same deterministic balance failure already occurs on predecessor PR #61 / workflow #902 before PR #62 exists.
+- PR #61 is the merge that produced current main `3a4fc58...`.
+- 04 does not modify draft/generation/balance thresholds to make an unrelated legacy gate pass.
+
+Because that full-suite step fails, downstream auto-career/balance-smoke/draft-calibration workflow steps are skipped in PR #62. This remains an external main-baseline CI issue, not an Events & Story implementation failure.
 
 ## UNSUPPORTED
 Still OPEN until authoritative production source facts exist:
@@ -141,11 +166,13 @@ Still OPEN until authoritative production source facts exist:
 - full Futures/minor-league game simulation
 
 ## GATES
-- CURRENT_EVENT_PRESENTATION = PENDING_CI
-- DETERMINISTIC_RENDERING = PENDING_CI
-- NO_STATE_MUTATION = PENDING_CI
-- MULTI_EVENT_RETENTION = PENDING_CI
-- FUTURE_FACT_READINESS = PENDING_CI
+- CURRENT_EVENT_PRESENTATION = PASS
+- DETERMINISTIC_RENDERING = PASS
+- NO_STATE_MUTATION = PASS
+- MULTI_EVENT_RETENTION = PASS
+- FUTURE_FACT_READINESS = PASS
 - PR56_CANONICAL_EVENT_DTO = PASS_MERGED
 - PR57_HTTP_TRANSPORT = PASS_MERGED
+- PR62_TARGETED_AND_INTEGRATION_TESTS = PASS
+- REPOSITORY_FULL_CI = OPEN_PREEXISTING_DRAFT_BALANCE_GATE
 - UI_TIMELINE_RENDERING = OPEN_06
