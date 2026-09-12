@@ -297,7 +297,7 @@ class InteractiveEventHttpTests(unittest.TestCase):
         self.assertEqual(after.payload, before.payload)
         restored = self.engine()
         self.assertEqual(restored.interactive_event_state.pending[0].event_id, "evt-stale")
-        self.assertFalse(hasattr(restored, "interactive_career_effect_state"))
+        self.assertEqual(len(restored.interactive_career_effect_state.active_effects), 0)
 
     def test_client_cannot_inject_authoritative_effect_fields(self):
         engine = self.engine()
