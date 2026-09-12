@@ -7,7 +7,7 @@ const fmt3 = (v:number) => v.toFixed(3).replace(/^0/, '')
 const fmtWar = (v:number|null) => v === null ? '—' : v.toFixed(1)
 const fmtOptional = (v:string|number|null|undefined) => v === null || v === undefined || v === '' ? '—' : String(v)
 
-export function PlayerDashboard({ data, onAdvance, mutationLoading, mutationCommand }: { data:DashboardViewModel; onAdvance:(command:AdvanceCommand)=>Promise<void>; mutationLoading:boolean; mutationCommand:AdvanceCommand|null }) {
+export function PlayerDashboard({ data, onAdvance, mutationLoading, mutationCommand, extendedAdvanceControls }: { data:DashboardViewModel; onAdvance:(command:AdvanceCommand)=>Promise<void>; mutationLoading:boolean; mutationCommand:AdvanceCommand|null; extendedAdvanceControls:boolean }) {
   const [titleMetric,setTitleMetric] = useState('HR')
   const stats = data.seasonStats
   const recent = data.recentGames
@@ -72,8 +72,8 @@ export function PlayerDashboard({ data, onAdvance, mutationLoading, mutationComm
 
     <nav className="advance-controls" aria-label="시간 진행">
       <button className="primary" disabled={mutationLoading} aria-busy={mutationLoading && mutationCommand==='nextGame'} onClick={()=>void onAdvance('nextGame')}>{mutationLoading && mutationCommand==='nextGame'?busyLabel:'▶ 다음 경기'}</button>
-      <button disabled={mutationLoading} aria-busy={mutationLoading && mutationCommand==='week'} onClick={()=>void onAdvance('week')}>{mutationLoading && mutationCommand==='week'?busyLabel:'1주 진행'}</button>
-      <button disabled={mutationLoading} aria-busy={mutationLoading && mutationCommand==='month'} onClick={()=>void onAdvance('month')}>{mutationLoading && mutationCommand==='month'?busyLabel:'1개월 진행'}</button>
+      {extendedAdvanceControls && <button disabled={mutationLoading} aria-busy={mutationLoading && mutationCommand==='week'} onClick={()=>void onAdvance('week')}>{mutationLoading && mutationCommand==='week'?busyLabel:'1주 진행'}</button>}
+      {extendedAdvanceControls && <button disabled={mutationLoading} aria-busy={mutationLoading && mutationCommand==='month'} onClick={()=>void onAdvance('month')}>{mutationLoading && mutationCommand==='month'?busyLabel:'1개월 진행'}</button>}
     </nav>
   </div>
 }
