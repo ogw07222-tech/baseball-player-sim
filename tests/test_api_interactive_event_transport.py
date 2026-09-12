@@ -102,6 +102,8 @@ class InteractiveEventHttpTests(unittest.TestCase):
     def inject_events(self, *events: InteractiveEvent) -> int:
         stored = self.stored()
         engine = deserialize_game(stored.payload)
+        if engine.current_session is None:
+            engine.start_pro_season()
         engine.interactive_event_state = InteractiveEventState(events=list(events))
         committed = self.store.replace(self.session_id(), serialize_game(engine))
         return committed.revision
@@ -278,10 +280,15 @@ class InteractiveEventHttpTests(unittest.TestCase):
     def test_stale_revision_does_not_run_authoritative_mutator(self):
         engine = self.engine()
         revision = self.inject_events(event("evt-stale", season=engine.year))
+        bumped = self.client.post(
+            "/api/v1/advance",
+            json={"command": "next_game", "expected_revision": revision, "idempotency_key": "bump-before-stale"},
+        )
+        self.assertEqual(bumped.status_code, 200)
         before = self.stored()
         response = self.client.post(
             "/api/v1/events/evt-stale/resolve",
-            json={"choice_id": "balanced", "expected_revision": revision - 1, "idempotency_key": "stale-resolve"},
+            json={"choice_id": "balanced", "expected_revision": revision, "idempotency_key": "stale-resolve"},
         )
         self.assertEqual(response.status_code, 409)
         self.assertEqual(response.json()["error"]["code"], "REVISION_CONFLICT")
