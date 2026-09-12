@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/baseball_sim_test
+      PYTHONPATH: .
     services:
       postgres:
         image: postgres:16
@@ -103,7 +104,7 @@ jobs:
           set -e
           cat full-suite.txt | tail -80
           python - <<'PY'
-          import re
+          import re, json
           s=open('full-suite.txt').read()
           fails=re.findall(r'^FAIL: ([^\n]+)',s,re.M); errs=re.findall(r'^ERROR: ([^\n]+)',s,re.M)
           assert len(errs)==0, errs
