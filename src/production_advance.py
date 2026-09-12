@@ -121,8 +121,12 @@ class CareerGameAdvanceProvider:
         if started and result.user_player_id:
             user_line=result.player_line(result.user_player_id)
             if user_line is None:raise AssertionError("started career player is missing from full-game lineup")
-            target=session.record.first_team if session.current_level=="FIRST" else session.record.farm;target.add(user_line.batting_line);hitter_stats=user_line.stats
-            if session.current_level=="FIRST" and self.engine.player.debut_year is None:self.engine.player.debut_year=self.engine.year
+            before_career=self.engine.first_team_totals_with_active_season(session) if session.current_level=='FIRST' else None
+            target=session.record.first_team if session.current_level=='FIRST' else session.record.farm;target.add(user_line.batting_line);hitter_stats=user_line.stats
+            if session.current_level=='FIRST':
+                if self.engine.player.debut_year is None:self.engine.player.debut_year=self.engine.year
+                after_career=self.engine.first_team_totals_with_active_season(session)
+                if before_career is not None:self.engine.emit_batting_milestone_facts(before_career,after_career,session)
         team=self.engine.player.team
         if not team:raise RuntimeError("career player lost team during game")
         opponent=fixture.home_team if team==fixture.away_team else fixture.away_team;score=result.score_for(team)

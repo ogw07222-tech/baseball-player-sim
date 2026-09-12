@@ -64,6 +64,7 @@ class CareerSourceFact:
             "event_history",
             "trait_history",
             "growth_history",
+            "player.awards",
         }:
             canonical_history = persistence_hint
         canonical_dedupe = existing_dedupe_key if existing_dedupe_key is not None else existing_identity

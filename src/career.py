@@ -9,7 +9,7 @@ from .career_source_facts import CareerSourceFact
 from .career_story import CAREER_ONCE, TRANSITION_REPEAT, record_observational_event
 from .coaches import CoachingStaff, generate_batting_coach, generate_fielding_coach
 from .growth import GrowthExperience, GrowthResult, apply_season_growth
-from .records import SeasonRecord
+from .records import BattingLine, SeasonRecord
 from .traits import TRAIT_CATALOG, has_trait, traits_conflict
 
 
@@ -45,6 +45,15 @@ class SeasonFinalizationResult:
 
 
 class CareerEngine(CareerSeasonMixin, CareerEngineBase):
+    _BATTING_MILESTONES=(
+        ('H',1,'career_first_hit'),
+        ('HR',1,'career_first_home_run'),
+        ('RBI',1,'career_first_rbi'),
+        ('H',100,'career_hits_100'),
+        ('H',500,'career_hits_500'),
+        ('H',1000,'career_hits_1000'),
+        ('HR',100,'career_home_runs_100'),
+    )
     def evaluate_draft(self)->DraftResult:
         phase_before=self.phase;result=super().evaluate_draft()
         if phase_before=='HIGH_SCHOOL' and self.phase=='PRO':
@@ -74,6 +83,13 @@ class CareerEngine(CareerSeasonMixin, CareerEngineBase):
         self._emit_source_fact(fact_type,before={'roster_level':from_level},after={'roster_level':to_level},authoritative_state_delta={'roster_level':{'before':from_level,'after':to_level}},persistence_hint='career_history',existing_identity=identity)
     def _reconsider_roster(self,s:ProSeasonSession)->None:
         self._record_first_team_debut_if_needed(s);before=s.current_level;super()._reconsider_roster(s);self._record_roster_transition(s,before,s.current_level)
+    def first_team_totals_with_active_season(self,s:ProSeasonSession)->BattingLine:
+        total=self.player.first_team_career();total.add(s.record.first_team);return total
+    def emit_batting_milestone_facts(self,before:BattingLine,after:BattingLine,s:ProSeasonSession)->None:
+        for stat,threshold,key in self._BATTING_MILESTONES:
+            previous=int(getattr(before,stat));current=int(getattr(after,stat))
+            if previous<threshold<=current:
+                self._emit_source_fact('career_milestone_reached',before={stat:previous},after={stat:current},authoritative_state_delta={'milestone_key':key,'stat':stat,'previous_value':previous,'milestone_value':threshold,'current_value':current},phase='post_game',game_number=s.games_completed)
     def _determine_awards(self,record:SeasonRecord)->list[str]:
         line=record.first_team
         if line.PA<300:return []
@@ -118,7 +134,9 @@ class CareerEngine(CareerSeasonMixin, CareerEngineBase):
         if s.has_pending_event:raise RuntimeError('cannot finalize professional season with a pending event')
         completed_year=self.year;age_before=self.player.age
         awards=self._determine_awards(s.record);s.record.awards.extend(awards)
-        for award in awards:self.player.awards.append({'year':self.year,'award':award,'level':'KBO'})
+        for award in awards:
+            before_count=len(self.player.awards);self.player.awards.append({'year':self.year,'award':award,'level':'KBO'});identity=f'awards:{self.year}:{len(self.player.awards)-1}'
+            self._emit_source_fact('award_granted',before={'award_count':before_count},after={'award_count':len(self.player.awards),'award_key':award},authoritative_state_delta={'award_key':award,'action':'granted'},phase='lifecycle',persistence_hint='player.awards',existing_identity=identity,game_number=config.KBO_FIRST_TEAM_GAMES)
         self.player.seasons.append(s.record)
         exp=GrowthExperience(s.record.first_team.PA,s.record.farm.PA)
         growth=apply_season_growth(self.player,self.rng,self.current_coaching_staff(),exp,s.growth_modifiers)
@@ -149,14 +167,18 @@ class CareerEngine(CareerSeasonMixin, CareerEngineBase):
         if self.player.injury and self.player.injury.severity=='중상':chance+=.07
         if self.player.age<27:chance*=.05
         return self.rng.random()<min(.92,chance)
-    def retire(self)->None:self.phase='RETIRED';self.player.roster_level='RETIRED';self.player.retirement_age=self.player.age
+    def retire(self,reason:str='explicit')->None:
+        if self.phase=='RETIRED':return
+        before={'phase':self.phase,'roster_level':self.player.roster_level,'retirement_age':self.player.retirement_age}
+        self.phase='RETIRED';self.player.roster_level='RETIRED';self.player.retirement_age=self.player.age
+        self._emit_source_fact('career_retired',before=before,after={'phase':self.phase,'roster_level':self.player.roster_level,'retirement_age':self.player.retirement_age},authoritative_state_delta={'phase':{'before':before['phase'],'after':'RETIRED'},'roster_level':{'before':before['roster_level'],'after':'RETIRED'},'retirement_age':self.player.retirement_age,'retirement_reason':reason},phase='retirement',game_number=None)
     def run_to_retirement(self,max_seasons:int=30)->Player:
         if self.phase=='HIGH_SCHOOL':self.evaluate_draft()
         seasons=0
         while self.phase=='PRO' and seasons<max_seasons:
             self.finish_pro_season();seasons+=1
-            if self.should_retire():self.retire()
-        if self.phase=='PRO':self.retire()
+            if self.should_retire():self.retire('retirement_rule')
+        if self.phase=='PRO':self.retire('max_seasons_guard')
         return self.player
     def as_dict(self)->dict[str,object]:return {'year':self.year,'tournament_index':self.tournament_index,'phase':self.phase,'tournament_results':self.tournament_results,'current_session':self.current_session.as_dict() if self.current_session else None,'team_coaches':{k:v.as_dict() for k,v in self.team_coaches.items()},'coach_history':self.coach_history}
     def restore_state(self,d:dict[str,Any])->None:
