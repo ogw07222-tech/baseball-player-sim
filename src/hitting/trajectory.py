@@ -1,8 +1,9 @@
 """Phase 2B O(1) analytical/algebraic batted-ball trajectory layer.
 
-The trajectory is descriptive/shadow-only in Phase 2B. Legacy HR/XBH/defense
-resolution remains authoritative. Runtime stepping, numerical integration, and
-iterative root solving are intentionally absent.
+Phase 2C extends the Phase-2B summary with a deterministic horizontal height
+profile used only for shadow wall-intersection diagnostics. Legacy HR/XBH/
+defense resolution remains authoritative. Runtime stepping, numerical
+integration, and iterative root solving are intentionally absent.
 """
 from __future__ import annotations
 
@@ -29,6 +30,8 @@ class BattedBallTrajectory:
     - spray 0 deg = +Y
 
     All distances/heights are feet; time is seconds.
+    ``apex_distance_fraction`` is a fixed-size shape descriptor allowing an
+    O(1) height query without frame stepping or numerical solving.
     """
 
     horizontal_distance_ft: float
@@ -37,6 +40,7 @@ class BattedBallTrajectory:
     landing_x_ft: float
     landing_y_ft: float
     trajectory_class: str
+    apex_distance_fraction: float = 0.5
     valid: bool = True
 
     def __post_init__(self) -> None:
@@ -46,6 +50,7 @@ class BattedBallTrajectory:
             self.apex_height_ft,
             self.landing_x_ft,
             self.landing_y_ft,
+            self.apex_distance_fraction,
         )
         if not all(math.isfinite(value) for value in values):
             raise ValueError("trajectory values must be finite")
@@ -55,6 +60,8 @@ class BattedBallTrajectory:
             raise ValueError("hang time cannot be negative")
         if self.apex_height_ft < P.APEX_MIN_FT:
             raise ValueError("apex height cannot be negative")
+        if not 0.0 <= self.apex_distance_fraction < 1.0:
+            raise ValueError("apex_distance_fraction outside [0, 1)")
         if self.trajectory_class not in {"ground_like", "line_drive", "fly_ball", "popup"}:
             raise ValueError("unsupported trajectory_class")
 
@@ -65,6 +72,38 @@ class BattedBallTrajectory:
     @property
     def first_ground_impact_distance_ft(self) -> float:
         return self.horizontal_distance_ft
+
+    def height_at_horizontal_distance(self, distance_ft: float) -> float:
+        """Return an O(1) algebraic height profile consistent with carry/apex.
+
+        The profile is a pair of parabolic arcs meeting with zero slope at the
+        stored apex. It exactly satisfies launch height at r=0, the Phase-2B
+        apex, and ground height at first impact. For non-positive-LA ground-like
+        balls the apex is at launch, so a single descending parabola is used.
+        Distances beyond first impact safely return zero.
+        """
+        if not math.isfinite(distance_ft):
+            raise ValueError("height query distance must be finite")
+        if distance_ft <= 0.0:
+            return P.LAUNCH_HEIGHT_FT
+        carry = self.horizontal_distance_ft
+        if carry <= 0.0 or distance_ft >= carry:
+            return 0.0
+
+        u = distance_ft / carry
+        apex = max(P.LAUNCH_HEIGHT_FT, self.apex_height_ft)
+        peak = self.apex_distance_fraction
+        if peak <= 1e-12:
+            height = apex * (1.0 - u) * (1.0 - u)
+            return _clamp(height, 0.0, apex)
+
+        if u <= peak:
+            q = (peak - u) / peak
+            height = apex - (apex - P.LAUNCH_HEIGHT_FT) * q * q
+        else:
+            q = (u - peak) / (1.0 - peak)
+            height = apex * (1.0 - q * q)
+        return _clamp(height, 0.0, apex)
 
 
 def _first_ground_impact(exit_velocity_mph: float, launch_angle_deg: float) -> tuple[float, float]:
@@ -77,8 +116,6 @@ def _first_ground_impact(exit_velocity_mph: float, launch_angle_deg: float) -> t
     if vy >= 0.0:
         time_s = (vy + root) / P.GRAVITY_FTPS2
     else:
-        # Algebraically equivalent rationalized root avoids cancellation for
-        # steeply negative launch angles.
         time_s = (2.0 * P.LAUNCH_HEIGHT_FT) / max(1e-12, root - vy)
     distance_ft = vx * time_s * P.GROUND_HORIZONTAL_ATTENUATION
     return max(0.0, distance_ft), max(0.0, time_s)
@@ -139,11 +176,7 @@ def _trajectory_class(launch_angle_deg: float) -> str:
 
 
 def generate_batted_ball_trajectory(state: BattedBallState) -> BattedBallTrajectory:
-    """Return deterministic first-ground trajectory from the Phase-2A state.
-
-    EV/LA/spray are the only trajectory drivers. Timing/contact quality are not
-    applied again because their influence is already embedded in Phase-2A EV/LA.
-    """
+    """Return deterministic first-ground trajectory from the Phase-2A state."""
     ev = state.exit_velocity
     la = state.launch_angle
 
@@ -169,5 +202,6 @@ def generate_batted_ball_trajectory(state: BattedBallState) -> BattedBallTraject
         landing_x_ft=landing_x,
         landing_y_ft=landing_y,
         trajectory_class=_trajectory_class(la),
+        apex_distance_fraction=0.0 if la <= 0.0 else 0.5,
         valid=True,
     )
