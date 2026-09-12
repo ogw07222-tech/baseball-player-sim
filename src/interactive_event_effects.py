@@ -10,14 +10,12 @@ from dataclasses import dataclass, field
 from datetime import date
 from typing import Mapping
 
-from . import config
 from .growth import GROWABLE_STATS
 from .interactive_events import (
     EVENT_STATUS_PENDING,
     EventChoiceEffect,
     InteractiveEventResolution,
     InteractiveEventState,
-    event_state_for_engine,
 )
 
 
@@ -189,29 +187,37 @@ def resolve_interactive_event_authoritatively(
 ) -> InteractiveEventResolution:
     """Validate all requests, apply them atomically, then mark the EVENT resolved.
 
-    No CareerSourceFact is emitted merely because a choice was made. Existing
-    career mutation paths remain responsible for facts when a real transition
-    (for example form_transition) actually occurs later.
+    Invalid requests are observationally side-effect free: they do not even
+    create empty persistence state. No CareerSourceFact is emitted merely because
+    a choice was made; real career mutation paths remain the fact authorities.
     """
     session = getattr(engine, "current_session", None)
     if session is None:
         raise RuntimeError("interactive event effects require an active professional season")
-    event_state = event_state_for_engine(engine)
+    event_state = getattr(engine, "interactive_event_state", None)
+    if not isinstance(event_state, InteractiveEventState):
+        raise KeyError(f"unknown interactive event: {event_id}")
     _, choice = _locate_pending_choice(event_state, event_id, choice_id)
     plans = tuple(_plan_effect(engine.player, event_id, effect) for effect in choice.preview_effects)
 
     # All validation is complete before the first authoritative mutation.
-    effect_state = effect_state_for_engine(engine)
+    existing_effect_state = getattr(engine, "interactive_career_effect_state", None)
+    effect_state = existing_effect_state if isinstance(existing_effect_state, InteractiveCareerEffectState) else InteractiveCareerEffectState()
     event_snapshot = event_state.as_dict()
     effects_snapshot = effect_state.as_dict()
     try:
+        if not isinstance(existing_effect_state, InteractiveCareerEffectState):
+            engine.interactive_career_effect_state = effect_state
         effect_state.active_effects.extend(plans)
         # 04 resolve mutates only the EVENT record. Calling it last guarantees
         # that an invalid/unsupported effect can never leave a resolved event.
         return event_state.resolve(event_id, choice_id, resolved_at)
     except Exception:
         engine.interactive_event_state = InteractiveEventState.from_dict(event_snapshot)
-        engine.interactive_career_effect_state = InteractiveCareerEffectState.from_dict(effects_snapshot)
+        if isinstance(existing_effect_state, InteractiveCareerEffectState):
+            engine.interactive_career_effect_state = InteractiveCareerEffectState.from_dict(effects_snapshot)
+        elif hasattr(engine, "interactive_career_effect_state"):
+            delattr(engine, "interactive_career_effect_state")
         raise
 
 
@@ -277,5 +283,6 @@ def advance_interactive_effects_one_game(engine: object) -> None:
 
 def clear_season_interactive_effects(engine: object) -> None:
     """Season-bound temporary effects cannot silently leak into the next season."""
-    state = effect_state_for_engine(engine)
-    state.active_effects.clear()
+    state = getattr(engine, "interactive_career_effect_state", None)
+    if isinstance(state, InteractiveCareerEffectState):
+        state.active_effects.clear()
