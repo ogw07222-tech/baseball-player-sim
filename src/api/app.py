@@ -13,12 +13,13 @@ from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .. import config
 from ..application.dashboard_service import DashboardService
 from ..application.season_service import SeasonService
 from ..career import CareerEngine
+from ..interactive_event_effects import InteractiveCareerEffectState, UnsupportedInteractiveEffect
 from ..persistence import deserialize_game, serialize_game
 from ..player import Player
 from ..production_advance import ProductionAdvanceService, SeasonCompleteError
@@ -47,6 +48,14 @@ class NewCareerRequest(BaseModel):
 
 class AdvanceRequest(BaseModel):
     command: Literal["next_game", "week", "month", "season"]
+    expected_revision: int = Field(ge=1)
+    idempotency_key: str = Field(min_length=1, max_length=200)
+
+
+class ResolveEventRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    choice_id: str = Field(min_length=1, max_length=200)
     expected_revision: int = Field(ge=1)
     idempotency_key: str = Field(min_length=1, max_length=200)
 
@@ -155,6 +164,12 @@ def _progress(engine: CareerEngine) -> dict[str, object]:
     }
 
 
+def _pending_events(engine: CareerEngine) -> list[dict[str, object]]:
+    state = getattr(engine, "interactive_event_state", None)
+    pending = getattr(state, "pending", ())
+    return [event.as_dict() for event in pending]
+
+
 def _presentation(
     engine: CareerEngine,
     revision: int,
@@ -165,7 +180,11 @@ def _presentation(
     dashboard = DashboardService().build(engine.player, year=engine.year, progress=progress).as_dict()
     season = SeasonService().build(engine.player, year=engine.year, progress=progress).as_dict()
     payload: dict[str, object] = {
-        "data": {"dashboard": dashboard, "season": season},
+        "data": {
+            "dashboard": dashboard,
+            "season": season,
+            "pending_events": _pending_events(engine),
+        },
         "meta": {"revision": revision},
     }
     if mutation is not None:
@@ -176,6 +195,20 @@ def _presentation(
 def _fingerprint(request: AdvanceRequest) -> str:
     canonical = json.dumps(
         {"command": request.command, "expected_revision": request.expected_revision},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _resolve_fingerprint(event_id: str, request: ResolveEventRequest) -> str:
+    canonical = json.dumps(
+        {
+            "kind": "resolve_event",
+            "event_id": event_id,
+            "choice_id": request.choice_id,
+            "expected_revision": request.expected_revision,
+        },
         sort_keys=True,
         separators=(",", ":"),
     )
@@ -296,13 +329,15 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
             else:  # Pydantic constrains this branch; keep fail-closed for type drift.
                 raise ApiProblem(400, "INVALID_REQUEST", f"unsupported advance command: {body.command}")
             next_payload = serialize_game(engine)
+            result = AdvanceResultViewModel.from_summary(summary).as_dict()
+            result["pending_events"] = _pending_events(engine)
             response_payload = _presentation(
                 engine,
                 body.expected_revision + 1,
                 mutation={
                     "kind": "advance",
                     "command": body.command,
-                    "result": AdvanceResultViewModel.from_summary(summary).as_dict(),
+                    "result": result,
                 },
             )
             return next_payload, response_payload
@@ -339,6 +374,113 @@ def create_app(store: SessionStore | None = None) -> FastAPI:
                 str(exc),
                 retryable=False,
                 revision=body.expected_revision,
+            ) from exc
+        return commit.response
+
+    @app.post("/api/v1/events/{event_id}/resolve")
+    def resolve_event(event_id: str, body: ResolveEventRequest, request: Request, response: Response):
+        session_id = _session_id(request, response)
+
+        def mutate(payload: dict[str, object]):
+            engine = deserialize_game(payload)
+            service = ProductionAdvanceService(engine)
+            resolution = service.resolve_interactive_event(event_id, body.choice_id)
+            event_state = getattr(engine, "interactive_event_state", None)
+            resolved_event = next(
+                event for event in getattr(event_state, "events", ()) if event.event_id == event_id
+            )
+            effect_state = getattr(engine, "interactive_career_effect_state", None)
+            applied_effects = []
+            if isinstance(effect_state, InteractiveCareerEffectState):
+                applied_effects = [
+                    effect.as_dict()
+                    for effect in effect_state.active_effects
+                    if effect.source_event_id == event_id
+                ]
+            result = {
+                "resolved_event": resolved_event.as_dict(),
+                "applied_effects": applied_effects,
+                "resolution": resolution.as_dict(),
+                "pending_events": _pending_events(engine),
+            }
+            next_payload = serialize_game(engine)
+            response_payload = _presentation(
+                engine,
+                body.expected_revision + 1,
+                mutation={
+                    "kind": "resolve_event",
+                    "event_id": event_id,
+                    "choice_id": body.choice_id,
+                    "result": result,
+                },
+            )
+            return next_payload, response_payload
+
+        try:
+            commit = session_store.mutate(
+                session_id,
+                expected_revision=body.expected_revision,
+                idempotency_key=body.idempotency_key,
+                fingerprint=_resolve_fingerprint(event_id, body),
+                mutator=mutate,
+            )
+        except RevisionConflict as exc:
+            raise ApiProblem(
+                409,
+                "REVISION_CONFLICT",
+                "expected_revision is stale",
+                revision=exc.revision,
+            ) from exc
+        except IdempotencyConflict as exc:
+            current = session_store.get(session_id)
+            raise ApiProblem(
+                409,
+                "SIMULATION_CONFLICT",
+                str(exc),
+                revision=current.revision if current else None,
+            ) from exc
+        except UnsupportedInteractiveEffect as exc:
+            current = session_store.get(session_id)
+            raise ApiProblem(
+                422,
+                "UNSUPPORTED_EVENT_EFFECT",
+                str(exc),
+                retryable=False,
+                revision=current.revision if current else body.expected_revision,
+            ) from exc
+        except KeyError as exc:
+            current = session_store.get(session_id)
+            if current is None:
+                raise ApiProblem(404, "NO_CAREER", "no career exists for this session") from exc
+            raise ApiProblem(
+                404,
+                "EVENT_NOT_FOUND",
+                str(exc),
+                retryable=False,
+                revision=current.revision,
+            ) from exc
+        except ValueError as exc:
+            current = session_store.get(session_id)
+            raise ApiProblem(
+                400,
+                "INVALID_EVENT_CHOICE",
+                str(exc),
+                retryable=False,
+                revision=current.revision if current else body.expected_revision,
+            ) from exc
+        except RuntimeError as exc:
+            current = session_store.get(session_id)
+            message = str(exc)
+            if "not pending" in message:
+                code = "EVENT_ALREADY_RESOLVED"
+            else:
+                code = "EVENT_RESOLUTION_UNAVAILABLE"
+            raise ApiProblem(
+                409,
+                code,
+                message,
+                retryable=False,
+                revision=current.revision if current else body.expected_revision,
             ) from exc
         return commit.response
 
