@@ -313,7 +313,14 @@ def canonical_timeline_for_advance(
     source_command: str,
     season: int | None,
 ) -> tuple[CanonicalEventDTO, ...]:
-    events = [canonical_event_from_source_fact(fact, source_command=source_command) for fact in source_facts]
+    # 03 may add new authoritative fact types before 04 has presentation rules
+    # for them. Keep those facts losslessly in AdvanceSummary.source_facts while
+    # projecting only currently supported types into the legacy DTO timeline.
+    events = [
+        canonical_event_from_source_fact(fact, source_command=source_command)
+        for fact in source_facts
+        if fact.fact_type in CATEGORY_BY_FACT
+    ]
     facts_by_date: dict[str, list[CareerSourceFact]] = {}
     for fact in source_facts:
         if fact.simulated_date:
