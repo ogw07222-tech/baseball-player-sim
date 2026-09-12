@@ -1,0 +1,62 @@
+name: interactive-event-p1-final-05
+
+on:
+  push:
+    branches:
+      - validation/interactive-event-p1-final-05
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install API dependencies
+        run: pip install -r requirements-api.txt
+      - name: Assert production identity with validation-start main
+        run: |
+          git diff --exit-code 47ada4fe9f1d95da2760d7a8d56a8900aab6fdc3 -- src web tests requirements-api.txt
+      - name: Compile validation harness
+        run: python -m py_compile tools/interactive_event_p1_validation_05.py
+      - name: Interactive Event P1 quantitative validation
+        run: python tools/interactive_event_p1_validation_05.py > interactive-event-p1-validation.log
+      - name: Interactive Event targeted Python integration tests
+        run: |
+          python -m unittest \
+            tests.test_interactive_events_p1 \
+            tests.test_interactive_events_p1_season_reset \
+            tests.test_interactive_event_authoritative_effects \
+            tests.test_api_interactive_event_transport -v | tee interactive-event-targeted-tests.log
+      - name: Current full Python suite context
+        run: |
+          set +e
+          python -m unittest discover -s tests -v > full-python-tests.log 2>&1
+          code=$?
+          echo "$code" > full-python-exit-code.txt
+          tail -n 80 full-python-tests.log
+          exit 0
+      - name: Web build and tests
+        working-directory: web
+        run: |
+          npm install
+          npm run build | tee ../web-build.log
+          npm test | tee ../web-tests.log
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: interactive-event-p1-final-${{ github.run_id }}-${{ github.sha }}
+          path: |
+            interactive-event-p1-validation.json
+            interactive-event-p1-validation.log
+            interactive-event-targeted-tests.log
+            full-python-tests.log
+            full-python-exit-code.txt
+            web-build.log
+            web-tests.log
