@@ -10,8 +10,8 @@ import type {
 import { adaptDashboardDto, adaptSeasonDto } from './presentationAdapter'
 
 export interface AdvancePresentationResult extends DashboardViewModel {
-  advanceResult: BackendAdvanceResultDto
-  pendingEvents: BackendInteractiveEventDto[]
+  advanceResult?: BackendAdvanceResultDto
+  pendingEvents?: BackendInteractiveEventDto[]
 }
 
 export interface ResolveEventPresentationResult {
@@ -39,12 +39,12 @@ export interface GameDataProvider {
   createCareer(request: NewCareerRequest): Promise<DashboardViewModel>
   getDashboard(): Promise<DashboardViewModel>
   getSeason(): Promise<SeasonViewModel>
-  getPendingEvents(): Promise<BackendInteractiveEventDto[]>
+  getPendingEvents?(): Promise<BackendInteractiveEventDto[]>
   advanceNextGame(): Promise<AdvancePresentationResult>
   advanceWeek(): Promise<AdvancePresentationResult>
   advanceMonth(): Promise<AdvancePresentationResult>
   advanceSeason(): Promise<AdvancePresentationResult>
-  resolveEvent(eventId: string, choiceId: string): Promise<ResolveEventPresentationResult>
+  resolveEvent?(eventId: string, choiceId: string): Promise<ResolveEventPresentationResult>
   saveGame(): Promise<void>
 }
 
