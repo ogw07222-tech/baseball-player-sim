@@ -248,7 +248,7 @@ export function App({ provider }: { provider:GameDataProvider }) {
   const seasonMeta = mergeSeasonMeta(dashboard,season)
   const progress = seasonMeta?.progress ?? 0
   const content = !dashboard || !season ? <LoadingState message="커리어 데이터를 불러오는 중입니다."/> : screen==='player'
-    ? <PlayerDashboard data={dashboard} onAdvance={advance} mutationLoading={mutationLoading} mutationCommand={mutationCommand}/>
+    ? <PlayerDashboard data={dashboard} onAdvance={advance} mutationLoading={mutationLoading} mutationCommand={mutationCommand} extendedAdvanceControls={Boolean(provider.getPendingEvents)}/>
     : screen==='season'
       ? <>
           <div className="season-event-stack">
