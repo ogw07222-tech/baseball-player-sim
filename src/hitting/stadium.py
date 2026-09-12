@@ -103,6 +103,19 @@ def resolve_wall_interaction(
 ) -> WallInteraction:
     """Resolve physical wall geometry without changing gameplay authority."""
     wall_radius, wall_height = stadium.wall_at_spray(spray_angle_deg)
+    if not trajectory.valid:
+        return WallInteraction(
+            stadium_id=stadium.stadium_id,
+            wall_radius_ft=wall_radius,
+            wall_height_ft=wall_height,
+            reaches_wall=False,
+            ball_height_at_wall_ft=0.0,
+            clearance_ft=-wall_height,
+            clears_wall=False,
+            wall_contact=False,
+            physical_hr_shadow=False,
+        )
+
     reaches = trajectory.horizontal_distance_ft >= wall_radius
     ball_height = trajectory.height_at_horizontal_distance(wall_radius) if reaches else 0.0
     clearance = ball_height - wall_height if reaches else -wall_height
