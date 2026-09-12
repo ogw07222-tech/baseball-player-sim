@@ -180,4 +180,5 @@ class ProductionAdvanceService:
     def start_next_season(self)->None:
         if self.engine.phase!='PRO':raise RuntimeError("career is not in professional phase")
         if self.engine.current_session is not None:raise RuntimeError("professional season already active")
+        event_state=event_state_for_engine(self.engine);event_state.event_cooldown_until.clear();event_state.category_cooldown_until.clear();event_state.season_counts.clear()
         self.engine.start_pro_season();self.schedule=CareerSeasonScheduleProvider(self.engine.year);self._bind(self._state_for_engine(0))
