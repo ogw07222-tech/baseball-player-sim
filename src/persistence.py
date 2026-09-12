@@ -8,6 +8,7 @@ from typing import Any
 
 from . import config
 from .career import CareerEngine
+from .interactive_events import InteractiveEventState
 from .pitcher_usage import PitcherUsageLeagueState
 from .player import Player
 from .rng import RNG
@@ -42,6 +43,9 @@ def serialize_game(engine: CareerEngine) -> dict[str, object]:
     pitcher_usage_state = getattr(engine, "pitcher_usage_state", None)
     if isinstance(pitcher_usage_state, PitcherUsageLeagueState):
         payload["pitcher_usage_state"] = pitcher_usage_state.as_dict()
+    interactive_event_state = getattr(engine, "interactive_event_state", None)
+    if isinstance(interactive_event_state, InteractiveEventState):
+        payload["interactive_event_state"] = interactive_event_state.as_dict()
     return payload
 
 
@@ -74,6 +78,10 @@ def deserialize_game(payload: Mapping[str, Any]) -> CareerEngine:
     if data.get("pitcher_usage_state") is not None:
         engine.pitcher_usage_state = PitcherUsageLeagueState.from_dict(
             dict(data["pitcher_usage_state"])
+        )
+    if data.get("interactive_event_state") is not None:
+        engine.interactive_event_state = InteractiveEventState.from_dict(
+            dict(data["interactive_event_state"])
         )
     return engine
 
