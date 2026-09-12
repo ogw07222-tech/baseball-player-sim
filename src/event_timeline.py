@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import date
-from typing import Iterable, Mapping, Sequence
+from typing import Callable, Iterable, Mapping, Sequence
 
 from .career_source_facts import CareerSourceFact
 
@@ -22,6 +22,9 @@ PHASE_ORDER = {
     "system": 5,
 }
 
+IMPORTANCE_LEVELS = ("minor", "normal", "major", "career-defining")
+
+# Only categories with current authoritative production semantics are active.
 CATEGORY_BY_FACT = {
     "roster_promotion": "roster",
     "roster_demotion": "roster",
@@ -36,6 +39,32 @@ CATEGORY_BY_FACT = {
     "event_rating_change": "development",
     "season_growth": "development",
     "season_finalized": "lifecycle",
+}
+
+# Reserved namespace only. These are extension points, not production events.
+# canonical_event_from_source_fact() still rejects any unsupported fact type.
+FUTURE_EVENT_NAMESPACE = {
+    "milestone": "career",
+    "record": "record",
+    "award": "award",
+    "trade": "transaction",
+    "contract": "transaction",
+    "fa": "transaction",
+    "transfer": "transaction",
+    "retirement": "career",
+}
+
+# Advisory mapping for a future career-story view. This does not alter the DTO.
+CAREER_STORY_FILTER_CATEGORIES = {
+    "All": (),
+    "Games": ("gameplay",),
+    "Development": ("development", "form", "trait"),
+    "Injuries": ("injury",),
+    "Roster": ("roster",),
+    "Awards": ("award",),
+    "Records": ("record",),
+    "Transactions": ("transaction",),
+    "Career": ("lifecycle", "career"),
 }
 
 
@@ -91,6 +120,18 @@ class CanonicalEventDTO:
         }
 
 
+@dataclass(frozen=True)
+class EventPresentation:
+    category: str
+    title: str
+    summary: str
+    importance: str
+    priority: int
+
+
+PresentationBuilder = Callable[[CareerSourceFact], EventPresentation]
+
+
 def _coord_identity(fact: CareerSourceFact) -> str:
     date_part = fact.simulated_date.isoformat() if fact.simulated_date else "none"
     game_part = "none" if fact.game_number is None else str(fact.game_number)
@@ -133,6 +174,15 @@ def _injury_summary(value: Mapping[str, object] | None) -> str:
     return " / ".join(parts)
 
 
+def _injury_importance(value: Mapping[str, object] | None) -> tuple[str, int]:
+    severity = str(value.get("severity", "")) if value else ""
+    if severity == "중상":
+        return "major", 95
+    if severity == "경미":
+        return "minor", 65
+    return "normal", 80
+
+
 def _rating_changes(fact: CareerSourceFact) -> dict[str, int] | None:
     raw = fact.state_delta.get("rating_deltas")
     if not isinstance(raw, Mapping):
@@ -149,45 +199,107 @@ def _trait_changes(fact: CareerSourceFact) -> tuple[str, ...]:
     return (f"{action}:{trait}",) if trait else ()
 
 
-def _presentation(fact: CareerSourceFact) -> tuple[str, str, str, int]:
-    before, after = fact.before_state, fact.after_state
-    if fact.fact_type == "roster_promotion":
-        return "1군 등록", "선수의 로스터 상태가 비1군/개발군에서 1군으로 변경되었습니다.", "major", 90
-    if fact.fact_type == "roster_demotion":
-        return "1군 말소", "선수의 로스터 상태가 1군에서 비1군/개발군으로 변경되었습니다.", "normal", 75
-    if fact.fact_type == "first_team_debut":
-        return "1군 데뷔", "선수의 첫 1군 경기 출전이 확정되었습니다.", "major", 100
-    if fact.fact_type == "injury_created":
-        injury = _injury(after.get("injury"))
-        severity = str(injury.get("severity", "")) if injury else ""
-        importance = "major" if severity == "중상" else "normal"
-        return "부상 발생", _injury_summary(injury), importance, 95 if importance == "major" else 80
-    if fact.fact_type == "injury_recovery_completed":
-        return "회복 완료", f"{_injury_summary(_injury(before.get('injury')))}에서 회복했습니다.", "normal", 85
-    if fact.fact_type == "injury_cleared":
-        return "부상 상태 해제", f"{_injury_summary(_injury(before.get('injury')))} 상태가 해제되었습니다.", "normal", 85
-    if fact.fact_type == "injury_changed":
-        return "부상 상태 변경", f"{_injury_summary(_injury(before.get('injury')))} → {_injury_summary(_injury(after.get('injury')))}", "normal", 85
-    if fact.fact_type == "form_transition":
-        return "컨디션 변화", f"{before.get('form', 'unknown')} → {after.get('form', 'unknown')}", "normal", 55
-    if fact.fact_type == "trait_gained":
-        trait = str(after.get("trait_present") or "trait")
-        return "특성 획득", f"{trait} 특성을 획득했습니다.", "normal", 65
-    if fact.fact_type == "trait_lost":
-        trait = str(before.get("trait_present") or "trait")
-        return "특성 상실", f"{trait} 특성이 제거되었습니다.", "normal", 65
-    if fact.fact_type == "event_rating_change":
-        changes = _rating_changes(fact) or {}
-        text = ", ".join(f"{key} {value:+d}" for key, value in sorted(changes.items())) or "변화 없음"
-        return "능력치 변화", text, "normal", 70
-    if fact.fact_type == "season_growth":
-        changes = _rating_changes(fact) or {}
-        text = ", ".join(f"{key} {value:+d}" for key, value in sorted(changes.items())) or "능력치 변화 없음"
-        return "시즌 성장 결과", text, "major", 88
-    if fact.fact_type == "season_finalized":
-        completed = before.get("season", fact.season)
-        return "시즌 종료", f"{completed} 시즌 진행 결과가 최종 확정되었습니다.", "major", 92
-    raise ValueError(f"unsupported CareerSourceFact type: {fact.fact_type}")
+def _rating_change_text(fact: CareerSourceFact) -> str:
+    changes = _rating_changes(fact) or {}
+    return ", ".join(f"{key} {value:+d}" for key, value in sorted(changes.items())) or "능력치 변화 없음"
+
+
+def _promotion_presentation(_: CareerSourceFact) -> EventPresentation:
+    return EventPresentation("roster", "1군 등록", "로스터 상태가 비1군/개발군에서 1군으로 변경되었습니다.", "normal", 75)
+
+
+def _demotion_presentation(_: CareerSourceFact) -> EventPresentation:
+    return EventPresentation("roster", "1군 말소", "로스터 상태가 1군에서 비1군/개발군으로 변경되었습니다.", "normal", 70)
+
+
+def _debut_presentation(_: CareerSourceFact) -> EventPresentation:
+    return EventPresentation("roster", "1군 데뷔", "첫 1군 경기 출전이 확정되었습니다.", "major", 95)
+
+
+def _injury_created_presentation(fact: CareerSourceFact) -> EventPresentation:
+    injury = _injury(fact.after_state.get("injury"))
+    importance, priority = _injury_importance(injury)
+    return EventPresentation("injury", "부상 발생", _injury_summary(injury), importance, priority)
+
+
+def _recovery_presentation(fact: CareerSourceFact) -> EventPresentation:
+    return EventPresentation("injury", "회복 완료", f"{_injury_summary(_injury(fact.before_state.get('injury')))}에서 회복했습니다.", "normal", 78)
+
+
+def _injury_cleared_presentation(fact: CareerSourceFact) -> EventPresentation:
+    return EventPresentation("injury", "부상 상태 해제", f"{_injury_summary(_injury(fact.before_state.get('injury')))} 상태가 해제되었습니다.", "normal", 78)
+
+
+def _injury_changed_presentation(fact: CareerSourceFact) -> EventPresentation:
+    after = _injury(fact.after_state.get("injury"))
+    importance, priority = _injury_importance(after)
+    return EventPresentation(
+        "injury",
+        "부상 상태 변경",
+        f"{_injury_summary(_injury(fact.before_state.get('injury')))} → {_injury_summary(after)}",
+        importance,
+        priority,
+    )
+
+
+def _form_presentation(fact: CareerSourceFact) -> EventPresentation:
+    before = fact.before_state.get("form", "unknown")
+    after = fact.after_state.get("form", "unknown")
+    return EventPresentation("form", "컨디션 변화", f"{before} → {after}", "minor", 45)
+
+
+def _trait_gained_presentation(fact: CareerSourceFact) -> EventPresentation:
+    trait = str(fact.after_state.get("trait_present") or "trait")
+    return EventPresentation("trait", "특성 획득", f"{trait} 특성을 획득했습니다.", "normal", 65)
+
+
+def _trait_lost_presentation(fact: CareerSourceFact) -> EventPresentation:
+    trait = str(fact.before_state.get("trait_present") or "trait")
+    return EventPresentation("trait", "특성 상실", f"{trait} 특성이 제거되었습니다.", "normal", 65)
+
+
+def _rating_change_presentation(fact: CareerSourceFact) -> EventPresentation:
+    return EventPresentation("development", "능력치 변화", _rating_change_text(fact), "normal", 60)
+
+
+def _season_growth_presentation(fact: CareerSourceFact) -> EventPresentation:
+    return EventPresentation("development", "시즌 성장 결과", _rating_change_text(fact), "normal", 72)
+
+
+def _season_finalized_presentation(fact: CareerSourceFact) -> EventPresentation:
+    completed = fact.before_state.get("season", fact.season)
+    return EventPresentation("lifecycle", "시즌 종료", f"{completed} 시즌 진행 결과가 최종 확정되었습니다.", "normal", 68)
+
+
+# Deterministic template registry. Same fact -> same canonical base text.
+# No random selection or simulation RNG is involved.
+PRESENTATION_BUILDERS: dict[str, PresentationBuilder] = {
+    "roster_promotion": _promotion_presentation,
+    "roster_demotion": _demotion_presentation,
+    "first_team_debut": _debut_presentation,
+    "injury_created": _injury_created_presentation,
+    "injury_recovery_completed": _recovery_presentation,
+    "injury_cleared": _injury_cleared_presentation,
+    "injury_changed": _injury_changed_presentation,
+    "form_transition": _form_presentation,
+    "trait_gained": _trait_gained_presentation,
+    "trait_lost": _trait_lost_presentation,
+    "event_rating_change": _rating_change_presentation,
+    "season_growth": _season_growth_presentation,
+    "season_finalized": _season_finalized_presentation,
+}
+
+
+def presentation_for_source_fact(fact: CareerSourceFact) -> EventPresentation:
+    builder = PRESENTATION_BUILDERS.get(fact.fact_type)
+    if builder is None:
+        raise ValueError(f"unsupported CareerSourceFact type: {fact.fact_type}")
+    presentation = builder(fact)
+    if presentation.category != CATEGORY_BY_FACT[fact.fact_type]:
+        raise AssertionError(f"presentation category mismatch for {fact.fact_type}")
+    if presentation.importance not in IMPORTANCE_LEVELS:
+        raise AssertionError(f"unsupported importance level: {presentation.importance}")
+    return presentation
 
 
 def canonical_event_from_source_fact(
@@ -198,7 +310,7 @@ def canonical_event_from_source_fact(
     if fact.fact_type not in CATEGORY_BY_FACT:
         raise ValueError(f"unsupported CareerSourceFact type: {fact.fact_type}")
     event_id, dedupe_key = _identity(fact)
-    title, summary, importance, priority = _presentation(fact)
+    presentation = presentation_for_source_fact(fact)
     before_injury = _injury(fact.before_state.get("injury"))
     after_injury = _injury(fact.after_state.get("injury"))
     injury_effect = None
@@ -207,14 +319,14 @@ def canonical_event_from_source_fact(
     return CanonicalEventDTO(
         event_id=event_id,
         event_type=fact.fact_type,
-        category=CATEGORY_BY_FACT[fact.fact_type],
+        category=presentation.category,
         occurred_at=fact.simulated_date.isoformat() if fact.simulated_date else None,
         season=fact.season,
         game_number=fact.game_number,
         sequence=-1,
-        title=title,
-        summary=summary,
-        importance=importance,
+        title=presentation.title,
+        summary=presentation.summary,
+        importance=presentation.importance,
         player_id=fact.player_id,
         team_id=fact.team_id,
         related_entity_ids=(),
@@ -223,7 +335,7 @@ def canonical_event_from_source_fact(
         injury_effect=injury_effect,
         trait_changes=_trait_changes(fact),
         source_command=source_command,
-        presentation_priority=priority,
+        presentation_priority=presentation.priority,
         persistence=_persistence(fact),
         dedupe_key=dedupe_key,
         phase=fact.phase,
@@ -263,7 +375,7 @@ def gameplay_notable_event(
         injury_effect=None,
         trait_changes=(),
         source_command=source_command,
-        presentation_priority=40,
+        presentation_priority=50,
         persistence="transient",
         dedupe_key=event_id,
         phase="in_game",

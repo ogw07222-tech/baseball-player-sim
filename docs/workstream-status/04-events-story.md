@@ -1,241 +1,178 @@
 # 04 - Events & Story
 
 WORKSTREAM: 04 - Events & Story
-UPDATED_AT: 2026-09-11
-TASK_START_MAIN: `eb169941bf6f7c96ddb271ac430bffc06292e703`
-DEPENDENCY_PR: #54 `Growth/Career: P1 canonical career transition source facts`
-DEPENDENCY_PRODUCTION_HEAD: `9f93842cb2e86ebfe6fd76a7c4068f0e8a66c25d`
-DEPENDENCY_MERGE_SHA: `38aea3b5f1cc525bb0d1107d3bb8d77db51cb107`
-IMPLEMENTATION_BRANCH: `feature/p1-canonical-eventdto-source-facts`
-IMPLEMENTATION_PR: #56 `P1: CanonicalEventDTO v1 from 03 source facts`
-VALIDATED_CODE_HEAD: `516e8ca64d59009d054633339642bbb2c7a8c423`
+UPDATED_AT: 2026-09-12
+SOURCE_OF_TRUTH: `main@3a4fc58a3c56d9042561494a08a676762fb4661d`
 STATE: ACTIVE
-CURRENT_TASK: P1 CanonicalEventDTO v1 Implementation from 03 Source Facts
-RESULT: PASS_WITH_OPEN_UNSUPPORTED_CATEGORIES
+CURRENT_TASK: Expand current CanonicalEventDTO story/presentation layer without inventing new simulation truth
+RESULT: PASS_WITH_PREEXISTING_BALANCE_CI_BLOCKER
 
-## AUTHORITATIVE_INPUT
-04 consumes transition semantics only from the merged 03 contract:
-- `AdvanceSummary.source_facts` for `next_game`, `week`, `month`.
-- `SeasonFinalizationResult.source_facts` for explicit season finalization.
+## CURRENT_PRODUCTION_STATE
+- PR #54 (03 CareerSourceFact) is merged.
+- PR #56 (04 CanonicalEventDTO v1) is merged as `05a9c0b23eb8da27c4de42e4b4e16c92a559cf6a`.
+- PR #57 (07 canonical event HTTP/frontend transport) is merged as `aa3dea91f652d157d9dc19f26deeab61cce9488c`.
+- Production transport contract is `mutation.result.notable_events: CanonicalEventDTO[]` and `advanceResult.notable_events: CanonicalEventDTO[]`.
+- 07 preserves backend order/sequence and does not rewrite story text or event semantics.
+- 06 visual timeline rendering remains consumer-owned.
 
-No roster/injury/form/Trait/rating/growth/lifecycle transition is reconstructed from period-final snapshots.
-No 03 emission logic is duplicated in 04.
+## CURRENT_EVENT_PIPELINE
+Authoritative pipeline remains:
+`03 CareerSourceFact OR authoritative gameplay notable marker -> 04 CanonicalEventDTO -> 07 unchanged transport -> 06 presentation`.
 
-## CANONICAL_EVENT_DTO_V1
-Implemented in `src/event_timeline.py`:
-- `event_id`
-- `event_type`
-- `category`
-- `occurred_at`
-- `season`
-- `game_number`
-- `sequence`
-- `title`
-- `summary`
-- `importance`
-- `player_id`
-- `team_id`
-- `related_entity_ids`
-- `state_effects`
-- `rating_changes`
-- `injury_effect`
-- `trait_changes`
-- `source_command`
-- `presentation_priority`
-- `persistence`
-- `dedupe_key`
+04 does not:
+- infer transitions from final snapshots;
+- emit source facts;
+- mutate gameplay/career state;
+- append durable history;
+- consume simulation RNG;
+- fabricate unsupported categories.
 
-Internal deterministic ordering metadata remains `phase` + `source_ordinal`; it is not required as a transport field.
-Rendering/normalization consumes no RNG and mutates no simulation state.
+## STORY_TEMPLATE_SYSTEM_V2
+`src/event_timeline.py` now uses a deterministic presentation registry (`PRESENTATION_BUILDERS`) instead of one large conditional presentation block.
 
-## NORMALIZATION_MAPPING
-Current production 03 fact types map as follows:
-- `roster_promotion` -> category `roster`, title `1군 등록`.
-- `roster_demotion` -> `roster`, title `1군 말소`.
-- `first_team_debut` -> `roster`, title `1군 데뷔`, major.
-- `injury_created` -> `injury`, source injury state only.
-- `injury_recovery_completed` -> `injury`, title `회복 완료`.
-- event-driven `injury_cleared` / `injury_changed` -> `injury`.
-- `form_transition` -> `form`, exact source before/after state.
-- `trait_gained` / `trait_lost` -> `trait`, exact Trait key/action.
-- `event_rating_change` -> `development`, exact `rating_deltas`.
-- `season_growth` -> `development`, exact growth rating deltas / ability state.
-- `season_finalized` -> `lifecycle`.
+Same source fact produces the same canonical base text. No random variant selection is used in v2. Hash-based variants remain possible later, but only if semantics stay identical and they remain completely independent from simulation RNG.
 
-No production event is invented for unsupported semantics.
-FARM-facing roster text uses `비1군/개발군` wording and does not imply a fully simulated Futures/minor league.
+Current deterministic templates:
+- roster promotion: `1군 등록`
+- roster demotion: `1군 말소`
+- first-team debut: `1군 데뷔`
+- injury created / cleared / changed
+- recovery completed
+- form transition
+- Trait gained / lost
+- event rating change
+- season growth
+- season finalized
+- gameplay notable adapter: `경기 주요 장면`
 
-## IDENTITY_AND_DEDUPE
-Random UUIDs are prohibited and not used.
+FARM wording remains `비1군/개발군` roster-state wording. No Futures/minor-league game simulation is implied.
 
-Persistent facts with existing durable identity:
-- `existing_history_kind` + `existing_dedupe_key` form the event-id basis.
-- `dedupe_key` preserves the existing durable dedupe key.
-- `fact_type` remains part of canonical event identity/dedupe so one `event_history` resolution may safely expose multiple distinct authoritative changes (for example injury + rating) without category collapse.
+## IMPORTANCE_POLICY
+Canonical hierarchy:
+- `minor`
+- `normal`
+- `major`
+- `career-defining`
 
-Facts without durable identity:
-- deterministic coordinates form identity:
-  `season:game_number:simulated_date:phase:local_ordinal:fact_type`.
+Current production policy only uses what source metadata supports:
+- routine form transition -> `minor`
+- minor injury (`경미`) -> `minor`
+- roster promotion/demotion -> `normal`
+- recovery -> `normal`
+- Trait gain/loss -> `normal`
+- event rating change -> `normal`
+- season growth -> `normal`
+- season finalized -> `normal`
+- gameplay notable marker -> `normal`
+- first-team debut -> `major`
+- severe injury (`중상`) -> `major`
 
-Same save + seed + action sequence therefore produces identical canonical identity/order.
+No current source fact is classified `career-defining`; that label is reserved for future authoritative facts such as truly major milestones/awards/retirement where source semantics justify it.
 
-## ORDERING
-Canonical sort uses the 03 coordinates as primary authority:
-1. `simulated_date`
-2. `game_number`
-3. phase rank: `pre_game < in_game < post_game < off_day < lifecycle < system`
-4. `local_ordinal`
-5. deterministic `event_id`
+`presentation_priority` is independent UI emphasis metadata and does not affect ordering, retention, or simulation semantics.
 
-After sorting/dedupe, `sequence` is reassigned contiguously from 0.
-No last-event-wins or same-category collapse exists.
-FARM -> FIRST -> FARM source facts remain two distinct ordered DTOs.
+## TIMELINE_ORDERING
+Unchanged canonical order:
+1. occurred_at / simulated date
+2. game_number
+3. phase rank
+4. source-local ordinal
+5. deterministic event_id tie-breaker
+6. contiguous sequence reassignment after dedupe
 
-## RETENTION_POLICY
-04 creates no durable event/history store and appends no history.
+Category collapse remains prohibited. Multiple events from the same game/date/category remain distinct if their logical identity differs.
 
-When 03 provides `existing_history_kind`, DTO `persistence` reflects the existing authority:
-- `career_history`
-- `injury_history`
-- `event_history`
-- `trait_history`
-- `growth_history`
+## FUTURE_EVENT_NAMESPACE
+Reserved extension namespace only; no production events are fabricated:
+- `milestone*` -> future category `career`
+- `record*` -> `record`
+- `award*` -> `award`
+- `trade*` -> `transaction`
+- `contract*` -> `transaction`
+- `fa*` -> `transaction`
+- `transfer*` -> `transaction`
+- `retirement*` -> `career`
 
-Without an existing durable history identity, DTO retention is `transient`.
+Unsupported CareerSourceFact types still raise `ValueError` until an authoritative source fact and explicit 04 mapper are added.
 
-### Recovery decision
-`injury_recovery_completed` = **A. transient only** for v1.
+## PLAYER_CAREER_STORY_VIEW_READINESS
+The DTO itself remains UI-agnostic. Module-level advisory filter mapping shows current/future categories are sufficient for:
+- All -> all events
+- Games -> `gameplay`
+- Development -> `development`, `form`, `trait`
+- Injuries -> `injury`
+- Roster -> `roster`
+- Awards -> future `award`
+- Records -> future `record`
+- Transactions -> future `transaction`
+- Career -> `lifecycle`, future `career`
 
-Reason:
-- 03 emits an authoritative recovery-completion source fact at the exact mutation point.
-- ordinary recovery currently has no compatible durable recovery history row.
-- appending a new `injury_history` completion row or `career_history` story row in 04 would create a second/new durable truth and violate ownership.
-- durable injury state/history remains 03-owned; the recovery completion is still losslessly available in the successful mutation response.
-
-If 03 later defines a durable recovery identity, 04 can project that identity without changing normalization semantics.
-
-## GAMEPLAY_NOTABLE_ADAPTER
-Existing `CareerEventSummary` / `GamePerformance.notable_events` remains supported as category `gameplay`:
-- deterministic transient id from season/date/game coordinate when available + ordinal + kind.
-- no persistent write.
-- no overlap with 03 career source-fact types.
-- title/summary are deterministic; no flavor RNG.
-
-`AdvanceResultViewModel.from_summary()` now combines:
-- 03 `source_facts`
-- existing gameplay notable markers
-into one CanonicalEventDTO timeline.
-FastAPI itself is unchanged.
-
-## SOURCE_COMMAND
-Advance result mapping:
-- `GAME` -> `next_game`
-- `WEEK` -> `week`
-- `MONTH` -> `month`
-
-Lifecycle source facts are normalized with `source_command=lifecycle` via `canonical_timeline_from_source_facts()` when lifecycle transport consumes them.
+No UI-specific filter field was added to CanonicalEventDTO.
 
 ## VALIDATION
-PR #56 production-code HEAD: `516e8ca64d59009d054633339642bbb2c7a8c423`
-Workflow: tests #785 (`34590163877`)
-RESULT: SUCCESS
+PR #62 branch code/status HEAD before this status-only commit: `4bc7a9aeef479d377ce2613bbd79c7a5f35f132f`.
+Workflow #914 / run `34664934315`:
 
 PASS:
 - Vercel Python packaging
-- Python compile
+- compile
 - external PostgreSQL durable-store tests
-- Vercel FastAPI entrypoint smoke
+- Vercel entrypoint
 - API vertical-slice tests
 - related production integration tests
-- full Python unit suite
-- auto-career smoke
-- balance smoke
-- high-school/draft calibration gate + artifact
+- all CanonicalEventDTO/source-fact tests
+- all new `test_event_presentation_v2.py` tests
 - web build/tests
 
-Targeted CanonicalEventDTO tests cover:
-1. no source facts -> `[]`
-2. single roster promotion
-3. FARM -> FIRST -> FARM retained
-4. first-team debut
-5. injury_created
-6. injury_recovery_completed
-7. form transition
-8. Trait gain/loss
-9. event rating change
-10. season_growth
-11. season_finalized
-12. same date/game deterministic sequence
-13. same seed/actions byte-stable DTO list
-14. existing durable dedupe identity reuse
-15. projection appends no persistent history / is repeatable
-16. gameplay event is transient
-17. save/load durable truth remains stable
-18. near-season-end partial period projects only actual committed source facts
+New presentation tests specifically PASS:
+- same input -> byte-stable DTO
+- no simulation RNG consumption
+- deterministic template metadata
+- importance policy
+- multiple same-category events retained
+- multiple same-game/multi-category events retained
+- duplicate suppression without collapsing distinct fact types
+- durable/transient separation
+- empty timeline
+- unsupported future facts raise instead of fabricating
+- career-story filter namespace readiness without DTO pollution
 
-## BACKWARD / TRANSACTIONAL COMPATIBILITY
-- no save schema change
-- no Neon schema/table
-- no FastAPI route/request change
-- no gameplay formula change
-- no rating/growth formula change
-- no roster decision change
-- no new FARM simulation
-- projection is pure and does not alter existing durable history
-- existing SessionStore stale-revision/idempotency replay semantics remain unchanged; successful response timeline is produced inside the already-existing mutation result path.
+### PRE-EXISTING FULL-SUITE BLOCKER
+Full `unittest discover` is not globally green because existing `test_balance_v04.BalanceV04Tests.test_draft_distribution_not_extreme` fails:
+- fixed-seed undrafted rate = `0.056666...`
+- stale assertion requires `> 0.10`
 
-## EXACT_07_HANDOFF
-After PR #56 merges:
-- treat `mutation.result.notable_events` as `CanonicalEventDTO[]`.
-- transport backend order and fields unchanged; do not reconstruct semantics.
-- do not derive roster/injury/form/Trait/rating/growth events from final snapshot.
-- do not collapse by category or retain only last event.
-- idempotency replay must return stored CanonicalEventDTO response unchanged.
-- stale revision remains no-mutator/no-event-commit through existing SessionStore contract.
-- no new DB/event table is needed.
+This is not caused by PR #62:
+- PR #62 changes only `src/event_timeline.py`, this 04 status file, and presentation tests.
+- The exact same deterministic balance failure already occurs on predecessor PR #61 / workflow #902 before PR #62 exists.
+- PR #61 is the merge that produced current main `3a4fc58...`.
+- 04 does not modify draft/generation/balance thresholds to make an unrelated legacy gate pass.
 
-For future explicit lifecycle transport:
-- normalize `SeasonFinalizationResult.source_facts` with `source_command=lifecycle` and transport the resulting DTO list unchanged.
+Because that full-suite step fails, downstream auto-career/balance-smoke/draft-calibration workflow steps are skipped in PR #62. This remains an external main-baseline CI issue, not an Events & Story implementation failure.
 
-## EXACT_06_HANDOFF
-06 should consume backend `CanonicalEventDTO[]` only:
-- `sequence` / backend array order is authoritative.
-- support empty, single and multiple events.
-- multiple same-date/game events must remain visible.
-- `importance` and `presentation_priority` control emphasis, not semantic filtering.
-- category is display metadata; frontend must not infer transition semantics from category/final snapshot.
-- `persistence` may distinguish durable-history-backed facts from response-only notices.
-- FARM wording must remain roster-state/development-state wording; never claim a fully simulated Futures league.
-
-## UNSUPPORTED / OPEN
-Do not fabricate until authoritative production semantics exist:
-- off-day event facts
-- lineup/role career transitions
-- coach/manager source-fact timeline not provided by current 03 contract
+## UNSUPPORTED
+Still OPEN until authoritative production source facts exist:
+- off-day story facts
+- lineup/role changes
+- coach/manager interactions not emitted as CareerSourceFact
 - rivalry
-- milestone / record
-- award-specific timeline source fact
+- milestone
+- record
+- award-specific timeline event
 - contract / salary / service time
 - FA / posting
-- transfer / trade / release
-- retirement event timeline
+- trade / transfer / release
+- retirement timeline
 - full Futures/minor-league game simulation
 
-## PR_HISTORY
-- PR #53 closed as superseded by the authoritative source-fact implementation.
-- PR #54 merged: 03 authoritative CareerSourceFact dependency.
-- PR #56 open: current 04 CanonicalEventDTO implementation.
-
 ## GATES
-- P1_03_SOURCE_FACT_DEPENDENCY = PASS
-- P1_CANONICAL_EVENT_DTO_V1 = PASS
-- P1_SOURCE_FACT_NORMALIZATION = PASS
-- P1_EVENT_ID_DETERMINISM = PASS
-- P1_COMPOSITE_EVENT_RETENTION = PASS
-- P1_NO_DUPLICATE_DURABLE_TRUTH = PASS
-- P1_RECOVERY_RETENTION_POLICY = PASS_TRANSIENT_V1
-- P1_GAMEPLAY_NOTABLE_ADAPTER = PASS
-- P1_ADVANCE_RESULT_PROJECTION = PASS
-- P1_FINAL_CI = PASS
-- P1_07_TRANSPORT_TYPING = OPEN
-- P1_06_TIMELINE_PRESENTATION = OPEN
+- CURRENT_EVENT_PRESENTATION = PASS
+- DETERMINISTIC_RENDERING = PASS
+- NO_STATE_MUTATION = PASS
+- MULTI_EVENT_RETENTION = PASS
+- FUTURE_FACT_READINESS = PASS
+- PR56_CANONICAL_EVENT_DTO = PASS_MERGED
+- PR57_HTTP_TRANSPORT = PASS_MERGED
+- PR62_TARGETED_AND_INTEGRATION_TESTS = PASS
+- REPOSITORY_FULL_CI = OPEN_PREEXISTING_DRAFT_BALANCE_GATE
+- UI_TIMELINE_RENDERING = OPEN_06
