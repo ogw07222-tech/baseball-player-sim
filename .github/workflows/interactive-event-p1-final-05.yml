@@ -26,7 +26,7 @@ jobs:
       - name: Compile validation harness
         run: python -m py_compile tools/interactive_event_p1_validation_05.py
       - name: Interactive Event P1 quantitative validation
-        run: python tools/interactive_event_p1_validation_05.py > interactive-event-p1-validation.log
+        run: PYTHONPATH=. python tools/interactive_event_p1_validation_05.py > interactive-event-p1-validation.log
       - name: Interactive Event targeted Python integration tests
         run: |
           python -m unittest \
