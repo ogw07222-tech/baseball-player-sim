@@ -1,0 +1,124 @@
+name: phase2ea-candidate-05
+
+on:
+  push:
+    branches:
+      - validation/phase2e-a-candidate-05
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/baseball_sim_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: baseball_sim_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d baseball_sim_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install API dependencies
+        run: pip install -r requirements-api.txt
+      - name: Assert production identity with PR68 HEAD
+        run: |
+          test "$(git rev-parse 5cbdf634c7f514dfb26be37694a6d2173c258b6c)" = "5cbdf634c7f514dfb26be37694a6d2173c258b6c"
+          git diff --exit-code 5cbdf634c7f514dfb26be37694a6d2173c258b6c -- src/hitting tests/test_phase2e_a_ground_travel.py
+          git diff --name-only 081c45ed9382d16c3569398d1ada1dbc842d6cf2 5cbdf634c7f514dfb26be37694a6d2173c258b6c
+      - name: Compile
+        run: python -m compileall -q src tests tools/phase2ea_*.py
+      - name: Prepare validation-only harness correction
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('tools/phase2ea_validation_05.py')
+          s=p.read_text()
+          s=s.replace('    invalid={}\n','    invalid_cases={}\n')
+          s=s.replace('invalid[name]={','invalid_cases[name]={')
+          s=s.replace("invalid_pass=all(('exception' not in v) and (not v['valid']) and v['finite'] and abs(v['travel'])<1e-12 for v in invalid.values())","invalid_pass=all(('exception' not in v) and (not v['valid']) and v['finite'] and abs(v['travel'])<1e-12 for v in invalid_cases.values())")
+          s=s.replace('"invalid":{"pass":invalid_pass,"cases":invalid}', '"invalid":{"pass":invalid_pass,"cases":invalid_cases}')
+          old="rec('unsupported',trajectory=traj(100,cls='weird'),wall_interaction=wall(),spray_angle_deg=0)"
+          new="bad=traj(100); object.__setattr__(bad,'trajectory_class','weird'); rec('unsupported',trajectory=bad,wall_interaction=wall(),spray_angle_deg=0)"
+          s=s.replace(old,new)
+          p.write_text(s)
+          PY
+          python -m py_compile tools/phase2ea_validation_05.py
+      - name: Phase2E-A 200k independent corpus
+        run: python tools/phase2ea_validation_05.py --pa 200000 --seed 20260912 --output phase2ea-validation.json
+      - name: Assert structural gates
+        run: |
+          python - <<'PY'
+          import json
+          d=json.load(open('phase2ea-validation.json'))
+          p=d['population']
+          assert p['physical_bip'] > 100000
+          assert p['valid_rate'] > 0.90
+          for c in ('ground_like','line_drive','fly_ball','popup'): assert p['by_class'][c]['n'] > 0
+          assert d['impact']['clamp_220_rate'] < 0.05
+          assert d['final_location']['finite'] and d['final_location']['nonnegative_travel'] and d['final_location']['radial_invariant'] and d['final_location']['spray_ray_preserved']
+          assert d['mirror']['pass']
+          assert all(d['monotonicity'][k] for k in ('impact_distance_nondecreasing','rollout_speed_nondecreasing','deceleration_nonincreasing','retention_nondecreasing','zero_rollout_exact'))
+          assert d['wall_stop']['pass']
+          assert d['invalid']['pass']
+          r=d['regression']; assert r['phase2abcd_equal'] and r['legacy_counts_equal'] and r['parent_rng_equal'] and r['determinism_20k']
+          PY
+      - name: 1000-game enabled-disabled exact regression
+        run: |
+          python tools/phase2ea_game_regression_05.py --games 1000 --seed 20260913 --output phase2ea-games.json
+          python - <<'PY'
+          import json
+          d=json.load(open('phase2ea-games.json')); assert d['sequence_equal'] and d['rng_equal']
+          PY
+      - name: Targeted Phase2E-A tests
+        run: python -m unittest tests.test_phase2e_a_ground_travel -v
+      - name: Paired same-run Phase2D vs Phase2E-A performance
+        run: |
+          git worktree add --detach /tmp/phase2d-base 081c45ed9382d16c3569398d1ada1dbc842d6cf2
+          (cd /tmp/phase2d-base && PYTHONPATH=/tmp/phase2d-base python "$GITHUB_WORKSPACE/tools/phase2ea_perf_driver.py" --pa 50000 --games 500 --seed 20260912 > "$GITHUB_WORKSPACE/perf-base.json")
+          PYTHONPATH="$GITHUB_WORKSPACE" python tools/phase2ea_perf_driver.py --pa 50000 --games 500 --seed 20260912 > perf-candidate.json
+          python - <<'PY'
+          import json
+          b=json.load(open('perf-base.json')); c=json.load(open('perf-candidate.json'))
+          out={'base':b,'candidate':c,'delta_us_per_pa_pct':(c['us_per_pa']/b['us_per_pa']-1)*100,'delta_ms_per_game_pct':(c['ms_per_game']/b['ms_per_game']-1)*100}
+          json.dump(out,open('performance.json','w'),indent=2,sort_keys=True)
+          print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - name: Full suite context capture
+        run: |
+          set +e
+          python -m unittest discover -s tests -v > full-suite.txt 2>&1
+          rc=$?
+          set -e
+          cat full-suite.txt | tail -80
+          python - <<'PY'
+          import re
+          s=open('full-suite.txt').read()
+          fails=re.findall(r'^FAIL: ([^\n]+)',s,re.M); errs=re.findall(r'^ERROR: ([^\n]+)',s,re.M)
+          assert len(errs)==0, errs
+          assert len(fails)==1, fails
+          assert 'test_draft_distribution_not_extreme' in fails[0], fails
+          m=re.search(r'Ran (\d+) tests',s); assert m
+          json.dump({'ran':int(m.group(1)),'failures':fails,'errors':errs},open('full-suite-context.json','w'),indent=2)
+          PY
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2ea-candidate-${{ github.run_id }}-${{ github.sha }}
+          path: |
+            phase2ea-validation.json
+            phase2ea-games.json
+            performance.json
+            full-suite-context.json
+            full-suite.txt
