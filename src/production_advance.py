@@ -19,6 +19,7 @@ from .career import CareerEngine, SeasonFinalizationResult
 from .career_source_facts import CareerSourceFact
 from .game_provider import GameFixture, ProductionGameProvider
 from .game_result import ProductionGameResult
+from .interactive_events import InteractiveEvent, InteractiveEventResolution, event_state_for_engine, maybe_generate_interactive_event, resolve_interactive_event
 from .stat_aggregation import GamePerformance,HitterCountingStats,PitcherCountingStats,SeasonStatLine,career_stats_from_records,season_stats_from_record
 from .time_advance import AdvanceOrchestrator,AdvancePipelineState,AdvanceSummary,ScheduleProvider
 
@@ -89,7 +90,7 @@ class CareerFixtureProvider:
 
 class CareerGameAdvanceProvider:
     def __init__(self,engine:CareerEngine,schedule:CareerSeasonScheduleProvider,game_provider:ProductionGameProvider|None=None)->None:
-        self.engine=engine;self.schedule=schedule;self.fixture_provider=CareerFixtureProvider(engine,schedule);self._pending_source_facts:list[CareerSourceFact]=[]
+        self.engine=engine;self.schedule=schedule;self.fixture_provider=CareerFixtureProvider(engine,schedule);self._pending_source_facts:list[CareerSourceFact]=[];self._generated_interactive_events:list[InteractiveEvent]=[]
         if game_provider is None:
             from .pitcher_usage import PitcherUsageLeagueState
             from .pitcher_usage_game_provider import DynamicPitcherGameProvider
@@ -97,23 +98,26 @@ class CareerGameAdvanceProvider:
         self.game_provider=game_provider;self.last_result:ProductionGameResult|None=None;self.recent_results:list[ProductionGameResult]=[];self.history_limit=10
     def drain_source_facts(self)->tuple[CareerSourceFact,...]:
         facts=tuple(self._pending_source_facts);self._pending_source_facts.clear();return facts
+    def drain_interactive_events(self)->tuple[InteractiveEvent,...]:
+        events=tuple(self._generated_interactive_events);self._generated_interactive_events.clear();return events
     def _participation(self)->tuple[bool,str]:
         session=self.engine.start_pro_season()
         if self.engine.player.injury is not None:return False,"INJURED"
         started=self.engine.rng.random()<self.engine._play_probability(session.current_level)
         if started:return True,"FARM" if session.current_level=="FARM" else "STARTED"
         return False,"BENCH"
-    def _postgame(self,started:bool)->None:
+    def _postgame(self,started:bool,game_date:date)->None:
         session=self.engine.start_pro_season()
         if self.engine.player.injury is not None and not started:self.engine._recover_day();self.engine._update_form();self.engine._reconsider_roster(session)
         elif started:self.engine._fatigue_after_game();self.engine._maybe_injure();self.engine._update_form();self.engine._reconsider_roster(session)
         else:self.engine._recover_day();self.engine._update_form();self.engine._reconsider_roster(session)
-        self.engine._maybe_event(session,None,False)
+        event=maybe_generate_interactive_event(player=self.engine.player,state=event_state_for_engine(self.engine),seed=self.engine.rng.seed,season=self.engine.year,game_number=session.games_completed,simulated_date=game_date,level=session.current_level)
+        if event is not None:self._generated_interactive_events.append(event)
     def advance_game(self,game_date:date)->GamePerformance:
         self.engine.begin_source_fact_capture(game_date,'post_game');session=self.engine.start_pro_season()
         if session.finished:raise RuntimeError("professional season already completed")
-        if not session.preseason_checked:self.engine._check_preseason(session,None,False)
-        if session.has_pending_event:self.engine.resolve_pending_event()
+        # Production P1 no longer auto-resolves legacy v0.4 decision events.
+        # New InteractiveEvent generation is non-blocking and declarative.
         fixture=self.fixture_provider.fixture_for(game_date);started,reason=self._participation();result=self.game_provider.run_game(fixture,self.engine.rng,user_player=self.engine.player,user_team=self.engine.player.team,user_started=started,participation_reason=reason)
         self.last_result=result;self.recent_results.append(result)
         if len(self.recent_results)>self.history_limit:del self.recent_results[:len(self.recent_results)-self.history_limit]
@@ -127,7 +131,7 @@ class CareerGameAdvanceProvider:
         if not team:raise RuntimeError("career player lost team during game")
         opponent=fixture.home_team if team==fixture.away_team else fixture.away_team;score=result.score_for(team)
         performance=GamePerformance(game_date=game_date,level=session.current_level,started=started,opponent=opponent,hitter_stats=hitter_stats,pitcher_stats=PitcherCountingStats(),team_result=result.team_result_for(team),score=score,notable_events=result.notable_events)
-        self._postgame(started);self._pending_source_facts.extend(self.engine.drain_source_facts());return performance
+        self._postgame(started,game_date);self._pending_source_facts.extend(self.engine.drain_source_facts());return performance
 
 
 class CompositionalAdvanceOrchestrator(AdvanceOrchestrator):
@@ -161,6 +165,11 @@ class ProductionAdvanceService:
         return state
     @property
     def season_complete(self)->bool:session=self.engine.current_session;return bool(session is not None and session.finished)
+    @property
+    def pending_interactive_events(self)->tuple[InteractiveEvent,...]:return event_state_for_engine(self.engine).pending
+    def drain_generated_interactive_events(self)->tuple[InteractiveEvent,...]:return self.game_provider.drain_interactive_events()
+    def resolve_interactive_event(self,event_id:str,choice_id:str,*,resolved_at:date|None=None)->InteractiveEventResolution:
+        return resolve_interactive_event(state=event_state_for_engine(self.engine),event_id=event_id,choice_id=choice_id,resolved_at=resolved_at or self.state.current_date)
     def advance_one_game(self)->AdvanceSummary:self._ensure_advance_allowed();return self.orchestrator.advance_one_game()
     def advance_one_week(self)->AdvanceSummary:self._ensure_advance_allowed();return self.orchestrator.advance_one_week()
     def advance_one_month(self)->AdvanceSummary:self._ensure_advance_allowed();return self.orchestrator.advance_one_month()
