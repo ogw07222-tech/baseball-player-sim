@@ -2,72 +2,85 @@
 
 WORKSTREAM: 08 - Baseball Data & Research
 UPDATED_AT: 2026-09-12
-SOURCE_OF_TRUTH: main@8884a8cf174a37995c1c9d60de7fe475722ce3cf
+SOURCE_OF_TRUTH: main@d8caf038b0e1cbf9ccc4e4b3859f84799cae3269
 STATE: ACTIVE
-CURRENT_TASK: Phase 2E-A ground travel / bounce / rollout research
+CURRENT_TASK: Phase 2E-B Retrieval / Physical Hit-Type Research
 RESULT: READY_FOR_IMPLEMENTATION_ARCHITECTURE_KBO_CALIBRATION_OPEN
 
 ## LAST_COMPLETED
 - Public data provenance/usage policy remains in place.
-- Phase 2A EV/LA/timing/spray, Phase 2B trajectory, Phase 2C stadium-wall, and Phase 2D catch-probability reference packs remain active upstream references.
-- Added `docs/phase2e-ground-travel-reference.md` for first-ground-impact -> representative bounce -> analytical rollout -> final-location research under strict O(1) runtime constraints.
+- Phase 2A through Phase 2E-A reference packs remain active upstream references.
+- Phase 2E-A is merged on production main as merge commit `a207c6a0ee6cee73a1840fdf85648649610f180b`.
+- Added `docs/phase2e-retrieval-hit-type-reference.md` for O(1) retriever ownership, retrieval timing, throw timing, batter-runner timing, and deterministic physical OUT/1B/2B/3B shadow architecture.
 
 ## CURRENT_FINDINGS
-- Penn State baseball-field surface research directly supports large first-impact speed loss and strong surface dependence. Reported outbound/inbound surface-pace values span roughly natural turf ~0.38-0.48 and skinned dirt ~0.56-0.60 under representative controlled conditions; synthetic systems are generally intermediate/faster than natural grass. These are total post/pre impact speed ratios, not pure horizontal restitution coefficients.
-- Impact angle materially affects surface pace. Wet-grass baseball research also shows horizontal-speed loss depends on incident angle and friction regime, so a single universal horizontal-retention constant is not physically exact.
-- Exact baseball-ground decomposition into normal restitution, tangential retention, and spin coupling is not available as a public KBO calibration surface. Topspin/backspin effects remain qualitative for Phase 2E-A.
-- Recommended impact-horizontal-speed proxy is `first_impact_distance / hang_time` multiplied by a small calibratable class/LA correction. This reuses the canonical Phase 2B realized trajectory and avoids a second independent flight model. A future direct Phase 2B impact-velocity output should supersede the proxy.
-- Recommended bounce architecture is one representative bounce only: incoming proxy -> retained horizontal speed -> fixed/algebraic bounce distance -> rollout-start speed. No repeated bounce loop.
-- Recommended rollout architecture is constant effective deceleration with `d_roll = v0^2 / (2*a_roll)`. It is O(1), monotonic, stable, interpretable, and easy to recalibrate later. No trustworthy universal baseball `a_roll` value was recovered; numeric KBO calibration remains OPEN.
-- Same first-impact location should not imply identical ground travel: hard grounder, soft grounder, line-drive first bounce, fly-ball landing, and popup landing can have materially different incoming horizontal speed/angle.
-- Phase 2E-A should reuse Phase 2B first-impact distance, time/hang time, EV/LA, trajectory class, and spray. EV alone or first-impact distance alone is insufficient.
-- Surface class matters physically, but current stadium data does not provide reliable grass/dirt polygons. A radial-depth-only grass/dirt guess would create false precision. `SURFACE_MODEL = NEUTRAL_V1` is recommended with a future surface-class interface reserved.
-- Recommended ground-wall interaction is deterministic wall-stop: if unconstrained ground travel crosses the Phase 2C wall radius, clamp final location to the wall, set `wall_ground_contact=true`, and do not simulate rebound in V1.
-- Architecture preserves strict O(1): fixed algebra, tiny lookup/branch, no frame stepping, no integration loop, no collision iteration, no mesh traversal.
+- Official Statcast standard positioning zones give a defensible basis for fixed nominal defender anchors without pathfinding. Neutral IF zones vary by batter side; OF standard zones are LF 260-320 ft / -33 to -21 deg, CF 280-350 ft / -8 to +7 deg, RF 260-320 ft / +21 to +33 deg.
+- Recommended ownership is radial-depth + spray-sector zoning with one primary owner and one predeclared adjacent fallback. Runtime roster scans / nearest-player loops are unnecessary.
+- Retrieval timing can be reduced to `reaction_delay + retrieval_distance / effective_fielder_speed + pickup_transfer_delay`. Statcast Sprint Speed provides a human-speed magnitude reference (~27 ft/s MLB average competitive speed; ~23-30 ft/s broad competitive range), but must not be copied directly as fielder effective pursuit speed.
+- Statcast Exchange directly supports a pickup/transfer component. Public tracked examples put non-catcher fielding exchange on an order of roughly ~1 s, but a clean current universal IF/OF pickup-transfer calibration was not recovered; numeric coefficient remains OPEN.
+- Recommended defender-rating effect is bounded combined adjustment of reaction delay and effective retrieval speed. Same BIP + higher range/defense must never increase retrieval time. Exact project-rating-point mapping is OPEN.
+- 2025 official Baseball Savant Arm Strength league-average leaderboard values: 1B 78.3 mph, 2B 79.3, 3B 85.6, SS 85.7, LF 87.1, CF 89.6, RF 90.5. These are position-specific top-fraction max-effort metrics, not average velocity of every throw.
+- Recommended throw model is `transfer_release_delay + throw_distance / effective_throw_speed`, with effective speed calibrated below/from the max-effort arm-strength reference. Deep throws may use one fixed relay penalty after a distance threshold; no relay-chain simulation.
+- Official MLB base geometry is a 90-ft square. Statcast Home-to-First is contact-to-first touch; standardized 90-ft splits remove part of batter-side geometry. Current elite 2025 90-ft splits are ~3.67-3.75 s; current elite home-to-first examples are ~4.0-4.2 s. Extra-base tracked extremes show ~3.2-3.3 s first-to-second for already-moving elite runners. These are elite references, not KBO central targets.
+- Recommended runner timing is a home-to-first start/acceleration term plus standardized 90-ft leg timings under a bounded speed multiplier. Optional handedness effect belongs only in the home-to-first start term; V1 may omit it.
+- Physical hit type must not be a final-distance threshold. Recommended resolution is deterministic timing races: retrieval + hypothetical throw arrival to 1B/2B/3B versus cumulative batter-runner arrival times. At most three fixed base evaluations are needed.
+- Phase 2D physical catch terminates as OUT with no Phase 2E-B retrieval. Uncaught air balls and ground balls can unify after Phase 2E-A `FinalBallLocation` and use the same retrieval timing machinery.
+- V1 RNG is not required. Preserve time margins for future optional boundary-play probability/error layers; initial Phase 2E-B should be deterministic.
+- KBO play-level retrieval, throw, runner, exchange, and arm-strength calibration remains OPEN.
 
 ## SOURCE / DEFINITION QUALITY
-- VERIFIED/PARTIAL: Penn State `Pennbounce` baseball-field surface-pace experiments and field surveys; surface and impact-angle effects; grass/dirt ordering.
-- QUALITATIVE STRONG: friction/incident-angle/spin regime effects on horizontal ground-bounce behavior.
-- OPEN: KBO-specific surface pace, horizontal retained-speed coefficient, rolling deceleration, stop-distance distribution, spin-resolved ground-impact surface, wall-carom coefficient.
-- Important definition warning: Pennbounce `COR`/surface pace is outbound total speed divided by inbound total speed for a field impact. It must not be copied directly as Phase 2E horizontal-speed retention.
+- VERIFIED MLB: base geometry; Sprint Speed definition/magnitude; Home-to-First/90-ft split definitions; standard IF/OF positioning zones; Arm Strength definition and 2025 position-group values; Exchange definition.
+- PARTIAL: historical IF/OF exchange magnitudes; elite extra-base timing examples; relay examples; using runner Sprint Speed magnitude as a fielder movement ceiling/prior.
+- QUALITATIVE: deeper throws increasingly require cutoff/relay; defender range affects reaction plus effective movement; batter side mainly changes raw home-to-first start geometry.
+- OPEN KBO: nominal positions, retrieval time, pickup/exchange time, arm strength, effective throw speeds, runner leg times, relay threshold/penalty, rating multipliers.
 
 ## MODEL POLICY
-- `RECOMMENDED_IMPACT_SPEED_MODEL = FIRST_IMPACT_DISTANCE_DIV_HANG_TIME_WITH_SMALL_CALIBRATABLE_CORRECTION`
-- `RECOMMENDED_BOUNCE_MODEL = ONE_REPRESENTATIVE_BOUNCE_FIXED_ALGEBRA_OR_SMALL_LOOKUP`
-- `RECOMMENDED_ROLLOUT_MODEL = CONSTANT_EFFECTIVE_DECELERATION_V2_OVER_2A`
-- `SURFACE_MODEL = NEUTRAL_V1`
-- `WALL_GROUND_INTERACTION = DETERMINISTIC_WALL_STOP_AT_PHASE2C_RADIUS`
+- `RECOMMENDED_OWNERSHIP_MODEL = RADIAL_DEPTH_PLUS_SPRAY_SECTORS_WITH_PRIMARY_OWNER_AND_ONE_ADJACENT_FALLBACK`
+- `RECOMMENDED_RETRIEVAL_TIME_MODEL = REACTION_DELAY_PLUS_DISTANCE_OVER_BOUNDED_EFFECTIVE_SPEED_PLUS_PICKUP_TRANSFER_DELAY`
+- `RECOMMENDED_DEFENDER_RATING_EFFECT = BOUNDED_COMBINED_REACTION_AND_EFFECTIVE_SPEED_ADJUSTMENT`
+- `RECOMMENDED_THROW_MODEL = DIRECT_DISTANCE_OVER_EFFECTIVE_THROW_SPEED_PLUS_TRANSFER_RELEASE_WITH_DISTANCE_THRESHOLD_FIXED_RELAY_PENALTY`
+- `RECOMMENDED_RUNNER_TIME_MODEL = STANDARDIZED_BASE_LEG_TIMES_WITH_HOME_TO_FIRST_START_TERM_AND_BOUNDED_SPEED_MULTIPLIER`
+- `RECOMMENDED_HIT_RESOLUTION_MODEL = DETERMINISTIC_RETRIEVAL_PLUS_HYPOTHETICAL_BASE_ARRIVAL_TIME_RACES`
+- `RNG_MODEL = DETERMINISTIC`
 - `KBO_CALIBRATION = OPEN`
 
+## REQUIRED STATE / OBSERVABILITY
+- `RetrievalState`: validity/applicability, primary/adjacent defender role, nominal defender start, ball final x/y, retrieval distance, reaction, effective speed, travel, pickup/transfer, total retrieval time, wall-ground-contact.
+- `ThrowState`: target base, origin/target coordinates, throw distance, arm reference, effective throw speed, transfer/release, relay flag/penalty, throw time, defense-arrival time.
+- `RunnerTimingState`: speed reference/multiplier, home-start delay, H-1 / 1-2 / 2-3 leg times, cumulative 1B/2B/3B arrival times.
+- `PhysicalHitResolution`: upstream physical catch, defense vs runner times/margins for 1B/2B/3B, deterministic `OUT | 1B | 2B | 3B | NOT_APPLICABLE` shadow result, model version.
+
 ## MONOTONICITY / VALIDATION POLICY
-- higher impact-horizontal-speed proxy -> non-decreasing ground travel;
-- higher retained-speed parameter -> non-decreasing ground travel;
-- higher effective rolling resistance/deceleration -> non-increasing rollout;
-- mirror spray -> equal scalar travel and mirrored X;
-- invalid/no first-ground-impact state -> no valid ground-travel state;
-- all distances finite and >=0;
-- absent wall interaction, final radial distance >= first-impact radial distance;
-- wall-stop may cap final radius at the stadium wall;
-- zero rollout-start speed -> zero rollout distance.
+- farther retrieval distance -> retrieval time non-decreasing;
+- higher range rating -> retrieval time non-increasing;
+- farther throw distance -> throw time non-decreasing;
+- higher arm rating/effective throw speed -> throw time non-increasing;
+- higher runner speed -> base arrival times non-increasing;
+- mirrored LF/RF states with mirrored ratings/anchors -> equal scalar timings;
+- invalid GroundTravelState -> invalid retrieval state;
+- Phase 2D physical catch -> no Phase 2E-B hit resolution;
+- all times finite and >=0;
+- same exact input -> deterministic same shadow result.
 
 ## OWNER HANDOFF
-- 01 Gameplay Engine: Phase 2E-A implementation is research-ready. Use the canonical Phase 2B first-impact position/time as the impact-speed proxy basis, one representative bounce, analytical constant-deceleration rollout, neutral-surface V1, and deterministic wall-stop. Preserve diagnostics for impact-speed proxy, post-impact speed, bounce distance, rollout distance, total ground travel, final x/y, wall contact, and model version. Do not import Pennbounce surface-pace numbers directly as horizontal coefficients.
-- 05 Balance Lab: validate impact-speed, retained-speed, bounce/roll/total-travel distributions by trajectory class; monotonic parameter sweeps; mirror invariants; zero/extreme-state stability; wall clamp; wall-ground-contact rate. If later grass/dirt fixtures are added, dirt-like should play faster than natural-grass-like under otherwise matched conditions, but do not call this KBO calibration.
-- 00 Physical Batted-Ball Engine HQ: no coefficient decision requested from 08. Architecture handoff is YES; KBO numeric calibration remains OPEN.
+- 01 Gameplay Engine: Phase 2E-B implementation is research-ready. Use fixed zone ownership, nominal defender anchors, one retrieval-time calculation, up to three fixed hypothetical base throw timings, deterministic runner timings, and no RNG. Do not scan roster defenders or simulate routes/relays. Preserve timing margins and model-version diagnostics. Do not treat Statcast max-effort Arm Strength as direct actual throw speed.
+- 05 Balance Lab: validate ownership shares, retrieval/throw/runner timing distributions, monotonic sweeps, mirrored cases, relay threshold behavior, 1B/2B/3B time-margin distributions, physical OUT/1B/2B/3B shadow composition, wall-stop cases, and downstream BABIP/XBH shadow impact. No MLB/KBO result-share gate is authorized yet.
+- 00 Physical Batted-Ball Engine HQ: architecture handoff is YES; numeric timing/arm/rating calibration remains OPEN. No authority migration is automatically approved by this research.
 
 ## BLOCKERS / DATA_GAPS
-- KBO-specific baseball-ground surface pace / rebound measurements.
-- KBO grass/dirt/artificial-turf ground-ball pace.
-- Modern game-level post-impact horizontal-speed distributions.
-- Baseball rolling deceleration / stop-distance distribution under professional field conditions.
-- Spin-resolved ground-impact reference.
-- Reliable field-surface polygons for KBO parks.
-- Wall-carom restitution by wall type/stadium.
+- KBO play-level retrieval distance/time and defender start positions.
+- KBO fielder pickup/exchange distributions.
+- KBO position-by-position arm strength / effective throw velocity.
+- KBO home-to-first and base-leg timing distributions.
+- KBO relay usage/timing.
+- Project rating -> reaction/speed/arm timing multipliers.
+- Current universal MLB non-catcher pickup-transfer baseline.
 
 ## NEXT_ACTION
-- Phase 2E-A is research-ready for 01 implementation. Highest-value future research is professional/KBO ground-ball post-impact speed and stop-distance data, followed by reliable grass/dirt field mapping and wall-carom references for Phase 2E-B or later refinement.
+- Phase 2E-B is research-ready for 01 shadow implementation. Highest-value future research is KBO runner-time and fielder arm/retrieval tracking. Before any authority cutover, 05 should validate the deterministic timing surfaces and downstream hit-type distributions.
 
 ## RELATED_DOCS
+- `docs/phase2e-retrieval-hit-type-reference.md`
 - `docs/phase2e-ground-travel-reference.md`
 - `docs/phase2d-catch-probability-defense-reference.md`
 - `docs/phase2c-kbo-stadium-wall-geometry-reference.md`
@@ -75,17 +88,23 @@ RESULT: READY_FOR_IMPLEMENTATION_ARCHITECTURE_KBO_CALIBRATION_OPEN
 
 ## GATES
 - PUBLIC_DATA_POLICY = PASS
-- BASEBALL_SURFACE_PACE_STRUCTURE = VERIFIED_PARTIAL
-- GRASS_DIRT_PACE_ORDERING = VERIFIED
-- EXACT_HORIZONTAL_RESTITUTION = OPEN
-- SPIN_GROUND_EFFECT = QUALITATIVE
-- IMPACT_SPEED_PROXY_B = RECOMMENDED
-- ONE_BOUNCE_SURROGATE = RECOMMENDED
-- CONSTANT_DECELERATION_ROLLOUT = RECOMMENDED
-- NEUTRAL_SURFACE_V1 = RECOMMENDED
-- DETERMINISTIC_WALL_STOP = RECOMMENDED
-- O1_GROUND_TRAVEL_CONTRACT = SATISFIABLE
-- KBO_GROUND_TRAVEL_CALIBRATION = OPEN
-- PHASE2E_A_VALIDATION_METRIC_PACK = PASS
-- PHASE2E_A_RESEARCH = READY
+- MLB_STANDARD_POSITIONING_REFERENCE = VERIFIED
+- MLB_SPRINT_SPEED_REFERENCE = VERIFIED
+- MLB_ARM_STRENGTH_REFERENCE = VERIFIED
+- MLB_RUNNER_TIMING_REFERENCE = VERIFIED_PARTIAL
+- GENERIC_NONCATCHER_EXCHANGE = PARTIAL_OPEN
+- KBO_RETRIEVAL_TIMING = OPEN
+- KBO_ARM_STRENGTH = OPEN
+- KBO_RUNNER_TIMING = OPEN
+- FIXED_ZONE_RETRIEVER_OWNERSHIP = RECOMMENDED
+- O1_RETRIEVAL_TIME = SATISFIABLE
+- BOUNDED_DEFENDER_RATING_EFFECT = RECOMMENDED
+- O1_THROW_MODEL = SATISFIABLE
+- FIXED_RELAY_PENALTY = RECOMMENDED
+- DETERMINISTIC_RUNNER_TIMING = RECOMMENDED
+- DETERMINISTIC_HIT_TYPE_TIMING_RACE = RECOMMENDED
+- RNG_MODEL = DETERMINISTIC
+- PHASE2E_B_VALIDATION_METRIC_PACK = PASS
+- PHASE2E_B_RESEARCH = READY
+- KBO_CALIBRATION = OPEN
 - IMPLEMENTATION_HANDOFF_TO_01 = YES
