@@ -110,6 +110,70 @@ export interface BackendSessionDto {
   revision: number | null
 }
 
+export interface BackendEventChoiceEffectDto {
+  effect_type: string
+  target: string
+  magnitude: string
+  duration: number | null
+  metadata: Record<string, unknown>
+}
+
+export interface BackendInteractiveEventChoiceDto {
+  choice_id: string
+  label: string
+  description: string
+  preview_effects: BackendEventChoiceEffectDto[]
+  risk_level: string | null
+  requirements: Record<string, unknown> | null
+}
+
+export interface BackendInteractiveEventDto {
+  event_id: string
+  event_type: string
+  category: string
+  title: string
+  description: string
+  occurred_at: string | null
+  generated_at: string | null
+  season: number
+  game_number: number
+  importance: string
+  trigger_context: Record<string, unknown>
+  choices: BackendInteractiveEventChoiceDto[]
+  status: string
+  expires_at: string | null
+  source: string
+  dedupe_key: string
+  blocking: boolean
+  selected_choice_id: string | null
+  resolved_at: string | null
+  resolution_summary: string | null
+}
+
+export interface BackendActiveCareerEffectDto {
+  effect_type: string
+  target: string
+  magnitude: string
+  games_remaining: number
+  source_event_id: string
+  parameters: Record<string, unknown>
+}
+
+export interface BackendInteractiveEventResolutionDto {
+  event_id: string
+  selected_choice_id: string
+  effects: BackendEventChoiceEffectDto[]
+  resolved_at: string | null
+  resolution_summary: string
+}
+
+export interface BackendResolveEventResultDto {
+  resolved_event: BackendInteractiveEventDto
+  applied_effects: BackendActiveCareerEffectDto[]
+  resolution: BackendInteractiveEventResolutionDto
+  pending_events: BackendInteractiveEventDto[]
+}
+
 export type BackendCanonicalEventImportanceDto = 'info' | 'normal' | 'major' | 'critical' | string
 export type BackendCanonicalEventSourceCommandDto = 'next_game' | 'week' | 'month' | 'lifecycle'
 
@@ -147,6 +211,7 @@ export interface BackendAdvanceResultDto {
   season_total_line: Record<string, unknown>
   notable_events: BackendCanonicalEventDto[]
   rating_changes: Record<string, number>
+  pending_events: BackendInteractiveEventDto[]
 }
 
 export type BackendAdvanceCommandDto = 'next_game' | 'week' | 'month' | 'season'
@@ -157,13 +222,23 @@ export interface BackendAdvanceMutationDto {
   result: BackendAdvanceResultDto
 }
 
+export interface BackendResolveEventMutationDto {
+  kind: 'resolve_event'
+  event_id: string
+  choice_id: string
+  result: BackendResolveEventResultDto
+}
+
+export type BackendMutationDto = BackendAdvanceMutationDto | BackendResolveEventMutationDto
+
 export interface BackendSnapshotDto {
   data: {
     dashboard: BackendDashboardDto
     season: BackendSeasonDto
+    pending_events: BackendInteractiveEventDto[]
   }
   meta: BackendRevisionMetaDto
-  mutation?: BackendAdvanceMutationDto
+  mutation?: BackendMutationDto
 }
 
 export interface BackendErrorEnvelopeDto {
