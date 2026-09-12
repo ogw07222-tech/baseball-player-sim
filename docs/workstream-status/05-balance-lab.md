@@ -2,216 +2,225 @@
 
 WORKSTREAM: 05 - Balance Lab
 UPDATED_AT: 2026-09-12
-SOURCE_OF_TRUTH: Phase2C integrated baseline@3a4fc58a3c56d9042561494a08a676762fb4661d; PR65 validated HEAD@65d58a6d3cc9aec92258d88908d7ae01c5403c41; canonical 05 checkout@f68d049e7a20dedfad990ef37cac8413a5583c63
+SOURCE_OF_TRUTH: Phase2D integrated/task-start base@081c45ed9382d16c3569398d1ada1dbc842d6cf2; PR68 validated HEAD@5cbdf634c7f514dfb26be37694a6d2173c258b6c; canonical 05 checkout@1b040ead8b509e3fa96e58625fc7b14404dfed1e; latest main before status sync@48011c849a813a4e8a570067670ada9e5f633836
 STATE: PASS_WITH_WATCHES
-CURRENT_TASK: Phase 2D physical defensive catch shadow independent validation
-RESULT: PHASE2D_VALIDATION_PASS / MERGE_ALLOWED_YES_FROM_05
+CURRENT_TASK: Phase 2E-A ground travel / final-location shadow independent validation
+RESULT: PHASE2E_A_VALIDATION_PASS / MERGE_ALLOWED_YES_FROM_05
 
 ## FINAL_DECISION
-- VALIDATED_HEAD = `65d58a6d3cc9aec92258d88908d7ae01c5403c41`.
+- VALIDATED_HEAD = `5cbdf634c7f514dfb26be37694a6d2173c258b6c`.
 - SOURCE_IDENTITY = PASS.
-- PHASE2D_VALIDATION = PASS.
+- PHASE2E_A_VALIDATION = PASS.
 - MERGE_ALLOWED = YES from 05 gameplay-validation perspective for the exact validated HEAD only.
-- Phase2D remains shadow-only; no physical defense authority switch is approved.
-- Explicit WATCHES: fixed primary-owner discontinuity at +/-15 deg, uncalibrated absolute catch-probability level / 38.64% legacy disagreement, and +31.36% PA / +23.37% game incremental same-run runtime cost.
-- No production formula, defense coefficient, rating scale, legacy resolver, stadium geometry, trajectory formula, or draft balance code was modified by 05.
+- Phase2E-A remains shadow/metadata-only; no physical hit-type, retrieval, throw, runner-advancement, or outcome authority migration is approved.
+- Explicit WATCHES: engineering coefficients are not KBO-calibrated; +9.42% PA / +4.71% game incremental same-run runtime cost should remain under cumulative physics performance watch.
+- No production gameplay coefficient, legacy outcome logic, rating scale, trajectory/stadium coefficient, or draft balance code was modified by 05.
 
 ## SOURCE_STATE_AND_IDENTITY
-- Task-start and validation baseline main: `3a4fc58a3c56d9042561494a08a676762fb4661d` (integrated Phase2C).
-- PR #65: `Gameplay: Phase 2D physical defensive catch shadow`.
-- PR branch: `feature/phase2d-defensive-catch-shadow`.
-- Exact validated current PR HEAD: `65d58a6d3cc9aec92258d88908d7ae01c5403c41`.
-- 01 implementation/test checkpoint: `144e2b811ebe0cfade8aca5653c53eb8a30c19aa`; checkpoint -> current HEAD changes only `docs/workstream-status/01-gameplay.md`, so production/test code is identical.
-- PR production changes are limited to `src/hitting/model.py`, `src/hitting/physical.py`, and new `src/hitting/physical_defense.py`.
-- Legacy authority files are unchanged by PR #65: `src/hitting/defense.py`, `src/hitting/parameters.py`, `src/hitting/baserunning.py`.
-- Validation checkout production blob identity against PR HEAD PASSed:
+- PR #68: `Gameplay: Phase 2E-A ground travel final-location shadow`.
+- PR branch: `feature/phase2e-a-ground-travel-shadow`.
+- Task-start PR base: `081c45ed9382d16c3569398d1ada1dbc842d6cf2`.
+- Exact independently validated PR HEAD: `5cbdf634c7f514dfb26be37694a6d2173c258b6c`.
+- 01 implementation checkpoint: `f6053039f25310378922df6030f832c67cc5f4c9`; checkpoint -> PR HEAD changes only `docs/workstream-status/01-gameplay.md`, so production/test code is identical.
+- PR changed files are limited to:
+  - `docs/workstream-status/01-gameplay.md`
+  - new `src/hitting/ground_travel.py`
+  - new `src/hitting/ground_travel_parameters.py`
+  - modified `src/hitting/physical.py`
+  - new `tests/test_phase2e_a_ground_travel.py`
+- Intended authority files remain unchanged: `src/hitting/model.py`, `src/hitting/defense.py`, `src/hitting/baserunning.py`, Phase2B trajectory coefficients, Phase2C stadium geometry.
+- Key PR-head blobs independently read:
+  - `ground_travel.py` = `cae9d2e8c979d83781dd39c4a579856f7b56ad4c`
+  - `ground_travel_parameters.py` = `dd69d779eed5645c2d2d254fc2ff0cebec1f33`
+  - `physical.py` = `2d5242375ed35775a261d51a96c62880015ad368`
   - `model.py` = `585d4cd0eb4c5464d02fe0805d359b0e9cafe39d`
-  - `physical.py` = `7a970329ebb36fc382041b893a73e54f48340568`
-  - `physical_defense.py` = `6004aa2d125f509399cad8adfeaf010e8c6f1d02`
-  - `defense.py` = `279f6282ef41c53e709839dbbe791e16836eaf53`
-  - `parameters.py` = `3876b4221f53b7d4b7cc6069d9425004fc9f311a`
-  - `baserunning.py` = `2a383ce61fb6938ae30973be210159baa1d76726`
-- Phase2D primary test blob: `tests/test_phase2d_defensive_shadow.py` = `920e54720e4eff662880a5506ea28e0963537498`.
-- Production integration test blobs: game provider `726c3e50c4d10b382b4e82fb63f23f9e1cf2f2e8`; consolidation `13d2937e1d26427b202817faa110866da1807f03`; stat aggregation `16b06b529d14d28379a6892b0514b8ed2ca86d1e`.
-- During finalization main advanced to `ab26ab04d42fe5a67ee5cc52462de57b77d33eff` by merge of PR #64 Interactive Event System P1. That divergence changes only interactive-events/persistence/production-advance files and tests/docs, not `src/hitting/*`. PR #65 raw GitHub state remains mergeable=true/rebaseable=true, mergeable_state=unstable due CI status; 07 must recheck current main and exact HEAD before merge.
+  - `trajectory.py` = `f22b84a1cab56be16983d787547e5eeb5b092e03`
+  - `stadium.py` = `780e067781c7ad24bf9bdfe60d1f6cbcb23adec0`
+  - `test_phase2e_a_ground_travel.py` = `89e75429d0054c779099c24050745f1543dab608`
+- Latest main before this status sync: `48011c849a813a4e8a570067670ada9e5f633836`. Divergence from Phase2E task-start base is only Interactive Event API transport/resolve files (`src/api/app.py` and its test), not `src/hitting/*`.
 
 ## CANONICAL_VALIDATION_RUN
-- Validation branch: `validation/phase2d-candidate-05`.
-- Canonical validation checkout: `f68d049e7a20dedfad990ef37cac8413a5583c63`.
-- Actions run: `34666864381` — SUCCESS.
-- Job: `103480415590` — SUCCESS.
-- Artifact ID: `10289002773`.
-- Artifact digest: `sha256:332a68d907dba04a19b6b2a751db7b0ed900b0feea6ff175c2a7c443815650a9`.
-- Seed: `20260912`.
-- Main Phase2D corpus: 200,000 neutral PA -> 142,770 physical BIP states.
-- Exact base-vs-candidate regression: 200,000 PA + 1,000 production games.
-- Determinism: duplicate 20,000 PA physical-defense sequence.
-- Performance: same Actions job, exact Phase2C base worktree vs Phase2D candidate, 50,000 PA + 500 games each.
+- Validation branch: `validation/phase2e-a-candidate-05`.
+- Canonical validation checkout: `1b040ead8b509e3fa96e58625fc7b14404dfed1e`.
+- Actions run: `34670031185` — SUCCESS.
+- Job: `103489534455` — SUCCESS.
+- Artifact ID: `10290038620`.
+- Artifact digest: `sha256:0e8ad04744576f6df44239e8645c4c190376aac3e1f1fc9a3e7ff0adbc4d48f6`.
+- Seed: `20260912` for PA/distribution regression; `20260913` for 1,000-game exact regression.
+- Corpus: 200,000 PA -> 142,770 physical BIP states.
+- Performance: same-run actual Phase2D base worktree vs candidate, 50,000 PA + 500 games each.
+- Full Python discover: 466 tests, 465 PASS, 1 FAIL, 0 ERROR; sole failure is the pre-existing draft-distribution balance gate.
 
-## OPPORTUNITY_POPULATION
+## VALID_STATE_DISTRIBUTION
 200k PA -> 142,770 physical BIP states:
-- valid DefensiveOpportunity: 69,813 = 48.8989%.
-- invalid: 72,957 = 51.1011%.
-Invalid reasons:
-- `ground_not_modeled_v1`: 71,694.
-- `shadow_foul`: 761.
-- `wall_intersection_unmodeled_v1`: 358.
-- `over_wall`: 144.
-- no generated missing/invalid trajectory case in the production corpus.
-Trajectory-class valid rate:
-- ground_like: 0 / 71,694 = 0%.
-- line_drive: 39,541 / 40,158 = 98.4636%.
-- fly_ball: 27,560 / 28,173 = 97.8242%.
-- popup: 2,712 / 2,745 = 98.7978%.
-- OPPORTUNITY_POPULATION = PASS.
+- valid GroundTravelState: 142,202 = 99.6022%.
+- invalid: 568 = 0.3978%.
+- all production-corpus invalid states are `air_wall_precedes_ground`, exactly as designed.
+By trajectory class:
+- ground_like: 71,694 / 71,694 valid = 100%.
+- line_drive: 39,937 / 40,158 valid = 99.4497%; 221 air-wall invalid.
+- fly_ball: 27,826 / 28,173 valid = 98.7683%; 347 air-wall invalid.
+- popup: 2,745 / 2,745 valid = 100%.
+- VALID_STATE_DISTRIBUTION = PASS.
 
-## OWNERSHIP
-Among 69,813 valid opportunities:
-- LF 13,264 = 18.9993%.
-- CF 43,107 = 61.7464%.
-- RF 13,442 = 19.2543%.
-Spray buckets route cleanly to the expected side/center owner.
-Boundary probe:
-- -15.001 deg -> LF; -15.000/-14.999 -> CF.
-- +14.999/+15.000 -> CF; +15.001 -> RF.
-- The hard V1 owner switch is therefore exactly at the designed +/-15 deg boundary.
-- Controlled boundary P changes from about 0.8358 on CF side to 0.9379 on LF/RF side because required distance/anchor changes discontinuously. This is an expected V1 primary-owner artifact, not a sign error, but must remain a WATCH before authority migration.
-- OWNERSHIP = PASS_WITH_BOUNDARY_WATCH.
+## IMPACT_SPEED
+Valid n=142,202 impact horizontal-speed proxy (ft/s):
+- mean 83.6716; median 85.6413.
+- P10 43.6965; P25 58.9018; P75 110.0500; P90 119.3357; P95 123.8841; P99 131.9586.
+- max 156.1988.
+- 220 ft/s clamp hits: 0 / 142,202 = 0%.
+Class means:
+- ground_like 108.8427.
+- line_drive 69.5375.
+- fly_ball 45.3720.
+- popup 20.1344.
+No clamp pileup or non-finite tail exists.
+Population correlations reflect the model definition and class mixture: impact vs EV +0.256; vs hang time -0.927; vs LA -0.831. Raw pooled first-impact-distance correlation is -0.710 because high-LA airborne classes travel farther while retaining much lower impact-speed class corrections/longer hang time; the controlled same-class/same-hang distance sweep is monotone increasing and is the authoritative structural gate.
+- IMPACT_SPEED = PASS.
+
+## BOUNCE_AND_POST_IMPACT
+Overall valid states:
+- post-impact speed mean/median 46.1142 / 47.0315 ft/s; P95 71.8528; P99 76.5360; max 90.5953.
+- bounce distance mean/median 6.2602 / 6.8634 ft; P95 8.6595; P99 9.2132; max 10.8714.
+- rollout-start speed mean/median 35.9601 / 36.9918 ft/s; P95 58.9193; P99 62.7595; max 74.2882.
+Class ordering is structurally coherent under the declared retention/bounce parameters: ground_like is fastest/longest, then line_drive, fly_ball, popup. No negative values, extreme discontinuity spike, or unbounded tail was found.
+- BOUNCE = PASS.
+
+## ROLLOUT
+Rollout distance (ft), n=142,202:
+- mean 22.9330; median 19.5485.
+- P1 .1004; P5 1.2099; P10 1.6732; P25 7.3186; P75 39.1339; P90 46.0179; P95 49.5926; P99 56.2679; max 78.8390.
+Total ground-travel distance (bounce + rollout, after wall clamp when applicable):
+- mean 29.1543; median 26.4683.
+- P1 .8514; P5 3.6988; P10 4.6036; P25 12.6530; P75 46.7864; P90 54.3201; P95 58.2057; P99 65.4343; max 89.7104.
+Class ground-travel means:
+- ground_like 46.3562 ft.
+- line_drive 17.1242 ft.
+- fly_ball 4.8966 ft.
+- popup remains near-zero/short by construction.
+No 450-ft model travel clamp pileup was observed; no runaway tail or negative travel exists. EV/LA/impact-distance bucket distributions remain finite and continuous enough for shadow metadata use.
+- ROLLOUT = PASS.
+
+## FINAL_LOCATION
+Valid n=142,202:
+- final radial distance mean 207.6996 ft; median 248.3010; P90 327.6763; P95 343.7509; P99 371.6578; max 400.2300.
+- final-minus-first-impact radial delta equals effective ground travel and is always non-negative except that wall stop may truncate planned travel; invariant checks PASS.
+- finite final X/Y/radial coordinates: PASS.
+- Phase2A spray ray preserved: PASS.
+- wall_ground_contact rate: 0.49718%.
+- FINAL_LOCATION = PASS.
 
 ## MIRROR
-16 controlled symmetric +/-spray cases spanning 220/260/300/340 ft radii and 18/25/35/42 deg:
-- LF <-> RF owner mirror exact.
-- required-distance delta = 0 in every case.
-- direction class exact equal.
-- baseline probability delta = 0.
-- adjusted probability delta = 0.
+48 controlled paired cases across all four trajectory classes, 4 first-impact distances, and 3 mirrored spray magnitudes:
+- impact speed exact equal.
+- post-impact speed exact equal.
+- bounce distance exact equal.
+- rollout distance exact equal.
+- total ground travel exact equal.
+- final radial exact equal.
+- final Y exact equal.
+- |X| exact equal and X sign inverted.
 - MIRROR = PASS.
 
-## PHYSICAL_DISTRIBUTIONS
-Valid opportunities n=69,813.
-Required distance (ft):
-- mean 58.0864; median 56.0892.
-- P10 23.8049; P25 38.2179; P75 74.1049; P90 90.8332; P95 104.7403; P99 149.8071.
-- max 301.6699.
-Opportunity time (s):
-- mean 4.4637; median 4.3598.
-- P10 3.0394; P25 3.5348; P75 5.2967; P90 6.0589; P95 6.4275; P99 6.8811.
-- max 7.3369.
-Direction shares:
-- in 66.7254%; lateral 15.7922%; back 17.4824%.
-Near-wall:
-- 1,054 / 69,813 = 1.5097%.
-- near-wall distance mean/median 78.9444 / 77.4407 ft vs non-wall 57.7667 / 55.6057 ft.
-- near-wall time mean/median 4.8336 / 4.8775 s vs non-wall 4.4580 / 4.3458 s.
-Position distance mean/median:
-- LF 50.8873 / 49.7241 ft.
-- CF 62.5010 / 61.3456 ft.
-- RF 51.0331 / 49.9431 ft.
-- PHYSICAL_DISTRIBUTIONS = PASS; no non-finite/degenerate tail found.
-
-## CATCH_PROBABILITY
-Production corpus uses neutral defense=100, so baseline and adjusted P are identical by construction.
-Adjusted P n=69,813:
-- mean 0.889637; median 0.979012.
-- P1 .06372; P5 .38574; P10 .63719; P25 .89516; P75 .99585; P90 .99893; P95 .99952; P99 .99986.
-- min .0000122; max .9999868.
-- exact 0 saturation 0%; exact 1 saturation 0%.
-By class mean P:
-- line_drive .83889.
-- fly_ball .97653.
-- popup .74656 (wide/bimodal physical geometry mix; P10 .0467, median .9535).
-Distance bucket mean P is monotone in population summary: <25 ft .9975, 25-50 .9865, 50-75 .9279, 75-100 .7421, 100-150 .4942, 150+ .1637.
-Time bucket mean P rises from 2-3 s .6183 through 5-6 s .9805; 6+ s population mean drops to .9019 because that observational bucket mixes much harder/longer-distance trajectories. Controlled time sweep still passes monotonicity.
-- CATCH_PROBABILITY = PASS_WITH_CALIBRATION_WATCH. Absolute level is engineering-only and is not approved as KBO calibration.
-
 ## MONOTONICITY
-Independent controlled multi-point sweeps:
-- required distance increase -> P non-increasing: PASS.
-- opportunity time increase -> P non-decreasing: PASS.
-- defense rating increase -> P non-decreasing: PASS.
-- direction ordering back <= lateral <= in: PASS (controlled P .92588 <= .95143 <= .96528).
-- near-wall <= identical non-wall: PASS (.98817 <= .99379).
+Independent multi-point sweeps, not single unit cases:
+- same hang/class, greater first-impact distance -> impact-speed proxy non-decreasing: PASS.
+- greater rollout-start speed -> rollout non-decreasing: PASS.
+- greater effective deceleration -> rollout non-increasing: PASS.
+- greater post-impact retention -> ground travel non-decreasing: PASS. Representative distances: 5.8451, 14.8765, 27.8916, 44.8903, 65.8728 ft for retention .20/.35/.50/.65/.80.
+- zero rollout speed -> rollout exactly 0: PASS.
 - MONOTONICITY = PASS.
 
-## RATING_SENSITIVITY
-Frozen valid opportunity population and frozen shadow roll:
-- rating 60: mean P .81989, median .94493, shadow-out 82.023%; routine conversion 92.111%, borderline 36.561%, extreme 3.623%.
-- rating 80: mean P .85794, median .96586, shadow-out 85.838%; routine 94.807%, borderline 47.450%, extreme 5.647%.
-- rating 100: mean P .88964, median .97901, shadow-out 89.031%; routine 96.654%, borderline 58.712%, extreme 8.950%.
-- rating 120: mean P .91545, median .98716, shadow-out 91.583%; routine 97.926%, borderline 68.569%, extreme 13.532%.
-- rating 140: mean P .93604, median .99218, shadow-out 93.613%; routine 98.714%, borderline 77.188%, extreme 20.085%.
-Rating ordering is strict and poor defenders do not collapse routine plays; elite rating does not turn the frozen extreme set into routine conversion.
-- RATING_SENSITIVITY = PASS_WITH_CALIBRATION_WATCH.
+## WALL_STOP
+Controlled cases:
+- unconstrained final point inside wall -> valid, `wall_ground_contact=False`: PASS.
+- planned final exceeds 330-ft wall -> final radial exactly 330 ft and `wall_ground_contact=True`: PASS.
+- airborne wall interaction before first ground -> invalid with `air_wall_precedes_ground`: PASS.
+- mirrored wall geometry -> radial/Y exact equal and X mirrored: PASS.
+- no rebound/carom loop exists.
+- WALL_STOP = PASS.
 
-## IMPOSSIBLE_OUT
-Independent forced edge cases all produce invalid resolution with `roll=None`, `physical_out_shadow=False`, P=0:
-- trajectory None.
-- trajectory.valid=False.
-- ground_like.
-- shadow foul.
-- missing wall context.
-- over-wall / physical-HR path.
-- wall intersection without rebound model.
-- non-finite defender rating.
-- IMPOSSIBLE_OUT = PASS.
+## INVALID_STATE
+Independent forced corpus all returns `valid=False`, finite safe fields, and zero ground travel:
+- trajectory None -> `missing_trajectory`.
+- trajectory.valid=False -> `invalid_trajectory`.
+- unsupported class -> `unsupported_trajectory_class`.
+- zero hang time -> `invalid_hang_time`.
+- missing wall -> `missing_wall_context`.
+- invalid wall radius -> `invalid_wall_radius`.
+- non-finite input -> `non_finite_input`.
+- non-positive rollout deceleration -> `invalid_rollout_deceleration`.
+- INVALID_STATE = PASS.
 
-## LEGACY_AND_PHASE2ABC_REGRESSION
-Exact Phase2C-base vs Phase2D-candidate fingerprint comparison at seed 20260912:
-- 200,000 PA BIP count equal: 142,770.
-- PA outcome counters exact equal: single 34,433; double 7,881; triple 386; HR 5,526; out 93,267; ROE 1,277; BB 18,888; K 35,724; HBP 2,618.
-- final parent PA RNG state exact equal.
-- Phase2A/B/C state fingerprint exact equal: `3490976d71da1ced7de80055bef1ee11b84a60bfdacecd12cbc9bde28e377c7f`.
-- 1,000-game totals exact equal: PA 79,884; H 19,001; 1B 13,500; 2B 3,114; 3B 147; HR 2,240; BB 7,360; SO 14,755; HBP 1,062; R 9,358; ROE 541; GDP 1,127; SF 170; XBT 5,207 / 11,289 attempts; first-to-third 2,251; second-to-home 1,664.
-- game sequence hash exact equal: `7658d1774250faf21cbdc1d67cba4681c8f6a70543a0f4bc92af16581cbe22bb`.
-- final game RNG exact equal.
-- LEGACY_REGRESSION = PASS.
-- PHASE2ABC_REGRESSION = PASS.
-
-## DETERMINISM
-Duplicate candidate 20,000-PA replay:
-- 14,245 physical BIP states each.
-- exact opportunity+resolution sequence hash equal: `55378fb7dbcf9f51dd2ca3710e4d6fbebb0a071052745c0e001ff7013a4193d1`.
-- parent RNG final state exact equal.
+## DETERMINISM_RNG_AND_REGRESSION
+200,000 PA enabled/disabled comparison:
+- legacy PA counters exact identical: single 34,397; double 7,838; triple 380; HR 5,526; out 93,453; ROE 1,333; BB 18,807; K 35,653; HBP 2,613.
+- Phase2A/B/C/D upstream metadata hash exact identical: `fa7a1935ee0f68b3061ce2a2c767e760f30d274ccbc03a2ab1e569397a274d3a`.
+- parent RNG final-state hash exact identical: `1f0ca21b4d72386c785d1a39a40efa9d80f1b72c5d054e818d6c896f0bc62fb6`.
+- duplicate 20k Phase2E-A enabled replay exact identical.
+Separate 1,000-game enabled/disabled comparison:
+- production game result sequence exact equal; sequence hash `fc673c724c0f6a7d85178ac5eae34cefbc343146386fe8ad25db4effa6551d2a`.
+- final game RNG exact equal; hash `fb7195e20a39764cbc2ba21edad90fe647f7f8849817a817d1abfcf30087ed78`.
+Therefore Phase2E-A consumes zero RNG and does not perturb Phase2D child resolution or any canonical gameplay state.
 - DETERMINISM = PASS.
+- RNG_PURITY = PASS.
+- PHASE2ABCD_REGRESSION = PASS.
+- LEGACY_REGRESSION = PASS.
 
 ## PERFORMANCE
-Same-run paired GitHub runner, exact Phase2C base vs candidate:
-- Phase2C base: 57.4290 us/PA; 7.1228 ms/game.
-- Phase2D candidate: 75.4397 us/PA; 8.7876 ms/game.
-- delta: +31.3617% per PA; +23.3723% per game.
-Code audit confirms fixed owner branch + fixed arithmetic/logistic calculation + one child-RNG roll; no frame loop, pathfinding, nearest-player search, dynamic scan, iterative physics, or timestep integration.
-- PERFORMANCE = WATCH. Complexity is O(1), but measured incremental cost is material and cumulative Phase2 physics performance should be profiled/optimized before or during later authority migration. This is not a correctness blocker for current shadow-only Phase2D.
+Same-run paired benchmark, same Actions job and runner:
+- Phase2D base `081c45...`: 115.2799 us/PA; 13.3547 ms/game.
+- Phase2E-A candidate: 126.1449 us/PA; 13.9830 ms/game.
+- incremental delta: +9.4249%/PA; +4.7054%/game.
+Architecture audit:
+- O(1) fixed algebra.
+- one representative bounce only.
+- no timestep/frame loop.
+- no bounce loop.
+- no numerical integration loop.
+- no mesh traversal, dynamic search, fielder scan, or pathfinding.
+This is materially smaller than the previously observed Phase2D increment but cumulative Phase2 physics cost remains a performance concern before authority migration.
+- PERFORMANCE = WATCH, non-blocking for shadow-only correctness.
 
-## SHADOW_VS_LEGACY
-Valid airborne opportunities n=69,813 confusion matrix:
-- legacy OUT / physical OUT: 40,339.
-- legacy OUT / physical SAFE: 5,158.
-- legacy SAFE / physical OUT: 21,816.
-- legacy SAFE / physical SAFE: 2,500.
-- overall disagreement: 38.6375%.
-Disagreement by class:
-- fly_ball 35.4753%; line_drive 40.4390%; popup 44.5059%.
-By position:
-- LF 37.3191%; CF 39.6223%; RF 36.7802%.
-By near-wall:
-- non-wall 38.5782%; near-wall 42.5047%.
-By required distance:
-- <25 ft 37.2335%; 25-50 36.2545%; 50-75 37.3115%; 75-100 41.2800%; 100-150 49.9864%; 150+ 65.2299%.
-By opportunity time:
-- 2-3 s 47.2626%; 3-4 40.4090%; 4-5 36.6553%; 5-6 35.3431%; 6+ 38.3868%.
-- SHADOW_DISAGREEMENT = MEASURED_HIGH / WATCH. This is not a tuning gate and no coefficients were changed. Before physical defense authority cutover, disagreement root causes and empirical calibration must be revisited.
+## CALIBRATION
+Current class corrections/retention/deceleration are explicitly engineering baselines, not KBO-calibrated values. The 200k corpus shows structurally usable, finite, non-degenerate distributions with no 220-fps impact clamp hits and no 450-ft travel clamp hits. No coefficient is approved for real-KBO authority from this validation alone.
+- CALIBRATION = WATCH.
 
 ## GLOBAL_CI_CONTEXT
-- Actual PR HEAD GitHub Actions overall Python job fails in the full-suite step; Phase2D-specific and production-integration steps before it pass.
-- Independently reproduced known draft-balance failure: `BalanceV04Tests.test_draft_distribution_not_extreme`, undrafted `0.056666666666666664` vs historical assertion `> 0.10`.
-- This is draft/generation balance, not Phase2D gameplay-path logic; 05 did not modify it.
-- The lightweight 05 full-suite context run intentionally did not install API/Postgres dependencies, so it also reports expected environment-only FastAPI/Postgres import failures and is not used as a canonical whole-repo CI replacement. Phase2D targeted suites, Phase2ABC regressions, deterministic regression and independent corpus all pass.
-- GLOBAL_CI_OUT_OF_SCOPE_FAILURE = VERIFIED_DRAFT_BALANCE_FAILURE; CI remains globally red/unstable until separately resolved or policy-handled.
+Canonical 05 full discover independently reproduced:
+- 466 tests total.
+- 465 PASS.
+- 1 FAIL.
+- 0 ERROR.
+Sole failure:
+- `test_balance_v04.BalanceV04Tests.test_draft_distribution_not_extreme`.
+- observed `undrafted = 0.056666666666666664`; historical assertion requires `> 0.10` (and `<0.35`).
+- Phase2E-A targeted tests pass and all production integration prerequisites passed in PR CI; Phase2E-A does not touch draft/generation balance.
+- GLOBAL_CI_OUT_OF_SCOPE_FAILURE = VERIFIED.
+
+## GATES
+- SOURCE_IDENTITY = PASS
+- VALID_STATE_DISTRIBUTION = PASS
+- IMPACT_SPEED = PASS
+- BOUNCE = PASS
+- ROLLOUT = PASS
+- FINAL_LOCATION = PASS
+- MIRROR = PASS
+- MONOTONICITY = PASS
+- WALL_STOP = PASS
+- INVALID_STATE = PASS
+- DETERMINISM = PASS
+- RNG_PURITY = PASS
+- PHASE2ABCD_REGRESSION = PASS
+- LEGACY_REGRESSION = PASS
+- PERFORMANCE = WATCH
+- CALIBRATION = WATCH
+- GLOBAL_CI_OUT_OF_SCOPE_FAILURE = VERIFIED
+- FINAL = PHASE2E_A_VALIDATION_PASS
+- MERGE_ALLOWED = YES_FROM_05_EXACT_HEAD_ONLY
 
 ## HANDOFF_TO_07
-- Exact independently validated PR: #65 `Gameplay: Phase 2D physical defensive catch shadow`.
-- Exact validated HEAD: `65d58a6d3cc9aec92258d88908d7ae01c5403c41`.
-- 05 gameplay validation = PASS for that exact HEAD.
-- 07 must recheck HEAD and current main before integration. Main advanced after the validation baseline through PR #64, but that divergence does not touch `src/hitting/*`; raw GitHub currently reports PR #65 mergeable/rebaseable with `mergeable_state=unstable` because CI is red.
-- If PR #65 production blobs move, or conflict resolution changes any validated production/test blob, renewed 05 source-identity validation is required.
-- Do not interpret this PASS as physical-defense authority approval; Phase2D remains shadow-only.
+- Exact independently validated PR #68 HEAD: `5cbdf634c7f514dfb26be37694a6d2173c258b6c`.
+- 07 must recheck the PR HEAD and current main before integration. The latest main divergence observed by 05 is unrelated Interactive Event API code and does not touch `src/hitting/*`.
+- Use an expected-head check. If rebase/conflict resolution changes any validated Phase2E-A production/test blob, this signoff does not automatically carry forward and 05 source-identity revalidation is required.
+- Do not interpret this PASS as physical hit-type/retrieval/throw/runner-advancement authority approval; Phase2E-A remains metadata/shadow-only.
