@@ -196,12 +196,14 @@ export class HttpBackendPresentationGateway implements BackendPresentationGatewa
         snapshot.meta.revision,
       )
     }
-    return {
+    const result: BackendResolveEventPresentation = {
       dashboard: snapshot.data.dashboard,
       season: snapshot.data.season,
       pendingEvents: snapshot.data.pending_events ?? snapshot.mutation.result.pending_events ?? [],
       result: snapshot.mutation.result,
     }
+    if (this.postMutationSnapshot === snapshot) this.postMutationSnapshot = null
+    return result
   }
 
   async saveGame() {
