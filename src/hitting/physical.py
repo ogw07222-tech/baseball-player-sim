@@ -3,8 +3,9 @@
 Phase 2A owns EV/LA/timing/spray generation. Phase 2B attaches a deterministic
 O(1) first-ground trajectory. Phase 2C attaches an O(1) generic-stadium wall
 interaction / physical-HR shadow. Phase 2D attaches an O(1) airborne defensive
-opportunity and child-RNG catch shadow while all legacy gameplay remains
-canonical authority.
+opportunity and child-RNG catch shadow. Phase 2E-A attaches deterministic O(1)
+post-impact ground travel / final-location metadata while all legacy gameplay
+remains canonical authority.
 """
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from .trajectory import BattedBallTrajectory
     from .stadium import WallInteraction
     from .physical_defense import DefensiveOpportunity, DefensiveResolution
+    from .ground_travel import GroundTravelState
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -27,7 +29,7 @@ def _clamp(value: float, low: float, high: float) -> float:
 
 @dataclass(frozen=True)
 class BattedBallState:
-    """Stable Phase-2 initial state plus trajectory/wall/defense shadow metadata.
+    """Stable Phase-2 initial state plus trajectory/wall/defense/ground metadata.
 
     Units/conventions:
     - ``exit_velocity``: miles per hour.
@@ -36,7 +38,7 @@ class BattedBallState:
     - spray: center field 0°, left-field side negative, right-field side positive.
     - pitch locations are normalized batter-relative coordinates where
       x=-1 is inside, x=+1 outside, y=-1 low, y=+1 high.
-    - trajectory/wall/defense distances and coordinates are feet; time is seconds.
+    - trajectory/wall/defense/ground distances and coordinates are feet; time is seconds.
     """
 
     exit_velocity: float
@@ -52,6 +54,7 @@ class BattedBallState:
     wall_interaction: WallInteraction | None = None
     defensive_opportunity: DefensiveOpportunity | None = None
     defensive_resolution: DefensiveResolution | None = None
+    ground_travel: GroundTravelState | None = None
 
     def __post_init__(self) -> None:
         values = (
@@ -250,7 +253,7 @@ def generate_batted_ball_state(
     parent_rng,
     defender_rating: float = 100.0,
 ) -> BattedBallState:
-    """Generate Phase-2A/B/C/D shadow state without consuming canonical RNG."""
+    """Generate Phase-2A/B/C/D/E-A shadow state without consuming canonical RNG."""
     side = "L" if batter_side == "L" else "R"
     pitch_x, pitch_y = pitch_location_from_zone(pitch_zone)
     rng = RNG(_fork_seed(parent_rng))
@@ -305,7 +308,7 @@ def generate_batted_ball_state(
     trajectory = generate_batted_ball_trajectory(state)
     # Preserve the Phase-2B test/diagnostic seam that can intentionally disable
     # trajectory generation. Production generation returns a trajectory, but a
-    # disabled trajectory also disables downstream wall/defense shadow work.
+    # disabled trajectory also disables all downstream shadow work.
     if trajectory is None:
         return replace(
             state,
@@ -313,6 +316,7 @@ def generate_batted_ball_state(
             wall_interaction=None,
             defensive_opportunity=None,
             defensive_resolution=None,
+            ground_travel=None,
         )
 
     # Phase 2C production shadow uses the explicit generic engineering stadium
@@ -323,6 +327,15 @@ def generate_batted_ball_state(
         spray_angle_deg=state.spray_angle,
         is_fair_shadow=state.is_fair,
         stadium=GENERIC_ENGINEERING_BASELINE,
+    )
+
+    # Phase 2E-A is deterministic metadata only and consumes no RNG. It reuses
+    # the canonical first-ground trajectory and Phase-2C wall radius.
+    from .ground_travel import generate_ground_travel_state
+    ground_travel = generate_ground_travel_state(
+        trajectory=trajectory,
+        wall_interaction=wall,
+        spray_angle_deg=state.spray_angle,
     )
 
     # Phase 2D is shadow-only. Probability is deterministic; the single catch
@@ -343,4 +356,5 @@ def generate_batted_ball_state(
         wall_interaction=wall,
         defensive_opportunity=opportunity,
         defensive_resolution=resolution,
+        ground_travel=ground_travel,
     )
