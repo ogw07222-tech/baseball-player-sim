@@ -79,8 +79,11 @@ class CareerSeasonMixin:
             if self.player.injury:self._recover_day();self._update_form();self._reconsider_roster(s)
             elif self.rng.random()>=self._play_probability(s.current_level):self._recover_day();self._update_form();self._reconsider_roster(s)
             else:
-                target=s.record.first_team if s.current_level=='FIRST' else s.record.farm;level=float(team['first_team_level'] if s.current_level=='FIRST' else team['farm_level']);simulate_player_game(self.player,level,self.rng,target)
-                if s.current_level=='FIRST' and self.player.debut_year is None:self.player.debut_year=self.year
+                target=s.record.first_team if s.current_level=='FIRST' else s.record.farm;level=float(team['first_team_level'] if s.current_level=='FIRST' else team['farm_level']);before_career=self.first_team_totals_with_active_season(s) if s.current_level=='FIRST' else None;simulate_player_game(self.player,level,self.rng,target)
+                if s.current_level=='FIRST':
+                    if self.player.debut_year is None:self.player.debut_year=self.year
+                    after_career=self.first_team_totals_with_active_season(s)
+                    if before_career is not None:self.emit_batting_milestone_facts(before_career,after_career,s)
                 self._fatigue_after_game();self._maybe_injure();self._update_form();self._reconsider_roster(s)
             if self._maybe_event(s,event_decider,stop_on_event):break
         return s
