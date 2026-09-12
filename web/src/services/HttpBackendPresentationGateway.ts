@@ -4,7 +4,11 @@ import type {
   BackendSnapshotDto,
 } from '../types/backendPresentation'
 import type { NewCareerRequest } from '../types/newCareer'
-import type { BackendAdvancePresentation, BackendPresentationGateway } from './GameDataProvider'
+import type {
+  BackendAdvancePresentation,
+  BackendPresentationGateway,
+  BackendResolveEventPresentation,
+} from './GameDataProvider'
 
 export class BackendTransportError extends Error {
   constructor(
@@ -81,6 +85,36 @@ export class HttpBackendPresentationGateway implements BackendPresentationGatewa
     return this.inflightState
   }
 
+  private async postMutation(path: string, body: string): Promise<BackendSnapshotDto> {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        return await this.json<BackendSnapshotDto>(path, { method: 'POST', body })
+      } catch (error) {
+        const retryable = error instanceof BackendTransportError && error.retryable
+        if (attempt === 0 && retryable) continue
+        throw error
+      }
+    }
+    throw new Error('unreachable mutation retry state')
+  }
+
+  private async requireRevision() {
+    if (this.revision === null) {
+      const snapshot = await this.loadState()
+      this.revision = snapshot.meta.revision
+    }
+    if (this.revision === null) {
+      throw new BackendTransportError(
+        409,
+        'NO_REVISION',
+        'cannot mutate without a backend revision',
+        false,
+        null,
+      )
+    }
+    return this.revision
+  }
+
   async hasCareer() {
     const session = await this.json<BackendSessionDto>('/session')
     this.revision = session.revision
@@ -101,23 +135,15 @@ export class HttpBackendPresentationGateway implements BackendPresentationGatewa
     return snapshot.data.dashboard
   }
 
+  async getPendingEvents() {
+    const snapshot = this.postMutationSnapshot ?? await this.loadState()
+    return snapshot.data.pending_events ?? []
+  }
+
   async getSeason() {
     const snapshot = this.postMutationSnapshot ?? await this.loadState()
     if (this.postMutationSnapshot === snapshot) this.postMutationSnapshot = null
     return snapshot.data.season
-  }
-
-  private async postAdvance(body: string): Promise<BackendSnapshotDto> {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        return await this.json<BackendSnapshotDto>('/advance', { method: 'POST', body })
-      } catch (error) {
-        const retryable = error instanceof BackendTransportError && error.retryable
-        if (attempt === 0 && retryable) continue
-        throw error
-      }
-    }
-    throw new Error('unreachable advance retry state')
   }
 
   private requireAdvanceMutation(snapshot: BackendSnapshotDto): BackendAdvancePresentation {
@@ -133,32 +159,18 @@ export class HttpBackendPresentationGateway implements BackendPresentationGatewa
     return {
       dashboard: snapshot.data.dashboard,
       result: snapshot.mutation.result,
+      pendingEvents: snapshot.data.pending_events ?? snapshot.mutation.result.pending_events ?? [],
     }
   }
 
   private async advance(command: 'next_game' | 'week' | 'month' | 'season') {
-    if (this.revision === null) {
-      const snapshot = await this.loadState()
-      this.revision = snapshot.meta.revision
-    }
-    const expectedRevision = this.revision
-    if (expectedRevision === null) {
-      throw new BackendTransportError(
-        409,
-        'NO_REVISION',
-        'cannot advance without a backend revision',
-        false,
-        null,
-      )
-    }
-
-    const idempotencyKey = this.idempotencyKeyFactory()
+    const expectedRevision = await this.requireRevision()
     const body = JSON.stringify({
       command,
       expected_revision: expectedRevision,
-      idempotency_key: idempotencyKey,
+      idempotency_key: this.idempotencyKeyFactory(),
     })
-    const snapshot = this.remember(await this.postAdvance(body))
+    const snapshot = this.remember(await this.postMutation('/advance', body))
     return this.requireAdvanceMutation(snapshot)
   }
 
@@ -166,6 +178,33 @@ export class HttpBackendPresentationGateway implements BackendPresentationGatewa
   advanceWeek() { return this.advance('week') }
   advanceMonth() { return this.advance('month') }
   advanceSeason() { return this.advance('season') }
+
+  async resolveEvent(eventId: string, choiceId: string): Promise<BackendResolveEventPresentation> {
+    const expectedRevision = await this.requireRevision()
+    const body = JSON.stringify({
+      choice_id: choiceId,
+      expected_revision: expectedRevision,
+      idempotency_key: this.idempotencyKeyFactory(),
+    })
+    const snapshot = this.remember(await this.postMutation(`/events/${encodeURIComponent(eventId)}/resolve`, body))
+    if (!snapshot.mutation || snapshot.mutation.kind !== 'resolve_event') {
+      throw new BackendTransportError(
+        502,
+        'INVALID_RESPONSE',
+        'event resolve response is missing mutation result',
+        false,
+        snapshot.meta.revision,
+      )
+    }
+    const result: BackendResolveEventPresentation = {
+      dashboard: snapshot.data.dashboard,
+      season: snapshot.data.season,
+      pendingEvents: snapshot.data.pending_events ?? snapshot.mutation.result.pending_events ?? [],
+      result: snapshot.mutation.result,
+    }
+    if (this.postMutationSnapshot === snapshot) this.postMutationSnapshot = null
+    return result
+  }
 
   async saveGame() {
     if (this.revision === null) return

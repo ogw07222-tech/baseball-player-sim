@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import type { DashboardViewModel } from '../types/viewModels'
 import { AbilityBar, Leaderboard, Panel, ProgressRing, Tabs } from '../components/ui'
+import type { AdvanceCommand } from '../services/GameDataProvider'
 
 const fmt3 = (v:number) => v.toFixed(3).replace(/^0/, '')
 const fmtWar = (v:number|null) => v === null ? '—' : v.toFixed(1)
 const fmtOptional = (v:string|number|null|undefined) => v === null || v === undefined || v === '' ? '—' : String(v)
 
-export function PlayerDashboard({ data, onAdvanceNextGame, mutationLoading }: { data:DashboardViewModel; onAdvanceNextGame:()=>Promise<void>; mutationLoading:boolean }) {
+export function PlayerDashboard({ data, onAdvance, mutationLoading, mutationCommand, extendedAdvanceControls }: { data:DashboardViewModel; onAdvance:(command:AdvanceCommand)=>Promise<void>; mutationLoading:boolean; mutationCommand:AdvanceCommand|null; extendedAdvanceControls:boolean }) {
   const [titleMetric,setTitleMetric] = useState('HR')
   const stats = data.seasonStats
   const recent = data.recentGames
@@ -14,6 +15,7 @@ export function PlayerDashboard({ data, onAdvanceNextGame, mutationLoading }: { 
   const titleMetrics = Object.keys(data.titleRace)
   const activeTitleMetric = titleMetrics.includes(titleMetric) ? titleMetric : titleMetrics[0]
   const conditionKnown = data.status.condition.trim().toLowerCase() !== 'unknown' && data.status.condition.trim() !== ''
+  const busyLabel = mutationCommand==='week'?'1주 진행 중…':mutationCommand==='month'?'1개월 진행 중…':'경기 진행 중…'
 
   return <div className="dashboard-screen">
     <section className="player-hero panel">
@@ -69,7 +71,9 @@ export function PlayerDashboard({ data, onAdvanceNextGame, mutationLoading }: { 
     </div>
 
     <nav className="advance-controls" aria-label="시간 진행">
-      <button className="primary" style={{gridColumn:'1 / -1'}} disabled={mutationLoading} aria-busy={mutationLoading} onClick={()=>void onAdvanceNextGame()}>{mutationLoading?'경기 진행 중…':'▶ 다음 경기'}</button>
+      <button className="primary" disabled={mutationLoading} aria-busy={mutationLoading && mutationCommand==='nextGame'} onClick={()=>void onAdvance('nextGame')}>{mutationLoading && mutationCommand==='nextGame'?busyLabel:'▶ 다음 경기'}</button>
+      {extendedAdvanceControls && <button disabled={mutationLoading} aria-busy={mutationLoading && mutationCommand==='week'} onClick={()=>void onAdvance('week')}>{mutationLoading && mutationCommand==='week'?busyLabel:'1주 진행'}</button>}
+      {extendedAdvanceControls && <button disabled={mutationLoading} aria-busy={mutationLoading && mutationCommand==='month'} onClick={()=>void onAdvance('month')}>{mutationLoading && mutationCommand==='month'?busyLabel:'1개월 진행'}</button>}
     </nav>
   </div>
 }
