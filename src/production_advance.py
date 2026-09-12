@@ -19,7 +19,13 @@ from .career import CareerEngine, SeasonFinalizationResult
 from .career_source_facts import CareerSourceFact
 from .game_provider import GameFixture, ProductionGameProvider
 from .game_result import ProductionGameResult
-from .interactive_events import InteractiveEvent, InteractiveEventResolution, event_state_for_engine, maybe_generate_interactive_event, resolve_interactive_event
+from .interactive_event_effects import (
+    advance_interactive_effects_one_game,
+    apply_interactive_pre_form_effects,
+    clear_season_interactive_effects,
+    resolve_interactive_event_authoritatively,
+)
+from .interactive_events import InteractiveEvent, InteractiveEventResolution, event_state_for_engine, maybe_generate_interactive_event
 from .stat_aggregation import GamePerformance,HitterCountingStats,PitcherCountingStats,SeasonStatLine,career_stats_from_records,season_stats_from_record
 from .time_advance import AdvanceOrchestrator,AdvancePipelineState,AdvanceSummary,ScheduleProvider
 
@@ -108,9 +114,12 @@ class CareerGameAdvanceProvider:
         return False,"BENCH"
     def _postgame(self,started:bool,game_date:date)->None:
         session=self.engine.start_pro_season()
-        if self.engine.player.injury is not None and not started:self.engine._recover_day();self.engine._update_form();self.engine._reconsider_roster(session)
-        elif started:self.engine._fatigue_after_game();self.engine._maybe_injure();self.engine._update_form();self.engine._reconsider_roster(session)
-        else:self.engine._recover_day();self.engine._update_form();self.engine._reconsider_roster(session)
+        if self.engine.player.injury is not None and not started:
+            self.engine._recover_day();apply_interactive_pre_form_effects(self.engine);self.engine._update_form();advance_interactive_effects_one_game(self.engine);self.engine._reconsider_roster(session)
+        elif started:
+            self.engine._fatigue_after_game();apply_interactive_pre_form_effects(self.engine);self.engine._maybe_injure();self.engine._update_form();advance_interactive_effects_one_game(self.engine);self.engine._reconsider_roster(session)
+        else:
+            self.engine._recover_day();apply_interactive_pre_form_effects(self.engine);self.engine._update_form();advance_interactive_effects_one_game(self.engine);self.engine._reconsider_roster(session)
         event=maybe_generate_interactive_event(player=self.engine.player,state=event_state_for_engine(self.engine),seed=self.engine.rng.seed,season=self.engine.year,game_number=session.games_completed,simulated_date=game_date,level=session.current_level)
         if event is not None:self._generated_interactive_events.append(event)
     def advance_game(self,game_date:date)->GamePerformance:
@@ -169,16 +178,16 @@ class ProductionAdvanceService:
     def pending_interactive_events(self)->tuple[InteractiveEvent,...]:return event_state_for_engine(self.engine).pending
     def drain_generated_interactive_events(self)->tuple[InteractiveEvent,...]:return self.game_provider.drain_interactive_events()
     def resolve_interactive_event(self,event_id:str,choice_id:str,*,resolved_at:date|None=None)->InteractiveEventResolution:
-        return resolve_interactive_event(state=event_state_for_engine(self.engine),event_id=event_id,choice_id=choice_id,resolved_at=resolved_at or self.state.current_date)
+        return resolve_interactive_event_authoritatively(engine=self.engine,event_id=event_id,choice_id=choice_id,resolved_at=resolved_at or self.state.current_date)
     def advance_one_game(self)->AdvanceSummary:self._ensure_advance_allowed();return self.orchestrator.advance_one_game()
     def advance_one_week(self)->AdvanceSummary:self._ensure_advance_allowed();return self.orchestrator.advance_one_week()
     def advance_one_month(self)->AdvanceSummary:self._ensure_advance_allowed();return self.orchestrator.advance_one_month()
     def finalize_season(self)->SeasonFinalizationResult:
-        self.engine.begin_source_fact_capture(self.state.current_date,'lifecycle');result=self.engine.finalize_completed_pro_season()
+        self.engine.begin_source_fact_capture(self.state.current_date,'lifecycle');result=self.engine.finalize_completed_pro_season();clear_season_interactive_effects(self.engine)
         if hasattr(self.engine,"advance_state"):delattr(self.engine,"advance_state")
         return result
     def start_next_season(self)->None:
         if self.engine.phase!='PRO':raise RuntimeError("career is not in professional phase")
         if self.engine.current_session is not None:raise RuntimeError("professional season already active")
-        event_state=event_state_for_engine(self.engine);event_state.event_cooldown_until.clear();event_state.category_cooldown_until.clear();event_state.season_counts.clear()
+        event_state=event_state_for_engine(self.engine);event_state.event_cooldown_until.clear();event_state.category_cooldown_until.clear();event_state.season_counts.clear();clear_season_interactive_effects(self.engine)
         self.engine.start_pro_season();self.schedule=CareerSeasonScheduleProvider(self.engine.year);self._bind(self._state_for_engine(0))
