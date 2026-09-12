@@ -53,6 +53,9 @@ jobs:
           old="rec('unsupported',trajectory=traj(100,cls='weird'),wall_interaction=wall(),spray_angle_deg=0)"
           new="bad=traj(100); object.__setattr__(bad,'trajectory_class','weird'); rec('unsupported',trajectory=bad,wall_interaction=wall(),spray_angle_deg=0)"
           s=s.replace(old,new)
+          old="rec('bad_wall',trajectory=traj(100),wall_interaction=wall(0.0),spray_angle_deg=0)"
+          new="badw=wall(); object.__setattr__(badw,'wall_radius_ft',0.0); rec('bad_wall',trajectory=traj(100),wall_interaction=badw,spray_angle_deg=0)"
+          s=s.replace(old,new)
           p.write_text(s)
           PY
           python -m py_compile tools/phase2ea_validation_05.py
