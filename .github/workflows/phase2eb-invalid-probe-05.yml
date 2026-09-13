@@ -1,0 +1,41 @@
+name: phase2eb-invalid-probe-05
+on:
+  push:
+    branches:
+      - validation/phase2eb-invalid-05
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Probe fail-safe edges
+        run: |
+          python - <<'PY'
+          import json, math
+          from unittest.mock import patch
+          from src.hitting.ground_travel import GroundTravelState
+          from src.hitting import ground_travel_parameters as GP
+          from src.hitting import retrieval_parameters as P
+          from src.hitting.retrieval import resolve_physical_hit_shadow
+          def ground():
+              return GroundTravelState(valid=True,surface_class=GP.SURFACE_CLASS_NEUTRAL,impact_horizontal_speed_fps=70,post_impact_horizontal_speed_fps=35,bounce_distance_ft=8,rollout_start_speed_fps=24,rollout_distance_ft=12,ground_travel_distance_ft=20,first_impact_x_ft=0,first_impact_y_ft=200,final_x_ft=0,final_y_ft=200,final_radial_distance_ft=200,wall_ground_contact=False,ground_model_version=GP.GROUND_MODEL_VERSION,invalid_reason=None)
+          out={}
+          try:
+              with patch('src.hitting.retrieval.owner_for_location',return_value=('BAD',None)):
+                  r=resolve_physical_hit_shadow(ground_travel=ground(),defensive_resolution=None,defender_rating=100,runner_speed_rating=100)
+              out['invalid_owner']={'exception':None,'valid':r.valid,'result':r.physical_result_shadow,'reason':r.invalid_reason}
+          except Exception as e: out['invalid_owner']={'exception':repr(e)}
+          try:
+              with patch.object(P,'FIELDER_SPEED_MIN_FPS',0.0),patch.dict(P.EFFECTIVE_FIELDER_SPEED_FPS,{'PC':0.0,'IF':0.0,'OF':0.0}):
+                  r=resolve_physical_hit_shadow(ground_travel=ground(),defensive_resolution=None,defender_rating=100,runner_speed_rating=100)
+              out['zero_fielder_speed']={'exception':None,'valid':r.valid,'result':r.physical_result_shadow,'reason':r.invalid_reason}
+          except Exception as e: out['zero_fielder_speed']={'exception':repr(e)}
+          print(json.dumps(out,indent=2,sort_keys=True));open('invalid-probe.json','w').write(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase2eb-invalid-probe-${{ github.run_id }}
+          path: invalid-probe.json
