@@ -1,0 +1,61 @@
+name: phase2eb-revalidation-05
+on:
+  push:
+    branches:
+      - validation/phase2eb-revalidation-05
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: baseball_sim_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d baseball_sim_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/baseball_sim_test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install API dependencies
+        run: pip install -r requirements-api.txt
+      - name: Assert exact production identity
+        run: |
+          target=c0e5cb6f3752b5eca05ff8f708245d8198454bb3
+          for p in src/hitting/retrieval.py src/hitting/retrieval_parameters.py src/hitting/physical.py src/hitting/model.py; do
+            test "$(git rev-parse HEAD:$p)" = "$(git rev-parse $target:$p)"
+          done
+      - name: Compile validation probe
+        run: python -m py_compile tools/phase2eb_revalidation_05.py
+      - name: Independent blocker and regression probe
+        run: python tools/phase2eb_revalidation_05.py
+      - name: Targeted Phase 2E-B and upstream regression tests
+        run: >-
+          python -m unittest -v
+          tests.test_phase2e_b_retrieval_hit_shadow
+          tests.test_phase2e_a_ground_travel
+          tests.test_phase2d_defensive_shadow
+          tests.test_phase2c_stadium_wall
+          tests.test_phase2c_invalid_trajectory
+          tests.test_phase2b_trajectory
+          tests.test_phase2a_physical_batted_ball
+          tests.test_phase1_count_situational
+          tests.test_production_game_provider
+          tests.test_production_integration_consolidation
+          tests.test_stat_aggregation_advance
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2eb-revalidation-${{ github.run_id }}-${{ github.sha }}
+          path: phase2eb-revalidation.json
