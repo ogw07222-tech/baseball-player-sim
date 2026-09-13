@@ -124,6 +124,49 @@ class Phase2EBRetrievalHitShadowTests(unittest.TestCase):
             self.assertGreaterEqual(state.effective_fielder_speed_fps, P.FIELDER_SPEED_MIN_FPS)
             self.assertLessEqual(state.effective_fielder_speed_fps, P.FIELDER_SPEED_MAX_FPS)
 
+    def test_invalid_effective_fielder_speed_fails_safe_before_division(self):
+        ball = ground_at(0.0, 360.0)
+        for bad_speed in (0.0, -1.0, float("nan"), float("inf"), float("-inf")):
+            with self.subTest(speed=bad_speed), patch(
+                "src.hitting.retrieval._rating_adjusted_retrieval_terms",
+                return_value=(0.5, bad_speed, 0.3),
+            ):
+                state = build_retrieval_state(ground_travel=ball, defender_rating=100.0)
+                self.assertFalse(state.valid)
+                self.assertEqual(state.invalid_reason, "invalid_effective_fielder_speed")
+                self.assertEqual(state.effective_fielder_speed_fps, 0.0)
+                self.assertTrue(math.isfinite(state.movement_time_s))
+                self.assertTrue(math.isfinite(state.total_retrieval_time_s))
+
+    def test_invalid_rating_effect_denominator_fails_safe_before_division(self):
+        ball = ground_at(0.0, 360.0)
+        for denominator in (0.0, -1.0, float("nan"), float("inf")):
+            with self.subTest(denominator=denominator), patch.object(
+                P, "DEFENSE_RATING_FULL_EFFECT_POINTS", denominator
+            ):
+                state = build_retrieval_state(ground_travel=ball, defender_rating=100.0)
+                self.assertFalse(state.valid)
+                self.assertEqual(state.invalid_reason, "invalid_retrieval_derivation")
+                self.assertTrue(math.isfinite(state.total_retrieval_time_s))
+
+    def test_invalid_retrieval_propagates_to_invalid_physical_resolution(self):
+        with patch(
+            "src.hitting.retrieval._rating_adjusted_retrieval_terms",
+            return_value=(0.5, 0.0, 0.3),
+        ):
+            result = resolve_physical_hit_shadow(
+                ground_travel=ground_at(0.0, 360.0),
+                defensive_resolution=None,
+                defender_rating=100.0,
+                runner_speed_rating=100.0,
+            )
+        self.assertFalse(result.valid)
+        self.assertIsNone(result.physical_result_shadow)
+        self.assertFalse(result.retrieval.valid)
+        self.assertEqual(result.retrieval.invalid_reason, "invalid_effective_fielder_speed")
+        self.assertEqual(result.invalid_reason, "invalid_effective_fielder_speed")
+        self.assertTrue(math.isfinite(result.margin_1b_s))
+
     def test_throw_distance_and_relay_contract(self):
         retrieval = build_retrieval_state(ground_travel=ground_at(0.0, 300.0), defender_rating=100.0)
         near_throw = throw_timing_to_base(replace(retrieval, ball_x_ft=60.0, ball_y_ft=70.0), "1B")
@@ -132,6 +175,23 @@ class Phase2EBRetrievalHitShadowTests(unittest.TestCase):
         self.assertLessEqual(near_throw.total_throw_time_s, far_throw.total_throw_time_s)
         self.assertEqual(near_throw.relay_penalty_s, 0.0)
         self.assertEqual(far_throw.relay_penalty_s, P.RELAY_PENALTY_S)
+
+    def test_invalid_effective_throw_speed_fails_safe_before_division(self):
+        for bad_mph in (0.0, -1.0, float("nan"), float("inf"), float("-inf")):
+            with self.subTest(speed_mph=bad_mph), patch.dict(
+                P.EFFECTIVE_THROW_SPEED_MPH, {"OF": bad_mph}, clear=False
+            ):
+                result = resolve_physical_hit_shadow(
+                    ground_travel=ground_at(0.0, 300.0),
+                    defensive_resolution=None,
+                    defender_rating=100.0,
+                    runner_speed_rating=100.0,
+                )
+                self.assertFalse(result.valid)
+                self.assertIsNone(result.physical_result_shadow)
+                self.assertEqual(result.invalid_reason, "invalid_timing_derivation")
+                self.assertTrue(result.retrieval.valid)
+                self.assertTrue(math.isfinite(result.margin_1b_s))
 
     def test_runner_speed_monotonicity(self):
         slow = runner_arrival_times(80.0)
