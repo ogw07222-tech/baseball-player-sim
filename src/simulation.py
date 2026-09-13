@@ -15,16 +15,12 @@ import math
 from . import config
 from .hitting import parameters as hitting_parameters
 from .hitting.baserunning import GameState, resolve_steal
-from .hitting.model import (
-    HitterSnapshot,
-    HittingEngine,
-    Pitch,
-    PitcherSnapshot,
-    PlateAppearanceOutcome,
-)
+from .hitting.model import HitterSnapshot, HittingEngine, Pitch, PitcherSnapshot, PlateAppearanceOutcome
+from .hitting.trait_engine import PitchTraitModifiers, TraitAwareHittingEngine
 from .player import Player
 from .records import BattingLine
 from .rng import RNG
+from .trait_runtime import TraitContext, evaluate_trait_effect_units, load_trait_catalog
 from .traits import has_trait
 
 PA_RESULTS = (
@@ -49,22 +45,9 @@ class PitcherProfile:
 
     @classmethod
     def from_level(cls, level: float, rng: RNG) -> "PitcherProfile":
-        return cls(
-            rng.gauss(level, 7.5),
-            rng.gauss(level, 8.0),
-            rng.gauss(level, 7.0),
-            "L" if rng.random() < .28 else "R",
-        )
+        return cls(rng.gauss(level, 7.5), rng.gauss(level, 8.0), rng.gauss(level, 7.0), "L" if rng.random() < .28 else "R")
 
-def _trait_contact_modifier(
-    p: Player,
-    pitcher: PitcherProfile,
-    pitch_type: str,
-    zone: str,
-    high_velocity: bool,
-    strikes: int,
-    pressure: bool,
-) -> float:
+def _trait_contact_modifier(p: Player, pitcher: PitcherProfile, pitch_type: str, zone: str, high_velocity: bool, strikes: int, pressure: bool) -> float:
     effect = config.TRAIT_EFFECT
     delta = 0.0
     if pitch_type == "fastball":
@@ -109,60 +92,44 @@ def _condition_modifiers(p: Player) -> tuple[float, float]:
 def _hitter_snapshot(p: Player) -> HitterSnapshot:
     bats = (p.bats_throws or "R/R").split("/", 1)[0]
     handedness = "L" if bats == "L" else "R"
-    return HitterSnapshot(
-        contact=p.effective_stat("contact"),
-        power=p.effective_stat("power"),
-        discipline=p.effective_stat("discipline"),
-        speed=p.effective_stat("speed"),
-        handedness=handedness,
-        approach="balanced",
-    )
+    return HitterSnapshot(contact=p.effective_stat("contact"), power=p.effective_stat("power"), discipline=p.effective_stat("discipline"), speed=p.effective_stat("speed"), handedness=handedness, approach="balanced")
 
 def _pitcher_snapshot(pitcher: PitcherProfile) -> PitcherSnapshot:
-    return PitcherSnapshot(
-        stuff=pitcher.stuff,
-        control=pitcher.control,
-        movement=pitcher.movement,
-        handedness=pitcher.handedness,
+    return PitcherSnapshot(stuff=pitcher.stuff, control=pitcher.control, movement=pitcher.movement, handedness=pitcher.handedness)
+
+def _common_trait_pitch_modifier(trait_ids: tuple[str, ...], player_form: str, hitter_approach: str, pitcher_handedness: str, pitch: Pitch, balls: int, strikes: int) -> PitchTraitModifiers:
+    units = evaluate_trait_effect_units(
+        trait_ids,
+        TraitContext(balls=balls, strikes=strikes, pitch_type=pitch.pitch_type, pitch_zone=pitch.zone, pitch_is_strike=pitch.is_strike, pitcher_handedness=pitcher_handedness, hitter_approach=hitter_approach, player_form=player_form),
+    )
+    effect = config.TRAIT_EFFECT
+    return PitchTraitModifiers(
+        contact_delta=units.contact_modifier * effect,
+        power_delta=units.power_modifier * effect * .25,
+        zone_swing_delta=units.pitch_selection_modifier * effect * hitting_parameters.DISCIPLINE_ZONE_WEIGHT,
+        chase_delta=(units.chase_modifier - units.pitch_selection_modifier) * effect * hitting_parameters.DISCIPLINE_CHASE_WEIGHT,
+        foul_survival_delta=units.foul_survival_modifier * effect * hitting_parameters.TWO_STRIKE_FOUL_DISCIPLINE_WEIGHT,
     )
 
-def simulate_plate_appearance_outcome(
-    p: Player,
-    pitcher: PitcherProfile,
-    rng: RNG,
-    pressure: bool = False,
-    defense_level: float = 100.0,
-) -> PlateAppearanceOutcome:
+def simulate_plate_appearance_outcome(p: Player, pitcher: PitcherProfile, rng: RNG, pressure: bool = False, defense_level: float = 100.0) -> PlateAppearanceOutcome:
     condition_contact, condition_power = _condition_modifiers(p)
 
     def modifier(pitch: Pitch, strikes: int) -> tuple[float, float]:
-        trait = _trait_contact_modifier(
-            p,
-            pitcher,
-            pitch.pitch_type,
-            pitch.zone,
-            pitch.velocity_quality > .35,
-            strikes,
-            pressure,
-        )
+        trait = _trait_contact_modifier(p, pitcher, pitch.pitch_type, pitch.zone, pitch.velocity_quality > .35, strikes, pressure)
         return condition_contact + trait, condition_power + trait * .25
 
-    engine = HittingEngine(
-        _hitter_snapshot(p),
-        _pitcher_snapshot(pitcher),
-        defense_level,
-        rng,
-        modifier,
-    )
+    hitter = _hitter_snapshot(p)
+    common_catalog = load_trait_catalog()
+    common_trait_ids = tuple(trait.key for trait in p.traits if trait.key in common_catalog.by_id)
+    if common_trait_ids:
+        def gameplay_modifier(pitch: Pitch, balls: int, strikes: int) -> PitchTraitModifiers:
+            return _common_trait_pitch_modifier(common_trait_ids, p.form, hitter.approach, pitcher.handedness, pitch, balls, strikes)
+        engine = TraitAwareHittingEngine(hitter, _pitcher_snapshot(pitcher), defense_level, rng, modifier, trait_gameplay_modifier=gameplay_modifier)
+    else:
+        engine = HittingEngine(hitter, _pitcher_snapshot(pitcher), defense_level, rng, modifier)
     return engine.simulate_plate_appearance()
 
-def simulate_plate_appearance(
-    p: Player,
-    pitcher: PitcherProfile,
-    rng: RNG,
-    pressure: bool = False,
-) -> str:
-    """Backward-compatible public PA API."""
+def simulate_plate_appearance(p: Player, pitcher: PitcherProfile, rng: RNG, pressure: bool = False) -> str:
     return simulate_plate_appearance_outcome(p, pitcher, rng, pressure).result
 
 def _run_rbi_values(result: str, rng: RNG) -> tuple[int, int]:
@@ -178,36 +145,18 @@ def _run_rbi_values(result: str, rng: RNG) -> tuple[int, int]:
     return 0, 0
 
 def _fork_rng(rng: RNG, namespace: str) -> RNG:
-    """Create a deterministic child stream without consuming career RNG state."""
     payload = (namespace + "|" + repr(rng.get_state())).encode("utf-8")
     seed = int.from_bytes(hashlib.sha256(payload).digest()[:8], "big")
     return RNG(seed)
 
 def _compat_steal_state(rng: RNG) -> GameState:
-    """Mirror the validated H3.2 context sampler for legacy career callers."""
     inning = rng.randint(1, 9)
     x = rng.random()
     outs = 0 if x < .34 else 1 if x < .69 else 2
     score_diff = int(round(max(-6, min(6, rng.gauss(0, 2.25)))))
-    return GameState(
-        inning=inning,
-        outs=outs,
-        score_diff=score_diff,
-        first_occupied=True,
-        second_occupied=rng.random() < hitting_parameters.STEAL_SECOND_BASE_OCCUPIED_RATE,
-        third_occupied=False,
-    )
+    return GameState(inning=inning, outs=outs, score_diff=score_diff, first_occupied=True, second_occupied=rng.random() < hitting_parameters.STEAL_SECOND_BASE_OCCUPIED_RATE, third_occupied=False)
 
-def _maybe_compat_steal(
-    p: Player,
-    line: BattingLine,
-    result: str,
-    parent_rng: RNG,
-    appearance_index: int,
-    appearances: int,
-    running_defense: float = 100.0,
-) -> None:
-    """Legacy adapter: apply only validated SB/CS without inventing teammate state."""
+def _maybe_compat_steal(p: Player, line: BattingLine, result: str, parent_rng: RNG, appearance_index: int, appearances: int, running_defense: float = 100.0) -> None:
     if result not in {"single", "walk", "hit_by_pitch", "reached_on_error"}:
         return
     run_rng = _fork_rng(parent_rng, f"h321-steal:{appearance_index}:{appearances}")
@@ -216,50 +165,16 @@ def _maybe_compat_steal(
     if not steal.attempted:
         return
     line.SB_attempts += 1
-    if steal.success:
-        line.SB += 1
-    else:
-        line.CS += 1
+    if steal.success: line.SB += 1
+    else: line.CS += 1
 
-def simulate_player_game(
-    p: Player,
-    opponent_level: float,
-    rng: RNG,
-    line: BattingLine,
-    pa_count: int | None = None,
-    game_state: GameState | None = None,
-) -> None:
-    """Simulate the player's game while preserving the established public API.
-
-    ``game_state`` is reserved for the future full-team inning integration. The
-    current career engine has no runner identities between teammate PAs, so it
-    cannot safely apply H3.2.1 advancement/DP events here without inventing
-    state. Callers with a real inning engine should use ``src.hitting.baserunning``
-    directly with the actual runner's Speed.
-    """
+def simulate_player_game(p: Player, opponent_level: float, rng: RNG, line: BattingLine, pa_count: int | None = None, game_state: GameState | None = None) -> None:
     del game_state
     pitcher = PitcherProfile.from_level(opponent_level, rng)
     line.G += 1
-    appearances = (
-        pa_count if pa_count is not None
-        else rng.weighted_choice(((3, .12), (4, .58), (5, .25), (6, .05)))
-    )
+    appearances = pa_count if pa_count is not None else rng.weighted_choice(((3, .12), (4, .58), (5, .25), (6, .05)))
     for index in range(appearances):
-        outcome = simulate_plate_appearance_outcome(
-            p,
-            pitcher,
-            rng,
-            pressure=index >= 3 and rng.random() < .28,
-            defense_level=opponent_level,
-        )
+        outcome = simulate_plate_appearance_outcome(p, pitcher, rng, pressure=index >= 3 and rng.random() < .28, defense_level=opponent_level)
         runs, rbi = _run_rbi_values(outcome.result, rng)
         line.record_pa(outcome.result, runs=runs, rbi=rbi)
-        _maybe_compat_steal(
-            p,
-            line,
-            outcome.result,
-            rng,
-            index,
-            appearances,
-            100.0,
-        )
+        _maybe_compat_steal(p, line, outcome.result, rng, index, appearances, 100.0)
