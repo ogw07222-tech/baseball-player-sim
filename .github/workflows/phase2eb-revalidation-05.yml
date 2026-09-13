@@ -39,7 +39,7 @@ jobs:
       - name: Compile validation probe
         run: python -m py_compile tools/phase2eb_revalidation_05.py
       - name: Independent blocker and regression probe
-        run: python tools/phase2eb_revalidation_05.py
+        run: PYTHONPATH=. python tools/phase2eb_revalidation_05.py
       - name: Targeted Phase 2E-B and upstream regression tests
         run: >-
           python -m unittest -v
