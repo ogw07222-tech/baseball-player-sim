@@ -1,0 +1,128 @@
+name: phase2eb-validation-05
+
+on:
+  push:
+    branches:
+      - validation/phase2e-b-candidate-05
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/baseball_sim_test
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: baseball_sim_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d baseball_sim_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install API dependencies
+        run: pip install -r requirements-api.txt
+      - name: Assert exact PR70 production identity
+        run: |
+          test "$(git rev-parse HEAD:src/hitting/retrieval.py)" = "5b18688098f35edf3775c92c102b2ca4d860069b"
+          test "$(git rev-parse HEAD:src/hitting/retrieval_parameters.py)" = "317f3ab822b3165f8ad07be84dfb508a72dd7501"
+          test "$(git rev-parse HEAD:src/hitting/physical.py)" = "74718c24f25341eaff9f1bb453ba5f70009c1d44"
+          test "$(git rev-parse HEAD:src/hitting/model.py)" = "eaeb4d1b6e024d8d64fd6aa1b47a30aaf879aaca"
+          git diff --exit-code b2da105e0c29de519b71673076afe51173593b5c -- src tests requirements-api.txt web
+      - name: Compile validation tools
+        run: python -m py_compile tools/phase2eb_validation_05.py tools/phase2eb_cross_version_05.py
+      - name: Phase 2E-B 200k structural validation
+        run: PYTHONPATH=. python tools/phase2eb_validation_05.py --pa 200000 --seed 20260913 --output phase2eb-validation.json | tee phase2eb-validation.log
+      - name: Exact Phase2E-A baseline vs Phase2E-B candidate regression
+        run: |
+          git worktree add --detach /tmp/phase2ea 47ada4fe9f1d95da2760d7a8d56a8900aab6fdc3
+          PYTHONPATH="$GITHUB_WORKSPACE" python tools/phase2eb_cross_version_05.py --pa 200000 --games 1000 --seed 20260913 --output candidate-regression.json > candidate-regression.log
+          PYTHONPATH=/tmp/phase2ea python "$GITHUB_WORKSPACE/tools/phase2eb_cross_version_05.py" --pa 200000 --games 1000 --seed 20260913 --output baseline-regression.json > baseline-regression.log
+          python - <<'PY'
+          import json
+          a=json.load(open('baseline-regression.json')); b=json.load(open('candidate-regression.json'))
+          out={
+            'pa_counts_equal':a['pa']['counts']==b['pa']['counts'],
+            'pa_sequence_equal':a['pa']['sequence_hash']==b['pa']['sequence_hash'],
+            'pa_rng_equal':a['pa']['rng_hash']==b['pa']['rng_hash'],
+            'game_sequence_equal':a['games']['sequence_hash']==b['games']['sequence_hash'],
+            'game_rng_equal':a['games']['rng_hash']==b['games']['rng_hash'],
+            'baseline':a,'candidate':b,
+          }
+          json.dump(out,open('cross-version-comparison.json','w'),indent=2,sort_keys=True)
+          print(json.dumps(out,indent=2,sort_keys=True))
+          assert all(out[k] for k in ('pa_counts_equal','pa_sequence_equal','pa_rng_equal','game_sequence_equal','game_rng_equal'))
+          PY
+      - name: Paired same-run performance benchmark
+        run: |
+          rm -f perf-pairs.jsonl
+          for i in 1 2 3; do
+            PYTHONPATH=/tmp/phase2ea python "$GITHUB_WORKSPACE/tools/phase2eb_cross_version_05.py" --pa 50000 --games 500 --seed $((20261000+i)) --output "perf-baseline-$i.json" >/dev/null
+            PYTHONPATH="$GITHUB_WORKSPACE" python tools/phase2eb_cross_version_05.py --pa 50000 --games 500 --seed $((20261000+i)) --output "perf-candidate-$i.json" >/dev/null
+          done
+          python - <<'PY'
+          import json,statistics
+          pairs=[]
+          for i in range(1,4):
+            a=json.load(open(f'perf-baseline-{i}.json'));b=json.load(open(f'perf-candidate-{i}.json'))
+            pairs.append({'round':i,'baseline_us_pa':a['pa']['us_per_pa'],'candidate_us_pa':b['pa']['us_per_pa'],'pa_delta_pct':(b['pa']['us_per_pa']/a['pa']['us_per_pa']-1)*100,'baseline_ms_game':a['games']['ms_per_game'],'candidate_ms_game':b['games']['ms_per_game'],'game_delta_pct':(b['games']['ms_per_game']/a['games']['ms_per_game']-1)*100})
+          out={'pairs':pairs,'median_pa_delta_pct':statistics.median(x['pa_delta_pct'] for x in pairs),'median_game_delta_pct':statistics.median(x['game_delta_pct'] for x in pairs),'median_baseline_us_pa':statistics.median(x['baseline_us_pa'] for x in pairs),'median_candidate_us_pa':statistics.median(x['candidate_us_pa'] for x in pairs),'median_baseline_ms_game':statistics.median(x['baseline_ms_game'] for x in pairs),'median_candidate_ms_game':statistics.median(x['candidate_ms_game'] for x in pairs)}
+          json.dump(out,open('phase2eb-performance.json','w'),indent=2,sort_keys=True);print(json.dumps(out,indent=2,sort_keys=True))
+          PY
+      - name: Targeted Phase 2E-B and upstream tests
+        run: |
+          python -m unittest \
+            tests.test_phase2e_b_retrieval_hit_shadow \
+            tests.test_phase2e_a_ground_travel \
+            tests.test_phase2d_physical_defense \
+            tests.test_phase2c_stadium \
+            tests.test_phase2b_trajectory \
+            tests.test_phase2a_physical \
+            tests.test_hitting_count_regression -v | tee phase2eb-targeted-tests.log
+      - name: Full Python suite context
+        run: |
+          set +e
+          python -m unittest discover -s tests -v > phase2eb-full-tests.log 2>&1
+          code=$?
+          echo "$code" > phase2eb-full-exit-code.txt
+          tail -n 100 phase2eb-full-tests.log
+          exit 0
+      - name: Web regression
+        working-directory: web
+        run: |
+          npm install
+          npm run build | tee ../phase2eb-web-build.log
+          npm test | tee ../phase2eb-web-tests.log
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2eb-validation-${{ github.run_id }}-${{ github.sha }}
+          path: |
+            phase2eb-validation.json
+            phase2eb-validation.log
+            candidate-regression.json
+            baseline-regression.json
+            cross-version-comparison.json
+            candidate-regression.log
+            baseline-regression.log
+            phase2eb-performance.json
+            perf-baseline-*.json
+            perf-candidate-*.json
+            phase2eb-targeted-tests.log
+            phase2eb-full-tests.log
+            phase2eb-full-exit-code.txt
+            phase2eb-web-build.log
+            phase2eb-web-tests.log
