@@ -1,220 +1,219 @@
 # 05 - Balance Lab
 
 WORKSTREAM: 05 - Balance Lab
-UPDATED_AT: 2026-09-12
-SOURCE_OF_TRUTH: production main@47ada4fe9f1d95da2760d7a8d56a8900aab6fdc3
-STATE: FAIL_WITH_NON_EVENT_GLOBAL_CI_WATCH
-CURRENT_TASK: Interactive Event P1 final production validation
-RESULT: INTERACTIVE_EVENT_P1_FAIL / P1_CLOSE_ALLOWED_NO
+UPDATED_AT: 2026-09-13
+SOURCE_OF_TRUTH: PR70 exact HEAD@b2da105e0c29de519b71673076afe51173593b5c; task-start latest main@a59477e0375aae37bedbd59cc60ad3ee362cf1bd
+STATE: FAIL
+CURRENT_TASK: Phase 2E-B retrieval / physical hit-type shadow independent validation
+RESULT: PHASE2E_B_VALIDATION_FAIL / MERGE_ALLOWED_NO
 
 ## FINAL_DECISION
-- VALIDATED_MAIN_HEAD = `47ada4fe9f1d95da2760d7a8d56a8900aab6fdc3`.
-- INTERACTIVE_EVENT_P1 = FAIL.
-- P1_CLOSE_ALLOWED = NO.
-- Blocking reason is not transaction integrity, RNG, persistence, API, UI build, or raw performance. The production catalog exposes materially frequent EVENTs whose choices cannot be authoritatively resolved by 03; those pending EVENTs persist across seasons, accumulate to the max-pending cap, and eventually suppress future EVENT generation.
-- No event chance, cooldown, effect magnitude, catalog entry, gameplay/growth formula, or production code was tuned or modified by 05.
+- Exact independently validated PR HEAD: `b2da105e0c29de519b71673076afe51173593b5c`.
+- SOURCE_IDENTITY = PASS.
+- PHASE2E_B_VALIDATION = FAIL.
+- MERGE_ALLOWED = NO from 05 until 01 corrects the fail-safe defect and 05 revalidates the corrected exact HEAD.
+- Blocking defect: when an invalid/non-positive effective fielder speed reaches retrieval derivation, `build_retrieval_state()` performs `distance / speed` before rejecting `speed <= 0`, causing `ZeroDivisionError` rather than returning `valid=False`, `physical_result_shadow=None`, and an explicit invalid reason as required by the Phase2E-B fail-safe contract.
+- Invalid owner, missing/invalid ground state, non-finite final location, invalid defender rating, invalid runner rating, and invalid throw speed fail safely in the independent probes.
+- No production coefficient, gameplay formula, authority path, or tuning value was changed by 05.
+
+## SOURCE_IDENTITY
+- PR #70: `Gameplay: Phase 2E-B retrieval and physical hit-type shadow`.
+- PR state at validation start: OPEN / mergeable / non-draft.
+- exact PR HEAD: `b2da105e0c29de519b71673076afe51173593b5c`.
+- 01 implementation checkpoint: `6d201690ff7ba56f5fda30663e0cf73678a8ee58`.
+- checkpoint -> final HEAD: one docs-only status commit; production/test code identity preserved.
+- task-start latest main: `a59477e0375aae37bedbd59cc60ad3ee362cf1bd`; compared with PR base `47ada4fe9f1d95da2760d7a8d56a8900aab6fdc3`, only `docs/workstream-status/05-balance-lab.md` changed, so production baseline is unchanged.
+- independently verified production blobs:
+  - `src/hitting/retrieval.py` = `5b18688098f35edf3775c92c102b2ca4d860069b`
+  - `src/hitting/retrieval_parameters.py` = `317f3ab822b3165f8ad07be84dfb508a72dd7501`
+  - `src/hitting/physical.py` = `74718c24f25341eaff9f1bb453ba5f70009c1d44`
+  - `src/hitting/model.py` = `eaeb4d1b6e024d8d64fd6aa1b47a30aaf879aaca`
 
 ## CANONICAL_VALIDATION_EVIDENCE
-- Validation-only branch: `validation/interactive-event-p1-final-05`.
-- Canonical final validation checkout: `896f8b6088b1c7d08431fa76d649f5ac21333df7`.
-- Actions run: `34673576025` — SUCCESS.
-- Job: `103499336875` — SUCCESS.
-- Artifact: `10291617959`.
-- Artifact digest: `sha256:9504d7660ef25b5b89bbc23beb247c0d6481391204eb8bdcc47bd8b5ae8eaf0c`.
-- Production identity assertion against `47ada4fe...` passed for `src`, `web`, `tests`, and `requirements-api.txt`; validation branch adds validation files only.
+- validation-only branch: `validation/phase2e-b-candidate-05` based directly on exact PR HEAD.
+- canonical validation checkout: `326a80a900e89eed07459c3f4c6053a4015479f5` (PR production/test identity asserted exact; only validation tools/workflow added).
+- GitHub Actions run: `34746969032` — SUCCESS.
+- job: `103696561652` — SUCCESS.
+- artifact: `10314478012`.
+- artifact digest: `sha256:321d6586af2af5f9b28fff09fcede2aa77a1e789b5e04786c925799207119eb7`.
+- supplemental invalid-edge branch: `validation/phase2eb-invalid-05`.
+- invalid-edge run: `34747418245`; artifact `10314626891`, digest `sha256:4966c1b5138345b3560fcba58c2e19b6ebd97e188e8462d38bb3ffe41e52d046`.
 
-## SAMPLE_SIZE
-- Event-frequency/category/archetype generation cohort: 500 deterministic 144-game seasons.
-- Queue cohorts: 500 unattended seasons + 500 authoritative-resolution seasons.
-- Multiseason queue probe: 200 seeds x 4 seasons = 800 seasons.
-- Long-term effect paired cohort: 80 event-vs-no-event season pairs.
-- RNG purity: 40 paired 144-game seasons.
-- Performance: 120 seasons = 17,280 games each side, interleaved paired benchmark.
-- Full Python regression: 478 tests, 477 pass / 1 known unrelated failure / 5 skipped.
-- Web: 6 test files / 44 tests PASS plus production build PASS.
+## SAMPLE
+- structural corpus: 200,000 PA, seed `20260913`, defense and runner speed cycling 60/80/100/120/140.
+- candidate physical resolution attempts: 143,113; valid physical results 142,550; invalid-ground fail-safe 563 (0.3934%).
+- retrieval-applicable states: 80,441; Phase2D-caught short-circuit states: 62,109.
+- exact cross-version legacy regression: 200,000 PA and 1,000 full games, exact Phase2E-A baseline checkout vs exact Phase2E-B candidate.
+- performance: three paired same-run rounds, each 50,000 PA + 500 full games per side.
+- full Python context: 497 tests; 496 pass, 1 unrelated historical draft-distribution failure.
+- web: build PASS; 6 files / 44 tests PASS.
 
-## EVENT_FREQUENCY
-500-season record-only generation cohort:
-- mean 4.946 EVENT/season; median 6.
-- P10 3; P25 4; P75 6; P90 6; min 0; max 6.
-- zero-event season rate 0.4%.
-- season-cap(6) hit rate 52.0%.
-- Frequency is not sparse, but median=P75=P90=cap and a majority of seasons hit the cap, so the observed distribution is materially cap-truncated.
-- EVENT_FREQUENCY = WATCH; no chance/cap tuning performed.
+## OWNERSHIP
+Among 80,441 retrieval-applicable states:
+- P 27,990 (34.796%)
+- CF 16,918 (21.032%)
+- 2B 6,461 (8.032%)
+- SS 6,428 (7.991%)
+- 1B 5,808 (7.220%)
+- 3B 5,713 (7.102%)
+- RF 4,971 (6.180%)
+- LF 4,937 (6.137%)
+- C 1,215 (1.510%)
+Radial ownership is structurally coherent: <35 ft all C; 35–90 ft 73.9% P with corner IF on side sectors; 90–185 ft overwhelmingly SS/2B plus line-side 3B/1B; >185 ft exclusively OF. LF/RF shares are near mirror-equal. Hard depth/sector boundaries are intentional engineering thresholds and remain calibration WATCH items.
+- OWNERSHIP = PASS.
 
-## CATEGORY_AND_ARCHETYPE_DISTRIBUTION
-2,473 generated EVENTs:
-- training 832 = 33.64%.
-- team_role 774 = 31.30%.
-- media 405 = 16.38%.
-- coach 322 = 13.02%.
-- recovery 131 = 5.30%.
-- form 9 = 0.364%.
-Per-season category diversity: mean 3.57; median 4; P10 2; P90 5.
-All ten catalog archetypes were technically reached, but form archetypes are practically dormant in this corpus:
-- `slump_response`: 3 / 2,473 = 0.121%, absent in 99.4% of seasons.
-- `hot_streak_routine`: 6 / 2,473 = 0.243%, absent in 98.8% of seasons.
-Other archetype counts: batting training 164, defense training 301, weakness 367, coach 322, role competition 383, position practice 391, media 405, fatigue management 131.
-- CATEGORY_DIVERSITY = WATCH.
-- ARCHETYPE_REACHABILITY = WATCH (all reachable, but both form archetypes are near-never under measured production-state eligibility).
+## RETRIEVAL_DISTANCE_TIME
+Overall retrieval distance ft: mean 42.704; median 35.570; P10 10.646; P25 18.255; P75 59.387; P90 88.303; P95 103.744; P99 127.763; max 234.114.
+Overall total retrieval time s: mean 3.268; median 2.936; P10 1.598; P25 2.029; P75 4.168; P90 5.547; P95 6.281; P99 7.506; max 12.587.
+Components:
+- reaction: mean 0.550 s, range 0.360..0.780; zero pileup at configured 0.25/1.10 hard bounds.
+- effective fielder speed: mean 20.180 ft/s, range 15.84..24.64; zero pileup at configured 14/27 hard bounds.
+- movement: mean 2.054 s, median 1.741, P95 4.808, max 11.007.
+- pickup/transfer: role constants 0.55/0.65/0.80 s.
+Role pattern is coherent: P mean retrieval distance 16.16 ft / time 1.90 s; CF 76.90 ft / 5.02 s; LF/RF about 66.8 ft / 4.54 s.
+- RETRIEVAL_DISTANCE = PASS.
+- RETRIEVAL_TIME = PASS.
 
-## COOLDOWN_AND_DEDUPE
-Across the 500-season generation cohort:
-- duplicate event_id: 0.
-- duplicate dedupe_key: 0.
-- season-cap bypass: 0.
-- per-archetype cap bypass: 0.
-- once-per-season bypass: 0.
-- event cooldown violation: 0.
-- category cooldown violation: 0.
-Current catalog has `coach_method_trial` and `position_practice` once-per-season; there are no once-per-career catalog archetypes at this production head.
-- COOLDOWN_DEDUPE = PASS.
+## DEFENSE_RATING
+Controlled 60/80/100/120/140 plus ±1e6 extreme sweeps at representative IF and OF locations:
+- reaction time monotonically non-increasing.
+- effective speed monotonically non-decreasing.
+- total retrieval time monotonically non-increasing.
+- all ordinary/extreme rating outputs finite and positive under normal production parameters.
+Corpus mean total retrieval time falls 3.719 s @60 -> 3.470 @80 -> 3.220 @100 -> 3.034 @120 -> 2.845 @140.
+- DEFENSE_RATING = PASS.
 
-## CHOICE_SUPPORT_MATRIX
-Production P1 catalog contains 30 total choices:
-- SUPPORTED by 03 authority: 22 = 73.33%.
-- UNSUPPORTED_BY_03: 8 = 26.67%.
-Unsupported choices:
-- `role_competition/compete`: unsupported `development_modifier` target `role_readiness`.
-- `role_competition/versatile`: unsupported `development_modifier` target `versatility` (plus unsupported role semantics).
-- all three `position_practice` choices: unsupported `secondary_position` / `primary_position` semantics.
-- all three `media_interview` choices: `temporary_trait_request` / public-stance semantics are unsupported.
-Consequently:
-- `position_practice` = ALL choices unsupported.
-- `media_interview` = ALL choices unsupported.
-- `role_competition` exposes two unsupported choices and one currently resolvable choice (`steady`).
-- SUPPORTED_CHOICE_COVERAGE = FAIL for a close-ready P1 catalog.
+## THROW_MODEL
+By role, throw distances/speeds/release/relay/arrival were finite and positive for targets 1B/2B/3B. Representative effective speeds: PC 102.67 ft/s, IF 105.6 ft/s, OF 114.4 ft/s.
+Controlled same-role 1B target sweep from 0 to 320 ft:
+- throw distance monotonic PASS.
+- total throw time monotonic PASS.
+- below 220 ft relay penalty exactly 0.
+- exactly 220 ft penalty 0.
+- just above 220 ft fixed 0.65 s penalty.
+- measured 219.99 -> 220.01 ft time jump = 0.650175 s.
+The threshold contract works as authored but introduces a deliberate hard discontinuity requiring future calibration review.
+- THROW_MODEL = WATCH.
 
-## UNSUPPORTED_EXPOSURE_AND_QUEUE_BLOCKER
-In the 2,473-event generation cohort:
-- generated EVENTs containing >=1 unsupported choice: 47.6749%.
-- generated EVENTs with ALL choices unsupported: 32.1876%.
-The current UI renders every backend choice with the same actionable resolve button; unsupported choices are not pre-disabled/capability-tagged. API failure is explicit/atomic, but this does not make the catalog usable.
-Single-season queue measurements:
-- fully unattended: 93.2% of seasons reached pending cap=3 at least once; pending count was at cap for 51.00% of game states; final pending median=3.
-- authoritative supported-choice resolution: final pending mean=1.576, median=2, consisting of all-unsupported EVENTs; queue did not yet hit 3 within most first seasons.
-Multiseason production lifecycle probe, resolving every supported EVENT and leaving only all-unsupported EVENTs pending:
-- season 1: generated mean 5.03; pending mean 1.585; pending=3 rate 0%.
-- season 2: generated mean 2.625; pending mean 2.77; pending=3 rate 80.0%.
-- season 3: generated mean 0.455; zero-generation seasons 80.0%; pending=3 rate 98.5%.
-- season 4: generated mean 0.05; zero-generation seasons 98.5%; pending=3 rate 99.5%.
-Final pending types are exclusively `position_practice` and `media_interview`; pending EVENT history survives season resets while the generator blocks whenever pending count reaches 3.
-- UNSUPPORTED_EXPOSURE = FAIL.
-- PENDING_QUEUE = FAIL.
-This is the reproducible P1 blocker.
+## RUNNER_MODEL
+Controlled arrival times by production speed scalar:
+- speed 60 (low clamp): 1B 4.857 s / 2B 9.108 / 3B 13.359.
+- 80: 4.565 / 8.540 / 12.515.
+- 100: 4.200 / 7.830 / 11.460.
+- 120: 3.835 / 7.120 / 10.405.
+- 140 (high clamp): 3.543 / 6.552 / 9.561.
+All cumulative times are monotonically non-increasing with speed. Multiplier saturates at 1.18 for rating <=64 and 0.82 for >=136. This is structurally bounded but the hard saturation is an engineering calibration choice.
+- RUNNER_MODEL = WATCH.
 
-## EFFECT_MAGNITUDE_AND_LONG_TERM
-Supported planned effects only:
-- growth mean-credit configured total per effect plan: median +0.14, P10 -0.112, P90 +0.35, min -0.168, max +0.42 before canonical season-growth mapping.
-- fatigue configured total: min -15, max +14; authoritative 0..100 clamp probe passed.
-- active-effect durations: median 10 committed games; range 5..21.
-- exact duration expiration probe PASS; no hidden active-effect persistence after expiration.
-80 paired event-vs-no-event seasons (first supported choice policy):
-- season-end current-ability delta mean +0.3142; median +0.3333; P10 0; P90 +0.6917; min -1.4167; max +0.8750.
-- mean absolute per-rating delta mean 0.3398; max pair 3.0909.
-- pre-finalization fatigue delta median 0; mean -0.064; min -30.75; max +14.
-- form-state difference at season end 0% in this cohort.
-No one-season runaway accumulation was observed, but these mappings remain engineering values rather than calibrated career-balance targets, and a healthy full-career impact cannot be certified while queue saturation stops the EVENT system in later seasons.
-- EFFECT_MAGNITUDE = WATCH.
-- LONG_TERM_IMPACT = WATCH.
+## PHYSICAL_RESULT_DISTRIBUTION
+Among 142,550 valid physical BIP shadow results:
+- OUT 100,775 = 70.6945%
+- 1B 34,856 = 24.4518%
+- 2B 6,410 = 4.4967%
+- 3B 509 = 0.3571%
+- HR = 0 by construction and observed corpus.
+- Phase2D-caught OUT share = 43.5700% of all valid physical BIP.
+- retrieval-derived OUT share = 27.1245%.
+By trajectory: ground_like OUT 53.36%; line_drive OUT 82.23%; fly_ball OUT 96.48%; popup OUT 89.27%. The very high line/fly physical OUT shares are not authority and remain a calibration WATCH rather than a structural blocker.
+Wall-ground-contact retrieval subset: 1B 7.99%, 2B 63.58%, 3B 28.43%, OUT 0%; deep wall-stop balls do not collapse to OUT.
+Defense monotonic direction is visible: OUT share 64.05% @60 -> 67.88 @80 -> 71.04 @100 -> 73.99 @120 -> 76.50 @140.
+Runner speed moves outcomes in expected direction: OUT 77.56% @60 -> 63.93% @140, with extra-base shares increasing.
+- RESULT_DISTRIBUTION = WATCH for calibration, structural non-collapse PASS.
 
-## TRADEOFFS
-Supported mappings preserve explicit multi-effect costs where authored (training upside/fatigue, recovery/development cost, defense specialization/hitting opportunity cost). However no player utility function exists, and unsupported role/position/media choices prevent a full catalog dominance proof. No tuning was attempted.
-- TRADEOFFS = OPEN.
+## CONTROLLED_RESULTS_AND_MARGINS
+Independent controlled cases reproduced:
+- routine grounder -> OUT.
+- remote retrieval -> 1B.
+- deep gap -> 2B.
+- very deep/wall-stop -> 3B.
+- Phase2D caught -> OUT.
+- no Phase2E-B case produced HR.
+Timing margin convention was confirmed as defense_arrival - runner_arrival.
+Near-boundary shares among 80,441 retrieval states:
+- 1B: |margin|<0.05 = 1.721%; <0.10 = 3.532%; <0.25 = 8.672%.
+- 2B: 0.679%; 1.304%; 3.240%.
+- 3B: 0.068%; 0.157%; 0.370%.
+No large near-zero mass was observed, though deterministic hard timing boundaries remain future calibration-sensitive.
+- CONTROLLED_RESULTS = PASS.
+- TIMING_MARGINS = PASS.
 
-## DETERMINISM_AND_RNG_PURITY
-- duplicate authoritative season replay canonical serialized hash exact equal: `9ab48357c358b348aa724eff658529985ece9bfe274e885259f89f0474512e5f`.
-- 40 observational EVENT-enabled vs generation-disabled paired seasons: 0 exact core-state/RNG failures.
-- generation uses deterministic hash-derived rolls and does not advance canonical RNG; authoritative effect resolution/ticking consumes no new RNG.
+## PHASE2D_INTERFACE
+62,109 Phase2D physical catches short-circuited directly to OUT. Independent corpus contradictory `caught AND 1B/2B/3B` count = 0. Retrieval/throw timing is not populated for caught states.
+- PHASE2D_INTERFACE = PASS.
+
+## INVALID_FAIL_SAFE
+PASS cases:
+- missing GroundTravel -> invalid `missing_ground_travel`, result None.
+- invalid GroundTravel -> invalid `invalid_ground_travel`, result None.
+- non-finite final location -> invalid `non_finite_final_location`, result None.
+- invalid defender rating -> invalid `invalid_defender_rating`, result None.
+- invalid runner rating -> invalid `invalid_timing_derivation`, result None.
+- invalid throw speed -> invalid `invalid_timing_derivation`, result None.
+- forced invalid owner -> invalid `invalid_retrieval_derivation`, result None.
+FAIL case confirmed in both main structural harness and supplemental exact-head probe:
+- force non-positive effective fielder speed -> `ZeroDivisionError('float division by zero')` from movement derivation; no finite invalid resolution object is returned.
+Root cause is derivation order: movement performs `distance / speed` before the subsequent `speed <= 0` bound check can fail safe.
+- INVALID_STATE = FAIL.
+
+## MIRROR
+Controlled LF/RF mirrored locations preserve mirrored owner, equal retrieval distance, reaction, speed, movement, pickup and total retrieval time. Mapped target-base mirror (LF->3B vs RF->1B) preserves throw distance/time to floating exact tolerance. Production LF/RF occurrence shares are also near equal.
+- MIRROR = PASS.
+
+## DETERMINISM_RNG_UPSTREAM_LEGACY
+- duplicate candidate replay physical-resolution hash exact equal.
+- candidate enabled vs Phase2E-B-disabled parent RNG hash exact equal.
+- Phase2A/B/C/D/E-A upstream metadata hash exact equal.
+- independent cross-version exact checkout comparison (`47ada4fe...` Phase2E-A baseline vs `b2da105...` candidate): 200k PA result counts and sequence hash exact equal; final PA RNG exact equal; 1,000 full-game repr sequence hash exact equal; final game RNG exact equal.
+- therefore legacy H/1B/2B/3B/HR/BB/K/HBP/ROE/out/run/runner-advancement behavior is unchanged because the entire 1,000-game result sequence is byte-repr equivalent, not merely distribution-equivalent.
 - DETERMINISM = PASS.
 - RNG_PURITY = PASS.
-
-## SAVE_LOAD_AND_ADVANCE_COMPOSITION
-Existing production tests plus independent roundtrip validate persistence of pending/resolved EVENT records, active effects, remaining games, cooldown/count state, and old-save compatibility. Same next action after load is deterministic.
-Exact event coordinates were independently observed for:
-- `next_game`: game 1 / 2026-04-01.
-- `week`: generated at constituent game 1 / 2026-04-01 within a 6-game command.
-- `month`: generated at constituent game 1 / 2026-04-01 within a 26-game command.
-Thus period commands do not synthesize EVENT only at period end.
-- SAVE_LOAD = PASS.
-- ADVANCE_COMPOSITION = PASS.
-
-## API_UI_VERTICAL_SLICE_AND_TRANSACTIONS
-Current production integration tests PASS for:
-- state/advance pending_events transport.
-- pending EVENT -> resolve request -> authoritative effect -> resolved removal -> remaining queue.
-- valid resolution revision +1.
-- stale revision rejected with no mutation.
-- same idempotency replay returns same response and applies effect once.
-- same idempotency key with conflicting payload rejected.
-- second resolve rejected without second effect.
-- invalid event_id / choice_id / malformed authoritative fields rejected without partial mutation.
-- unsupported effect returns explicit `UNSUPPORTED_EVENT_EFFECT` without mutation.
-Web production build PASS and 44/44 Vitest tests PASS, including 12 Interactive Event UI tests. The UI correctly displays backend errors and prevents duplicate dispatch while a request is in flight.
-- RESOLVE_TRANSACTION = PASS.
-- IDEMPOTENCY = PASS.
-- API_UI_VERTICAL_SLICE = PASS_WITH_UNSUPPORTED_USABILITY_BLOCKER (represented by UNSUPPORTED_EXPOSURE=FAIL).
-
-## EVENT_CAREER_SEPARATION
-- EVENT transport remains `pending_events: InteractiveEvent[]`.
-- CAREER transport remains `notable_events: CanonicalEventDTO[]`.
-- choice resolution itself does not emit a CareerSourceFact.
-- only real authoritative career transitions (e.g. actual form transition) feed CAREER facts.
-- frontend EVENT panel is distinct from Career/Season presentation.
-- EVENT_CAREER_SEPARATION = PASS.
+- UPSTREAM_REGRESSION = PASS.
+- LEGACY_REGRESSION = PASS.
 
 ## PERFORMANCE
-Interleaved same-process benchmark, 120 seasons / 17,280 games each side using identical lightweight game provider:
-- EVENT-generation/eligibility enabled: 345.18 us/game.
-- generation patched out: 346.84 us/game.
-- measured delta: -0.48% (noise-level; no measurable regression).
-Catalog scan is small fixed-size O(catalog) work and pending-size check is bounded at the P1 cap.
-- PERFORMANCE = PASS.
+Same-run isolated exact-checkout benchmark, 3 paired rounds; each round 50k PA + 500 games per side.
+Medians:
+- Phase2E-A baseline: 127.660 us/PA; Phase2E-B candidate: 148.639 us/PA; incremental +15.691%.
+- baseline: 14.229 ms/game; candidate: 15.986 ms/game; incremental +11.411%.
+Round deltas were consistent: PA +15.42%, +16.79%, +15.69%; game +11.40%, +12.39%, +11.41%.
+Architecture remains O(1): no timestep integration, roster scan, pathfinding, nearest-player iteration, repeated throw loop, or relay-chain loop. However +15.7% PA / +11.4% game is a material addition on top of an already watched Phase2 stack.
+Repository telemetry in the same canonical run measured cumulative Phase2 stack vs pre-Phase2 at ~1.670x PA and ~1.418x game; this is context only, not the isolated gate.
+- PERFORMANCE = WATCH.
 
-## REGRESSION_AND_GLOBAL_CI
-Canonical validation workflow SUCCESS.
-- targeted Interactive Event Python integration tests PASS.
-- web production build PASS.
-- web tests 44/44 PASS.
-- full Python discover: 478 tests; exactly one failure, 5 skipped.
-Sole failure remains pre-existing unrelated `test_balance_v04.BalanceV04Tests.test_draft_distribution_not_extreme`: deterministic undrafted rate 0.0566667 vs old assertion >0.10. No Interactive Event, gameplay, growth, injury, roster, save/load, API, web, or physical-engine test failed.
-- REGRESSION = PASS for Interactive Event P1 attribution.
-- GLOBAL_CI_UNRELATED_DRAFT_BALANCE = WATCH / out of scope.
+## CALIBRATION
+Engineering-only parameters remain uncalibrated: ownership depths/sectors, anchors, reaction/speed/pickup, throw speed/release, 220-ft relay threshold/0.65s jump, runner reference times and 0.82..1.18 saturation. Structural corpus has no outcome collapse and wall-stop balls resolve to extra-base hits rather than mostly OUT, but airborne/line-drive physical OUT shares and hard sector/relay/runner boundaries require empirical calibration before any authority migration.
+- CALIBRATION = WATCH.
+
+## GLOBAL_CI_CONTEXT
+PR #70 HEAD CI independently confirmed:
+- web tests PASS.
+- Python suite: 497 total, 496 PASS, 1 FAIL.
+- sole failure remains `test_balance_v04.BalanceV04Tests.test_draft_distribution_not_extreme`: undrafted `0.056666666666666664`, assertion requires `>0.10`.
+Canonical 05 run reproduced the same sole repository-wide failure; all Phase2E-B and upstream targeted tests passed and web build/tests passed.
+- GLOBAL_CI_OUT_OF_SCOPE_FAILURE = confirmed historical draft-distribution gate only.
 
 ## FINAL_GATES
-- EVENT_GENERATION = PASS
-- EVENT_FREQUENCY = WATCH
-- CATEGORY_DIVERSITY = WATCH
-- ARCHETYPE_REACHABILITY = WATCH
-- COOLDOWN_DEDUPE = PASS
-- PENDING_QUEUE = FAIL
-- SUPPORTED_CHOICE_COVERAGE = FAIL
-- UNSUPPORTED_EXPOSURE = FAIL
-- EFFECT_MAGNITUDE = WATCH
-- LONG_TERM_IMPACT = WATCH
-- TRADEOFFS = OPEN
+- SOURCE_IDENTITY = PASS
+- OWNERSHIP = PASS
+- RETRIEVAL_DISTANCE = PASS
+- RETRIEVAL_TIME = PASS
+- DEFENSE_RATING = PASS
+- THROW_MODEL = WATCH
+- RUNNER_MODEL = WATCH
+- RESULT_DISTRIBUTION = WATCH
+- CONTROLLED_RESULTS = PASS
+- TIMING_MARGINS = PASS
+- PHASE2D_INTERFACE = PASS
+- INVALID_STATE = FAIL
+- MIRROR = PASS
 - DETERMINISM = PASS
 - RNG_PURITY = PASS
-- SAVE_LOAD = PASS
-- ADVANCE_COMPOSITION = PASS
-- RESOLVE_TRANSACTION = PASS
-- IDEMPOTENCY = PASS
-- EVENT_CAREER_SEPARATION = PASS
-- PERFORMANCE = PASS
-- REGRESSION = PASS
+- UPSTREAM_REGRESSION = PASS
+- LEGACY_REGRESSION = PASS
+- PERFORMANCE = WATCH
+- CALIBRATION = WATCH
+- GLOBAL_CI_OUT_OF_SCOPE_FAILURE = CONFIRMED / NON-PHASE2E-B
 
-## BLOCKERS_AND_OWNER_HANDOFFS
-Primary P1 blocker:
-1. 04/03 contract mismatch leaves `position_practice` and `media_interview` entirely unresolvable; `role_competition` is partially unresolvable.
-2. 06 displays those unsupported choices as normal actionable choices; explicit post-click error handling is correct but does not prevent unusable EVENTs.
-3. Persistent pending state plus max_pending=3 means unsupported events accumulate across seasons and suppress future generation.
-Owner routing, without prescribing a tuning solution:
-- 04: catalog/generation/capability exposure contract; ensure generated P1 EVENTs have a close-ready supported-choice contract.
-- 03: authoritative semantics if/when real public-stance, position, versatility, role-readiness/primary-role support is intentionally implemented.
-- 06: capability-aware choice presentation if the backend exposes such capability; current generic error display alone does not solve all-unsupported EVENT usability.
-- 07: persistence/API transaction behavior is currently PASS; coordinate capability contract transport if 04/03/06 change it.
-- 05: rerun the same close validation after the blocker is corrected; do not tune frequency/effect coefficients as part of that correction unless separately authorized.
-
-INTERACTIVE_EVENT_P1 = FAIL
-P1_CLOSE_ALLOWED = NO
-NEXT_ACTION = 04 + 03 correction contract, then 06/07 integration as required, then 05 revalidation.
+FINAL = PHASE2E_B_VALIDATION_FAIL
+MERGE_ALLOWED = NO
+NEXT = 01 correction of non-positive fielder-speed fail-safe, then 05 exact-head revalidation. 07 integration is not authorized from 05 yet.
