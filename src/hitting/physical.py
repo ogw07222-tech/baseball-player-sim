@@ -4,8 +4,9 @@ Phase 2A owns EV/LA/timing/spray generation. Phase 2B attaches a deterministic
 O(1) first-ground trajectory. Phase 2C attaches an O(1) generic-stadium wall
 interaction / physical-HR shadow. Phase 2D attaches an O(1) airborne defensive
 opportunity and child-RNG catch shadow. Phase 2E-A attaches deterministic O(1)
-post-impact ground travel / final-location metadata while all legacy gameplay
-remains canonical authority.
+post-impact ground travel / final-location metadata. Phase 2E-B attaches an O(1),
+zero-RNG retrieval / physical hit-type shadow while all legacy gameplay remains
+canonical authority.
 """
 from __future__ import annotations
 
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from .stadium import WallInteraction
     from .physical_defense import DefensiveOpportunity, DefensiveResolution
     from .ground_travel import GroundTravelState
+    from .retrieval import RetrievalState, PhysicalHitResolution
 
 
 def _clamp(value: float, low: float, high: float) -> float:
@@ -29,7 +31,7 @@ def _clamp(value: float, low: float, high: float) -> float:
 
 @dataclass(frozen=True)
 class BattedBallState:
-    """Stable Phase-2 initial state plus trajectory/wall/defense/ground metadata.
+    """Stable Phase-2 state plus trajectory/wall/defense/ground/retrieval metadata.
 
     Units/conventions:
     - ``exit_velocity``: miles per hour.
@@ -38,7 +40,8 @@ class BattedBallState:
     - spray: center field 0°, left-field side negative, right-field side positive.
     - pitch locations are normalized batter-relative coordinates where
       x=-1 is inside, x=+1 outside, y=-1 low, y=+1 high.
-    - trajectory/wall/defense/ground distances and coordinates are feet; time is seconds.
+    - trajectory/wall/defense/ground/retrieval distances and coordinates are feet;
+      times are seconds.
     """
 
     exit_velocity: float
@@ -55,6 +58,8 @@ class BattedBallState:
     defensive_opportunity: DefensiveOpportunity | None = None
     defensive_resolution: DefensiveResolution | None = None
     ground_travel: GroundTravelState | None = None
+    retrieval_state: RetrievalState | None = None
+    physical_hit_resolution: PhysicalHitResolution | None = None
 
     def __post_init__(self) -> None:
         values = (
@@ -252,8 +257,9 @@ def generate_batted_ball_state(
     pitch_hittable_quality: float,
     parent_rng,
     defender_rating: float = 100.0,
+    runner_speed_rating: float = 100.0,
 ) -> BattedBallState:
-    """Generate Phase-2A/B/C/D/E-A shadow state without consuming canonical RNG."""
+    """Generate Phase-2A/B/C/D/E-A/E-B shadow state without consuming canonical RNG."""
     side = "L" if batter_side == "L" else "R"
     pitch_x, pitch_y = pitch_location_from_zone(pitch_zone)
     rng = RNG(_fork_seed(parent_rng))
@@ -306,9 +312,6 @@ def generate_batted_ball_state(
 
     from .trajectory import generate_batted_ball_trajectory
     trajectory = generate_batted_ball_trajectory(state)
-    # Preserve the Phase-2B test/diagnostic seam that can intentionally disable
-    # trajectory generation. Production generation returns a trajectory, but a
-    # disabled trajectory also disables all downstream shadow work.
     if trajectory is None:
         return replace(
             state,
@@ -317,10 +320,10 @@ def generate_batted_ball_state(
             defensive_opportunity=None,
             defensive_resolution=None,
             ground_travel=None,
+            retrieval_state=None,
+            physical_hit_resolution=None,
         )
 
-    # Phase 2C production shadow uses the explicit generic engineering stadium
-    # until a later game/stadium context contract selects a real fixture.
     from .stadium import GENERIC_ENGINEERING_BASELINE, resolve_wall_interaction
     wall = resolve_wall_interaction(
         trajectory=trajectory,
@@ -329,8 +332,6 @@ def generate_batted_ball_state(
         stadium=GENERIC_ENGINEERING_BASELINE,
     )
 
-    # Phase 2E-A is deterministic metadata only and consumes no RNG. It reuses
-    # the canonical first-ground trajectory and Phase-2C wall radius.
     from .ground_travel import generate_ground_travel_state
     ground_travel = generate_ground_travel_state(
         trajectory=trajectory,
@@ -338,9 +339,6 @@ def generate_batted_ball_state(
         spray_angle_deg=state.spray_angle,
     )
 
-    # Phase 2D is shadow-only. Probability is deterministic; the single catch
-    # roll comes from a separate fork namespace and therefore never advances the
-    # canonical gameplay parent RNG stream or the Phase-2A physical fork.
     from .physical_defense import build_defensive_opportunity, resolve_defensive_shadow
     opportunity = build_defensive_opportunity(
         trajectory=trajectory,
@@ -350,6 +348,18 @@ def generate_batted_ball_state(
     )
     defense_roll = RNG(_fork_seed(parent_rng, namespace=0x503244)).random()
     resolution = resolve_defensive_shadow(opportunity, roll=defense_roll)
+
+    # Phase 2E-B is deterministic and uses zero RNG. The existing production
+    # defense scalar affects only bounded retrieval range/read terms, while the
+    # existing hitter speed rating supplies runner timing. The result remains
+    # shadow metadata and cannot affect PlateAppearanceOutcome.result.
+    from .retrieval import resolve_physical_hit_shadow
+    physical_hit = resolve_physical_hit_shadow(
+        ground_travel=ground_travel,
+        defensive_resolution=resolution,
+        defender_rating=defender_rating,
+        runner_speed_rating=runner_speed_rating,
+    )
     return replace(
         state,
         trajectory=trajectory,
@@ -357,4 +367,6 @@ def generate_batted_ball_state(
         defensive_opportunity=opportunity,
         defensive_resolution=resolution,
         ground_travel=ground_travel,
+        retrieval_state=physical_hit.retrieval,
+        physical_hit_resolution=physical_hit,
     )
