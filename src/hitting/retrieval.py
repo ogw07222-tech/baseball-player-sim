@@ -140,6 +140,10 @@ def _clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
 
 
+def _is_positive_finite(value: float) -> bool:
+    return math.isfinite(value) and value > 0.0
+
+
 def _invalid_retrieval(reason: str, *, defender_rating: float = 100.0) -> RetrievalState:
     safe_rating = defender_rating if math.isfinite(defender_rating) else P.DEFENSE_RATING_REFERENCE
     return RetrievalState(
@@ -214,6 +218,8 @@ def _rating_adjusted_retrieval_terms(defender_position: str, defender_rating: fl
         raise ValueError("unsupported defender position")
     if not math.isfinite(defender_rating):
         raise ValueError("defender rating must be finite")
+    if not _is_positive_finite(P.DEFENSE_RATING_FULL_EFFECT_POINTS):
+        raise ValueError("invalid defense rating effect denominator")
     role_class = P.ROLE_CLASS[defender_position]
     rating_effect = _clamp(
         (defender_rating - P.DEFENSE_RATING_REFERENCE) / P.DEFENSE_RATING_FULL_EFFECT_POINTS,
@@ -255,15 +261,22 @@ def build_retrieval_state(
         start_x, start_y = P.NOMINAL_DEFENDER_ANCHORS_FT[defender]
         distance = math.hypot(ball_x - start_x, ball_y - start_y)
         reaction, speed, pickup = _rating_adjusted_retrieval_terms(defender, defender_rating)
-        movement = distance / speed
-        total = reaction + movement + pickup
     except (KeyError, ValueError, OverflowError):
         return _invalid_retrieval("invalid_retrieval_derivation", defender_rating=defender_rating)
 
-    derived = (start_x, start_y, distance, reaction, speed, pickup, movement, total)
-    if not all(math.isfinite(value) for value in derived):
+    if not math.isfinite(speed) or speed <= 0.0:
+        return _invalid_retrieval("invalid_effective_fielder_speed", defender_rating=defender_rating)
+    pre_division = (start_x, start_y, distance, reaction, pickup)
+    if not all(math.isfinite(value) for value in pre_division):
         return _invalid_retrieval("non_finite_retrieval_derivation", defender_rating=defender_rating)
-    if distance < 0.0 or reaction < 0.0 or speed <= 0.0 or pickup < 0.0 or movement < 0.0 or total < 0.0:
+    if distance < 0.0 or reaction < 0.0 or pickup < 0.0:
+        return _invalid_retrieval("invalid_retrieval_bounds", defender_rating=defender_rating)
+
+    movement = distance / speed
+    total = reaction + movement + pickup
+    if not all(math.isfinite(value) for value in (movement, total)):
+        return _invalid_retrieval("non_finite_retrieval_derivation", defender_rating=defender_rating)
+    if movement < 0.0 or total < 0.0:
         return _invalid_retrieval("invalid_retrieval_bounds", defender_rating=defender_rating)
     if total > P.MAX_VALID_TIME_S:
         return _invalid_retrieval("retrieval_time_out_of_bounds", defender_rating=defender_rating)
@@ -299,15 +312,26 @@ def throw_timing_to_base(retrieval: RetrievalState, target_base: str) -> BaseDef
     if target_base not in targets:
         raise ValueError("unsupported target base")
     target_x, target_y = targets[target_base]
-    role_class = P.ROLE_CLASS[retrieval.defender_position]
-    speed_fps = P.EFFECTIVE_THROW_SPEED_MPH[role_class] * P.MPH_TO_FPS
-    if not math.isfinite(speed_fps) or speed_fps <= 0.0:
+    try:
+        role_class = P.ROLE_CLASS[retrieval.defender_position]
+        speed_fps = P.EFFECTIVE_THROW_SPEED_MPH[role_class] * P.MPH_TO_FPS
+        release = P.THROW_RELEASE_DELAY_S[role_class]
+    except (KeyError, TypeError, ValueError, OverflowError):
+        raise ValueError("invalid throw parameters") from None
+    if not _is_positive_finite(speed_fps):
         raise ValueError("invalid effective throw speed")
+    if not math.isfinite(release) or release < 0.0:
+        raise ValueError("invalid throw release delay")
     distance = math.hypot(target_x - retrieval.ball_x_ft, target_y - retrieval.ball_y_ft)
-    release = P.THROW_RELEASE_DELAY_S[role_class]
+    if not math.isfinite(distance) or distance < 0.0:
+        raise ValueError("invalid throw distance")
     relay = P.RELAY_PENALTY_S if distance > P.RELAY_DISTANCE_THRESHOLD_FT else 0.0
+    if not math.isfinite(relay) or relay < 0.0:
+        raise ValueError("invalid relay penalty")
     total_throw = release + distance / speed_fps + relay
     arrival = retrieval.total_retrieval_time_s + total_throw
+    if not all(math.isfinite(value) and value >= 0.0 for value in (total_throw, arrival)):
+        raise ValueError("invalid throw timing")
     return BaseDefenseTiming(
         target_base=target_base,
         target_x_ft=target_x,
@@ -372,7 +396,7 @@ def resolve_physical_hit_shadow(
         defense_1b = throw_timing_to_base(retrieval, "1B")
         defense_2b = throw_timing_to_base(retrieval, "2B")
         defense_3b = throw_timing_to_base(retrieval, "3B")
-    except (ValueError, OverflowError):
+    except (ValueError, OverflowError, ZeroDivisionError):
         return _invalid_resolution("invalid_timing_derivation", retrieval)
 
     margin_1b = defense_1b.defense_arrival_time_s - runner_1b
