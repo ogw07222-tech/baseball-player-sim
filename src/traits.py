@@ -1,11 +1,11 @@
-"""Trait definitions, conflicts, and random assignment."""
+"""Trait definitions, conflicts, random assignment, and Common P1 compatibility."""
 from __future__ import annotations
-
 from dataclasses import dataclass
 from enum import Enum
 
 from . import config
 from .rng import RNG
+from .trait_runtime import load_trait_catalog
 
 
 class TraitPolarity(str, Enum):
@@ -51,7 +51,13 @@ TRAIT_CATALOG: tuple[Trait, ...] = (
     Trait("injury_risk", "부상 위험", TraitPolarity.NEGATIVE, frozenset({"injury"})),
     Trait("quick_recovery", "회복이 빠름", TraitPolarity.POSITIVE, frozenset({"injury"})),
 )
-TRAIT_BY_KEY = {trait.key: trait for trait in TRAIT_CATALOG}
+_LEGACY_TRAIT_BY_KEY = {trait.key: trait for trait in TRAIT_CATALOG}
+_COMMON_DEFINITIONS = load_trait_catalog().definitions
+_COMMON_TRAITS: tuple[Trait, ...] = tuple(
+    Trait(definition.id, definition.name_ko, TraitPolarity(definition.polarity), frozenset(definition.tags))
+    for definition in _COMMON_DEFINITIONS
+)
+TRAIT_BY_KEY = {**_LEGACY_TRAIT_BY_KEY, **{trait.key: trait for trait in _COMMON_TRAITS}}
 CONFLICTS = {
     frozenset(pair) for pair in (
         ("fastball_specialist", "fastball_weakness"), ("breaking_ball_response", "breaking_ball_weakness"),
@@ -60,6 +66,9 @@ CONFLICTS = {
         ("vs_rhp_strength", "vs_rhp_weakness"), ("fast_growth", "slow_growth"), ("volatile", "consistent"),
     )
 }
+for definition in _COMMON_DEFINITIONS:
+    for conflict in definition.conflicts:
+        CONFLICTS.add(frozenset((definition.id, conflict)))
 
 
 def traits_conflict(a: Trait, b: Trait) -> bool:
