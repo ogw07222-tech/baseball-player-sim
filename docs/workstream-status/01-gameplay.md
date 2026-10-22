@@ -2,234 +2,291 @@
 
 WORKSTREAM: 01 - Gameplay Engine
 UPDATED_AT: 2026-09-12
-SOURCE_OF_TRUTH: task-start main@081c45ed9382d16c3569398d1ada1dbc842d6cf2; PR #68 code/test checkpoint@f6053039f25310378922df6030f832c67cc5f4c9
-STATE: READY_FOR_05_PHASE2E_A_VALIDATION
-CURRENT_TASK: Phase 2E-A Ground Travel / Final Location Shadow
-RESULT: PASS_IMPLEMENTATION / 05_VALIDATION_OPEN
+SOURCE_OF_TRUTH: task-start main@47ada4fe9f1d95da2760d7a8d56a8900aab6fdc3; PR #70 code/test checkpoint@6d201690ff7ba56f5fda30663e0cf73678a8ee58
+STATE: READY_FOR_05_PHASE2E_B_VALIDATION
+CURRENT_TASK: Phase 2E-B Retrieval / Physical Hit-Type Shadow
+RESULT: PASS_IMPLEMENTATION / PERFORMANCE_WATCH / 05_VALIDATION_OPEN
 
 ## SOURCE_STATE
-- Actual latest main at task start: `081c45ed9382d16c3569398d1ada1dbc842d6cf2`.
-- Phase2A/B/C/D were already integrated; the latest main additionally contained the 08 Phase2E-A research/status documentation.
-- No open Phase2D/Phase2E gameplay PR existed at task start.
-- Branch: `feature/phase2e-a-ground-travel-shadow`.
-- PR: #68 `Gameplay: Phase 2E-A ground travel final-location shadow`.
-- Code/test checkpoint validated by CI: `f6053039f25310378922df6030f832c67cc5f4c9`.
-- CI run: `34669261305`; merge-ref tested against task-start main.
+- Actual latest main at task start: `47ada4fe9f1d95da2760d7a8d56a8900aab6fdc3`.
+- Phase2A/B/C/D/E-A were integrated in this baseline; later UI/research documentation was also present.
+- No open Phase2E gameplay PR existed at task start.
+- Branch: `feature/phase2e-b-retrieval-hit-shadow`.
+- PR: #70 `Gameplay: Phase 2E-B retrieval and physical hit-type shadow`.
+- Code/test checkpoint validated by CI: `6d201690ff7ba56f5fda30663e0cf73678a8ee58`.
+- GitHub Actions run: `34673895739`.
 
 ## PRODUCTION FLOW / AUTHORITY
-Production physical metadata flow is now:
-`Phase1 contact -> Phase2A BattedBallState -> Phase2B first-ground trajectory -> Phase2C WallInteraction -> Phase2E-A GroundTravelState -> Phase2D DefensiveOpportunity/Resolution shadow -> existing legacy result resolver`.
+Production physical metadata flow:
+`Phase1 contact -> Phase2A BattedBallState -> Phase2B trajectory -> Phase2C wall -> Phase2E-A GroundTravelState -> Phase2D DefensiveResolution -> Phase2E-B retrieval/timing PhysicalHitResolution -> existing legacy resolver`.
 
-Phase2E-A is metadata/shadow only.
-Still authoritative and unchanged:
+Phase2E-B is shadow-only. Authoritative gameplay remains unchanged:
 - `PlateAppearanceOutcome.result`;
-- legacy HR resolver;
-- legacy defense / error path;
-- legacy 1B/2B/3B resolver;
-- runner advancement;
-- Phase1 fair/foul semantics;
-- Phase2D defensive shadow authority remains non-canonical.
+- legacy HR;
+- legacy defense/catch/error;
+- legacy single/double/triple resolution;
+- runner advancement / runs / scoring;
+- stat aggregation;
+- Phase1 fair/foul semantics.
 
-## GROUND_TRAVEL_SCHEMA
-New immutable `GroundTravelState` fields:
-- `valid`
-- `surface_class`
-- `impact_horizontal_speed_fps`
-- `post_impact_horizontal_speed_fps`
-- `bounce_distance_ft`
-- `rollout_start_speed_fps`
-- `rollout_distance_ft`
-- `ground_travel_distance_ft`
-- `first_impact_x_ft`, `first_impact_y_ft`
-- `final_x_ft`, `final_y_ft`
-- `final_radial_distance_ft`
-- `wall_ground_contact`
-- `ground_model_version`
-- `invalid_reason`
+Phase2E-B never creates HR. Phase2C remains the physical-HR shadow domain.
 
-All numeric fields are finite. Speeds/distances are non-negative. `BattedBallState` now has optional `ground_travel` metadata.
+## TYPED STATE
+New immutable production states in `src/hitting/retrieval.py`:
 
-## IMPACT_SPEED_MODEL
-Research contract followed:
-`impact_horizontal_speed = first_ground_impact_distance / hang_time * class_correction`.
+`RetrievalState`:
+- valid, defender_position, adjacent_position;
+- defender nominal start x/y and final-ball x/y;
+- retrieval distance;
+- reaction time, effective fielder speed, movement time, pickup/transfer time, total retrieval time;
+- defender rating;
+- model version and explicit invalid reason.
 
-The source of truth remains Phase2B realized trajectory; no independent flight model is created.
-Engineering baseline corrections:
-- ground_like `0.96`
-- line_drive `0.90`
-- fly_ball `0.84`
-- popup `0.72`
+`BaseDefenseTiming`:
+- target base / coordinate;
+- throw distance;
+- effective throw speed;
+- transfer/release time;
+- relay penalty;
+- total throw time;
+- total defense-arrival time.
 
-Impact-speed proxy is bounded to 220 ft/s for numerical safety. These are engineering baselines, not KBO-measured coefficients.
+`PhysicalHitResolution`:
+- valid + retrieval state;
+- 1B/2B/3B hypothetical defense timings;
+- runner cumulative 1B/2B/3B arrival times;
+- timing margins `defense_arrival - runner_arrival`;
+- physical result shadow: only `OUT`, `1B`, `2B`, `3B`, or `None` when invalid;
+- explicit invalid reason.
 
-## BOUNCE_MODEL
-Exactly one representative bounce is modeled:
-- `post_impact_speed = impact_speed * class_retention`
-- `bounce_distance = post_impact_speed * fixed_class_time_proxy`
-- `rollout_start_speed = post_impact_speed * class_rollout_retention`
+`BattedBallState` now exposes optional `retrieval_state` and `physical_hit_resolution` metadata.
 
-No repeated bounce loop, timestep, frame stepping, numerical integration, or collision iteration exists.
-The Pennbounce total surface-pace values were not copied directly into horizontal retention coefficients.
+## OWNERSHIP_MODEL
+V1 uses fixed radial-depth + spray sectors. No nearest-player loop, roster scan, movement/path simulation, or runtime primary-vs-adjacent comparison exists.
 
-## ROLLOUT_MODEL
-Neutral V1 rollout uses constant effective deceleration:
-`d_roll = v_roll^2 / (2 * a_roll)`.
+Engineering sectors:
+- <=35 ft: C primary, P adjacent;
+- <=90 ft: center P, side sectors 3B/1B;
+- <=185 ft: 3B / SS / 2B / 1B fixed spray sectors;
+- >185 ft: LF / CF / RF fixed spray sectors.
 
-Default engineering baseline:
-- `a_roll = 35 ft/s^2`.
-- must be finite and >0.
-- zero rollout-start speed returns exactly zero rollout distance.
+Adjacent defender is metadata only in V1.
+Fixed nominal anchors include:
+- P `(0, 60.5)` ft, C `(0,-5)` ft;
+- symmetric IF anchors at 107.5/145 ft engineering midpoints;
+- LF/RF = 290 ft @ +/-27 deg;
+- CF = 315 ft.
 
-`rollout_distance_ft()` is exposed as a deterministic helper so 05 can test speed/resistance monotonicity directly.
+These are research-informed engineering baselines, not measured KBO average positions.
 
-## SURFACE_MODEL
-`surface_class = "neutral"` only.
-No grass/dirt/synthetic map or radial pseudo-classification was added.
-Schema/model version are explicit so later trustworthy surface geometry can extend the contract without replacing the state type.
+## RETRIEVAL_MODEL
+`retrieval_time = reaction + retrieval_distance / effective_fielder_speed + pickup_transfer`.
 
-## FINAL_POSITION / MIRROR
-First impact uses Phase2B canonical landing coordinate.
-Post-impact travel stays on the same Phase2A spray ray:
-- `unit_x = sin(spray)`
-- `unit_y = cos(spray)`
-- final radial position = first-impact radial distance + realized ground travel, subject to wall clamp.
+Role classes are intentionally small: `PC`, `IF`, `OF`.
+No acceleration or fielder-route simulation is performed.
+All derivation is fixed O(1) algebra.
 
-Thus mirrored +/- spray produces equal scalar travel / radial distance, mirrored X, and equal Y.
-No lateral spin drift is modeled in V1.
+## DEFENDER_RATING_MODEL
+Existing production scalar `HittingEngine.defense` is reused; rating scale itself is untouched.
+Rating 100 is neutral. Adjustment saturates over +/-40 rating points.
+Higher defense structurally yields:
+- non-increasing reaction time;
+- non-decreasing effective retrieval speed.
 
-## WALL_STOP_MODEL
-Phase2C `WallInteraction.wall_radius_ft` is reused; no new stadium geometry exists.
-If unconstrained final ground radius reaches/passes the wall:
-- final radius is clamped exactly to wall radius;
-- final x/y are recomputed at that radial wall point on the same spray ray;
-- `wall_ground_contact=True`;
-- no rebound/carom velocity is retained.
+Bounds:
+- reaction floor/ceiling: 0.25..1.10 s;
+- effective speed: 14..27 ft/s.
 
-If the airborne Phase2B trajectory already reaches the wall before first ground impact, Phase2E-A returns invalid `air_wall_precedes_ground` rather than inventing a post-impact path.
+Throw speed intentionally does not reuse defense rating strongly; it is position-role baseline only, preserving a future arm-rating interface.
+
+## THROW_MODEL
+Canonical 90-ft diamond:
+- 1B = `(90/sqrt(2), 90/sqrt(2))`;
+- 2B = `(0, 180/sqrt(2))`;
+- 3B = `(-90/sqrt(2), 90/sqrt(2))`.
+
+For each target independently:
+`throw_time = role release delay + throw_distance/effective_throw_speed + optional fixed relay penalty`.
+
+Effective engineering throw baselines:
+- PC 70 mph;
+- IF 72 mph;
+- OF 78 mph.
+
+If throw distance >220 ft, a fixed 0.65 s relay penalty applies. No relay chain is simulated.
+
+## RUNNER_MODEL
+Production `HitterSnapshot.speed` is passed unchanged into the Phase2E-B timing model. No new runner rating scale is introduced.
+
+V1 timing:
+- home-start delay + first-leg reference for 1B;
+- subsequent 90-ft reference legs + fixed turn penalty for 2B/3B;
+- bounded speed-derived time multiplier in `[0.82, 1.18]`.
+
+Higher existing hitter speed therefore cannot increase runner arrival time.
+
+## HIT_RESOLUTION_MODEL
+If Phase2D has a valid `physical_out_shadow=True`:
+- Phase2E-B returns physical shadow `OUT`;
+- retrieval is explicitly not applicable (`air_caught`);
+- no base throw timing is needed.
+
+Otherwise one Phase2E-A final location produces one retrieval state. From that same state Phase2E-B computes hypothetical defense arrival at 1B/2B/3B independently.
+
+Margin convention:
+`margin = defense_arrival_time - runner_arrival_time`.
+- margin >0: runner beats defense;
+- margin <=0: defense wins, including exact tie.
+
+Resolution:
+- 1B margin <=0 -> OUT;
+- 1B safe, 2B margin <=0 -> 1B;
+- 2B safe, 3B margin <=0 -> 2B;
+- otherwise -> 3B.
+
+There is no continuous throw sequence and no HR creation.
 
 ## RNG / DETERMINISM
-Phase2E-A RNG usage = ZERO.
-- no parent RNG read is required for ground travel;
-- no new child RNG namespace is created;
-- Phase2D child RNG contract remains unchanged.
+Phase2E-B RNG usage = ZERO.
+- no parent RNG consumption;
+- no new child namespace;
+- Phase2A child-fork semantics unchanged;
+- Phase2D child RNG namespace/decision unchanged.
 
-Dedicated tests compare Phase2E-A enabled vs test-only disabled and verify exact equality of:
-- final PA result sequence;
-- canonical parent RNG state;
-- Phase2A state;
+Dedicated enabled-vs-disabled regression verifies exact equality of:
+- legacy PA result sequence;
+- parent RNG final state;
+- Phase2A fields;
 - Phase2B trajectory;
-- Phase2C wall interaction;
-- Phase2D defensive opportunity/resolution.
+- Phase2C wall state;
+- Phase2D opportunity/resolution;
+- Phase2E-A GroundTravelState.
 
 ## INVALID / FAIL-SAFE
-Explicit invalid states cover:
-- missing trajectory;
-- invalid trajectory;
-- unsupported trajectory class;
-- missing wall context;
-- non-finite input;
-- invalid/near-zero hang time;
-- invalid wall radius;
-- non-positive/non-finite rollout deceleration;
-- airborne wall interaction before first-ground travel;
-- non-finite derived or final geometry.
+Invalid states are explicit and cannot create a gameplay or shadow OUT by accident. Covered cases include:
+- missing/invalid GroundTravelState;
+- non-finite final location or defender rating;
+- unsupported owner/role derivation;
+- invalid/negative retrieval terms;
+- non-positive effective fielder or throw speed;
+- invalid runner timing;
+- non-finite base timing/margins.
 
-Invalid GroundTravelState has finite safe zero travel and never creates any physical hit/out authority.
+Invalid result is `valid=False`, `physical_result_shadow=None`, with finite safe fields and explicit `invalid_reason`.
 
-## CHANGED FILES
-Production:
-- new `src/hitting/ground_travel.py` — blob `cae9d2e8c979d83781dd39c4a579856f7b56ad4c`.
-- new `src/hitting/ground_travel_parameters.py` — blob `dd69d779eed5645c2d2d2d254fc2ff0cebec1f33`.
-- modified `src/hitting/physical.py` — blob `2d5242375ed35775a261d51a96c62880015ad368`.
+## CHANGED PRODUCTION FILES
+- new `src/hitting/retrieval.py` — blob `5b18688098f35edf3775c92c102b2ca4d860069b`;
+- new `src/hitting/retrieval_parameters.py` — blob `317f3ab822b3165f8ad07be84dfb508a72dd7501`;
+- modified `src/hitting/physical.py` — blob `74718c24f25341eaff9f1bb453ba5f70009c1d44`;
+- modified `src/hitting/model.py` — blob `eaeb4d1b6e024d8d64fd6aa1b47a30aaf879aaca`, only adding existing hitter speed to Phase2E-B metadata input.
 
-Tests:
-- new `tests/test_phase2e_a_ground_travel.py`.
-
-No changes to `src/hitting/model.py`, legacy `src/hitting/defense.py`, baserunning, Phase1 parameters, trajectory coefficients, or stadium geometry.
+Protected snapshots were updated only to approve the explicit new model wiring blob. Legacy parameters, defense and baserunning blobs remain unchanged.
 
 ## TESTS / CI
-GitHub Actions run `34669261305` on code/test checkpoint `f6053039f25310378922df6030f832c67cc5f4c9`:
-- web build/tests PASS;
-- Python dependency/compile PASS;
-- durable-store/API PASS;
-- related production integration 31/31 PASS;
-- Phase1 regression PASS;
-- Phase2A regression PASS;
-- Phase2B regression PASS;
-- Phase2C regression PASS;
-- Phase2D regression PASS;
-- Phase2E-A targeted 13/13 PASS.
+Final code/test checkpoint: `6d201690ff7ba56f5fda30663e0cf73678a8ee58`.
+GitHub Actions run: `34673895739`.
 
-Phase2E-A targeted PASS:
-- finite/non-negative state;
-- impact-speed distance monotonicity;
-- rollout speed monotonicity;
-- resistance monotonicity;
-- zero-speed rollout;
-- trajectory-class structural behavior;
+PASS:
+- web build/tests;
+- Python dependency / compile;
+- durable store / API gates;
+- related production integration 31/31;
+- Phase1 regression;
+- Phase2A regression;
+- Phase2B numerical/determinism/outcome regression;
+- Phase2C wall regression;
+- Phase2D defensive shadow regression;
+- Phase2E-A ground-travel regression;
+- all 19 Phase2E-B targeted tests.
+
+Phase2E-B targeted coverage includes:
+- representative C/P/3B/SS/2B/1B/LF/CF/RF ownership;
 - LF/RF mirror;
-- deterministic wall clamp;
-- no-wall path;
-- invalid trajectory / air-wall / invalid-deceleration fail-safe;
-- exact deterministic replay;
-- production metadata attachment + parent RNG purity;
-- enabled/disabled legacy outcome + upstream Phase2A/B/C/D metadata exact invariance;
-- 50k fixed-cost ground-state guard.
+- retrieval distance monotonicity;
+- defense-rating monotonicity and extreme bounds;
+- throw-distance monotonicity and relay threshold;
+- runner-speed monotonicity;
+- Phase2D catch short-circuit;
+- controlled OUT / 1B / 2B / 3B timing cases;
+- HR exclusion;
+- invalid-ground fail-safe;
+- exact determinism;
+- production existing speed/defense wiring;
+- Phase2E-B enabled/disabled legacy result, parent RNG and upstream metadata exact invariance;
+- direct 50k fixed-cost resolution guard;
+- distribution smoke preventing single-owner/result collapse.
 
-Full Python discover: 466 tests, 465 PASS, 1 FAIL.
-Sole failure remains pre-existing/out-of-scope `test_balance_v04.BalanceV04Tests.test_draft_distribution_not_extreme`: undrafted `0.056666...`, historical assertion requires `>0.10`. Phase2E-A does not touch generation/draft balance.
+Full Python discover: 497 tests, 496 PASS, 1 FAIL.
+Sole failure is the pre-existing/out-of-scope `test_balance_v04.BalanceV04Tests.test_draft_distribution_not_extreme`: undrafted `0.056666...`; historical assertion requires `>0.10`.
 
-Phase1 fixed-seed sanity remained unchanged (40k): BB 9.4625%, K 17.6475%, HBP 1.285%, HR/PA 2.835%, Swing 48.0969%, Chase 20.9709%.
+## PERFORMANCE_ARCHITECTURE / WATCH
+Phase2E-B production path is O(1):
+- fixed ownership branches;
+- one retrieval Euclidean distance;
+- bounded rating algebra;
+- three fixed hypothetical base-distance calculations;
+- no timestep, fielder simulation, nearest-player loop, roster scan, pathfinding, relay loop, repeated throw or numerical integration;
+- zero RNG.
 
-## PERFORMANCE
-Architecture is O(1) fixed cost per eligible BIP:
-- one division for impact-speed proxy;
-- fixed class lookups;
-- one-bounce algebra;
-- one `v^2/(2a)` rollout calculation;
-- one radial wall comparison/clamp;
-- no runtime loops in production ground model.
+Direct 50,000 Phase2E-B resolution guard PASS (<5 s loose CI guard; final CI ~1.0 s for the targeted test).
 
-Direct 50,000 GroundTravelState generation guard PASS (<5 s loose CI guard).
-No coefficient/performance tuning was performed in this PR.
-05 should perform the requested paired 50k+ PA and 500+ game incremental/cumulative Phase2 benchmark because Phase2D already carries cumulative performance WATCH.
+A prior Phase2B-era test disabled trajectory generation to estimate Phase2B overhead. After Phase2C/D/E-A/E-B, that switch now disables the entire downstream Phase2 stack, so its old `<1.60x` threshold no longer isolates Phase2B. The test was corrected to retain exact result/RNG regression and cumulative timing telemetry, while Phase2B's own direct 50k trajectory guard remains the stage-owned performance gate.
+
+Final cumulative telemetry on the shared runner:
+- 50k PA: baseline `2.9349 s`, full trajectory-enabled Phase2 stack `5.0484 s`, ratio `1.7201x`;
+- 250 games: baseline `1.8308 s`, full Phase2 stack `2.6382 s`, ratio `1.4410x`;
+- Phase2C isolated paired telemetry in same run: ratio `1.0278x`.
+
+Therefore:
+- Phase2E-B fixed-cost architecture = PASS;
+- cumulative Phase2 runtime = WATCH pending 05 controlled paired benchmark;
+- no production coefficient/runtime tuning was performed merely to satisfy a stale Phase2B-era threshold.
+
+05 must measure Phase2E-B incremental cost separately and cumulative Phase2 cost on 50k+ PA / 500+ games.
 
 ## KNOWN_LIMITATIONS
-- coefficients are neutral engineering baselines; KBO calibration remains OPEN;
-- surface is neutral only;
-- no explicit impact velocity from Phase2B yet; distance/hang proxy is used;
-- one representative bounce only;
-- no spin-resolved ground impact;
-- no wall rebound/carom;
-- no ground defender assignment, retrieval, pickup, throw, physical 1B/2B/3B authority, runner timing, or advancement changes;
-- ground travel is metadata only and cannot change gameplay outcome.
+- deterministic primary retriever only; adjacent defender is metadata, not compared at runtime;
+- fixed anchors/sector thresholds are engineering baselines, not KBO measurements;
+- moving-ball interception before Phase2E-A final location is not modeled;
+- no acceleration, route efficiency, bobble/error or throw-accuracy model;
+- no cutoff/relay chain, only one fixed relay penalty;
+- no dedicated arm rating wiring yet;
+- no force-state graph, double play, tag-up or existing-runner resolution;
+- no physical HR authority; no physical 1B/2B/3B authority;
+- no gameplay balance tuning or KBO coefficient calibration.
 
 ## HANDOFF TO 05
 Independent target:
-- PR #68 `Gameplay: Phase 2E-A ground travel final-location shadow`.
-- Validate exact final PR HEAD reported after this status-only commit; production code identity remains code/test checkpoint `f6053039f25310378922df6030f832c67cc5f4c9`.
+- PR #70 `Gameplay: Phase 2E-B retrieval and physical hit-type shadow`.
+- Validate exact final PR HEAD reported after this status-only commit; production code identity should match code/test checkpoint `6d201690ff7ba56f5fda30663e0cf73678a8ee58` except this status document.
 
 Required 05 validation:
 1. source/blob identity;
-2. valid/invalid GroundTravelState distribution by trajectory class;
-3. impact/post-impact/bounce/rollout/final-distance distributions and bound pileup;
-4. monotonic sweeps for distance, speed, deceleration and class effects;
-5. LF/RF mirror and wall-stop invariants;
-6. exact Phase1/2A/2B/2C/2D/final-result/RNG regression;
-7. 50k+ PA and 500+ game paired benchmark with us/PA, ms/game, incremental delta and cumulative Phase2 cost;
-8. no tuning or authority migration during validation.
+2. retriever ownership distribution by radial depth/spray and LF/RF mirror;
+3. retrieval distance/time distributions by role and defense rating;
+4. reaction/speed bound pileup and monotonic sweeps;
+5. throw distance/time and relay-threshold behavior;
+6. runner timing by production speed rating;
+7. physical shadow OUT/1B/2B/3B distribution, including invalid and Phase2D-caught shares;
+8. no HR invariant;
+9. exact Phase1/2A/2B/2C/2D/E-A/final-result/RNG regression;
+10. Phase2E-B incremental paired 50k+ PA and 500+ games performance plus cumulative Phase2 cost;
+11. no tuning or authority migration during validation.
 
 ## GATES
-- GROUND_TRAVEL_SCHEMA = PASS
-- IMPACT_SPEED_MODEL = PASS_STRUCTURAL
-- REPRESENTATIVE_BOUNCE = PASS_STRUCTURAL
-- ROLLOUT_MODEL = PASS
-- SURFACE_MODEL = NEUTRAL_V1
-- WALL_GROUND_STOP = PASS
-- MIRROR = PASS
+- OWNERSHIP_MODEL = PASS
+- RETRIEVAL_MODEL = PASS_STRUCTURAL
+- DEFENDER_RATING_MODEL = PASS_BOUNDED
+- THROW_MODEL = PASS_STRUCTURAL
+- RUNNER_MODEL = PASS_STRUCTURAL
+- HIT_RESOLUTION_MODEL = PASS_STRUCTURAL
+- CONTROLLED_OUT_1B_2B_3B = PASS
+- HR_EXCLUSION = PASS
 - INVALID_STATE_FAIL_SAFE = PASS
+- DETERMINISM = PASS
 - RNG_USAGE = ZERO
 - LEGACY_RESULT_INVARIANCE = PASS
+- PHASE2E_A_REGRESSION = PASS
 - PHASE2D_REGRESSION = PASS
 - PHASE2C_REGRESSION = PASS
 - PHASE2B_REGRESSION = PASS
@@ -237,7 +294,8 @@ Required 05 validation:
 - PHASE1_REGRESSION = PASS
 - PRODUCTION_INTEGRATION = PASS
 - PERFORMANCE_ARCHITECTURE = PASS_O1
-- FULL_PYTHON_SUITE = BLOCKED_ONLY_BY_OUT_OF_SCOPE_DRAFT_GATE_465_OF_466_PASS
-- PHASE2E_A_IMPLEMENTATION = PASS
-- PHASE2E_A_05_VALIDATION = OPEN
+- CUMULATIVE_PHASE2_PERFORMANCE = WATCH
+- FULL_PYTHON_SUITE = BLOCKED_ONLY_BY_OUT_OF_SCOPE_DRAFT_GATE_496_OF_497_PASS
+- PHASE2E_B_IMPLEMENTATION = PASS
+- PHASE2E_B_05_VALIDATION = OPEN
 - READY_FOR_05 = YES

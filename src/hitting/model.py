@@ -460,6 +460,7 @@ class HittingEngine:
                 pitch_hittable_quality=pitch.hittable_quality,
                 parent_rng=self.rng,
                 defender_rating=self.defense,
+                runner_speed_rating=self.hitter.speed,
             )
             ball = self._batted_ball(
                 pitch, contact_delta, power_delta, physical_state=physical_state
